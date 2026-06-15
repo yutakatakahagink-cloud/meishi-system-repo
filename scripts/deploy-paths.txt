@@ -1,0 +1,17 @@
+# デプロイ対象（14_名刺印刷ソフト 直下から ../meishi-system-repo へコピー）
+index.html
+README.md
+.gitignore
+convert_xlsx.py
+scripts/Deploy-GitHubPages.ps1
+scripts/deploy-paths.txt
+14_名刺印刷ソフト_idea_obsidian.md
+.github/workflows/pages.yml
+meishi-app/start.bat
+meishi-app/public/index.html
+meishi-app/public/user.html
+meishi-app/public/owner.html
+meishi-app/public/meishi-store.js
+meishi-app/public/meishi-layout.js
+meishi-app/public/config.example.js
+meishi-app/public/data/meishi-records.json

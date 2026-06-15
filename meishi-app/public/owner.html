@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>名刺印刷システム｜所有者設定</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script src="config.js" onerror="console.info('[Meishi] config.js なし → localStorage モード')"></script>
+    <script src="meishi-store.js"></script>
+    <script src="meishi-layout.js"></script>
+    <style>
+      :root { --brand:#2f5597; --brand-d:#21406f; --bg:#eef2f7; --line:#d6dde8; }
+      *{box-sizing:border-box} body{margin:0;font-family:"Hiragino Kaku Gothic ProN","Meiryo",system-ui,sans-serif;background:var(--bg);color:#1c2533}
+      header{background:linear-gradient(135deg,var(--brand),var(--brand-d));color:#fff;padding:14px 18px;display:flex;align-items:center;gap:10px}
+      header h1{font-size:1.05rem;margin:0}
+      .badge{font-size:.72rem;padding:3px 8px;border-radius:999px;background:rgba(255,255,255,.2);margin-left:auto}
+      .wrap{max-width:680px;margin:0 auto;padding:22px 16px 60px}
+      .card{background:#fff;border-radius:14px;padding:22px;box-shadow:0 3px 12px rgba(0,0,0,.07);margin-bottom:18px}
+      h2{color:var(--brand-d);font-size:1.1rem;margin:0 0 14px}
+      .field{margin-bottom:14px}
+      label{display:block;font-size:.82rem;color:#54607a;margin-bottom:5px;font-weight:600}
+      input{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font-size:.95rem}
+      .btn{border:none;border-radius:10px;cursor:pointer;font-size:1rem;padding:12px 18px;font-weight:600;background:var(--brand);color:#fff}
+      .btn.sm{padding:8px 13px;font-size:.85rem}
+      .btn.ghost{background:#fff;color:var(--brand);border:1px solid var(--line)}
+      .url-box{display:flex;gap:8px;align-items:center}
+      .url-box input{font-size:.85rem;background:#f7f9fc}
+      .hint{font-size:.82rem;color:#7b8698}
+      .ok{color:#2e7d32;font-weight:600}
+      .btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+      .status{font-size:.9rem;margin:8px 0 0}
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>名刺印刷システム — 所有者設定</h1>
+      <span class="badge" id="syncBadge">…</span>
+    </header>
+    <div class="wrap">
+      <div class="card">
+        <h2>ログイン情報の設定</h2>
+        <p class="hint">ここで設定したIDとパスワードで、使用者がログインします。</p>
+        <div class="field"><label>システム名（任意）</label><input id="title" placeholder="名刺印刷システム" /></div>
+        <div class="field"><label>ログインID</label><input id="ownerId" placeholder="例: admin" /></div>
+        <div class="field"><label>パスワード</label><input id="ownerPass" placeholder="パスワード" /></div>
+        <button class="btn" id="btnSave">保存</button>
+        <span id="saveMsg" class="ok" style="margin-left:10px"></span>
+      </div>
+
+      <div class="card">
+        <h2>使用者URL（社員に共有）</h2>
+        <p class="hint">このURLを社員に共有してください。開くと上のID/パスワードでログインできます。</p>
+        <div class="url-box">
+          <input id="userUrl" readonly />
+          <button class="btn sm ghost" id="btnCopy">コピー</button>
+          <a class="btn sm" id="btnOpen" target="_blank">開く</a>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>全社標準レイアウト</h2>
+        <p class="hint">使用者が「全社標準に戻す」で適用するデザインです。使用者ページで調整したレイアウトを登録するか、JSONファイルから読み込めます。</p>
+        <p class="status" id="stdStatus">…</p>
+        <div class="btn-row">
+          <button class="btn sm" id="btnStdFromLocal">この端末のレイアウトを標準登録</button>
+          <label class="btn sm ghost" style="cursor:pointer;margin:0">
+            JSONから読み込み
+            <input type="file" id="stdImport" accept="application/json,.json" hidden />
+          </label>
+          <button class="btn sm ghost" id="btnStdExport">標準をJSON出力</button>
+          <button class="btn sm ghost" id="btnStdClear">標準を削除</button>
+        </div>
+        <p class="hint" style="margin-top:12px">※ Firebase 連携時は全端末に共有されます。未登録の場合、使用者は工場出荷時レイアウトが初期表示されます。</p>
+      </div>
+    </div>
+
+    <script>
+      function setBadge(){var b=document.getElementById('syncBadge');if(MeishiStore.useFirebase()){b.textContent='全端末で共有中';b.style.background='rgba(40,180,99,.35)';}else{b.textContent='この端末のみ';b.style.background='rgba(243,156,18,.35)';}}
+      function fillStdStatus(){
+        var el=document.getElementById('stdStatus');
+        var std=MeishiStore.getDefaultLayout();
+        el.textContent=std?'標準レイアウト: 登録済み（全社員が「全社標準に戻す」で適用可能）':'標準レイアウト: 未登録（使用者は工場出荷時レイアウトが初期表示）';
+        el.className='status '+(std?'ok':'');
+      }
+      function fill(){var c=MeishiStore.getConfig();document.getElementById('title').value=c.title||'';document.getElementById('ownerId').value=c.ownerId||'';document.getElementById('ownerPass').value=c.ownerPass||'';var u=MeishiStore.userUrl();document.getElementById('userUrl').value=u;document.getElementById('btnOpen').href=u;fillStdStatus();}
+      document.getElementById('btnSave').addEventListener('click',function(){
+        MeishiStore.saveConfig({title:document.getElementById('title').value.trim()||'名刺印刷システム',ownerId:document.getElementById('ownerId').value.trim(),ownerPass:document.getElementById('ownerPass').value});
+        var m=document.getElementById('saveMsg');m.textContent='保存しました';setTimeout(function(){m.textContent='';},2000);
+      });
+      document.getElementById('btnCopy').addEventListener('click',function(){var i=document.getElementById('userUrl');i.select();try{document.execCommand('copy');}catch(e){}navigator.clipboard&&navigator.clipboard.writeText(i.value);this.textContent='コピー済';var b=this;setTimeout(function(){b.textContent='コピー';},1500);});
+      document.getElementById('btnStdFromLocal').addEventListener('click',function(){
+        var local=MeishiLayout.loadLocal();
+        if(!MeishiLayout.isValidLayout(local)){alert('この端末に保存されたレイアウトがありません。先に使用者ページでデザインを調整してください。');return;}
+        if(!confirm('この端末のレイアウトを全社標準として登録しますか？'))return;
+        MeishiStore.saveDefaultLayout(local);
+        fillStdStatus();alert('全社標準レイアウトを登録しました。');
+      });
+      document.getElementById('stdImport').addEventListener('change',function(e){
+        var f=e.target.files[0];if(!f)return;var fr=new FileReader();
+        fr.onload=function(){
+          try{
+            var v=JSON.parse(fr.result);
+            if(!MeishiLayout.isValidLayout(v))throw new Error('形式が不正です');
+            MeishiStore.saveDefaultLayout(v);
+            fillStdStatus();alert('JSONから標準レイアウトを登録しました。');
+          }catch(err){alert('読み込み失敗: '+(err.message||err));}
+          e.target.value='';
+        };
+        fr.readAsText(f,'utf-8');
+      });
+      document.getElementById('btnStdExport').addEventListener('click',function(){
+        var std=MeishiStore.getDefaultLayout();
+        if(!std){alert('標準レイアウトが未登録です。');return;}
+        var blob=new Blob([JSON.stringify(std,null,2)],{type:'application/json'});
+        var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='meishi-standard-layout.json';a.click();URL.revokeObjectURL(a.href);
+      });
+      document.getElementById('btnStdClear').addEventListener('click',function(){
+        if(!MeishiStore.getDefaultLayout()){alert('標準レイアウトは未登録です。');return;}
+        if(!confirm('全社標準レイアウトを削除しますか？'))return;
+        MeishiStore.clearDefaultLayout();fillStdStatus();
+      });
+      (async function(){try{await MeishiStore.init();}catch(e){alert(e.message||e);}setBadge();fill();MeishiStore.onConfigChange(fill);})();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,7 @@
+# Firebase 設定（本番値を含むため除外。Pages 反映時は -IncludeConfigJs）
+meishi-app/public/config.js
+
+# 一時ファイル
+_shots/
+__pycache__/
+*.pyc

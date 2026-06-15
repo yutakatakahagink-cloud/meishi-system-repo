@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>名刺印刷システム</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script src="config.js" onerror="console.info('[Meishi] config.js なし → localStorage モード')"></script>
+    <script src="meishi-store.js"></script>
+    <script src="meishi-layout.js"></script>
+    <style>
+      :root { --brand:#2f5597; --brand-d:#21406f; --bg:#eef2f7; --line:#d6dde8; }
+      *{box-sizing:border-box} body{margin:0;font-family:"Hiragino Kaku Gothic ProN","Meiryo",system-ui,sans-serif;background:var(--bg);color:#1c2533}
+      header.appbar{background:linear-gradient(135deg,var(--brand),var(--brand-d));color:#fff;padding:12px 18px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:20}
+      header.appbar h1{font-size:1.05rem;margin:0}
+      .spacer{flex:1}
+      .badge{font-size:.72rem;padding:3px 8px;border-radius:999px;background:rgba(255,255,255,.2)}
+      .wrap{max-width:1100px;margin:0 auto;padding:16px 14px 60px}
+      .view{display:none}.view.active{display:block}
+      .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:none;border-radius:10px;cursor:pointer;font-size:1rem;padding:11px 18px;font-weight:600;background:var(--brand);color:#fff}
+      .btn:hover{filter:brightness(1.07)}
+      .btn.sm{padding:7px 12px;font-size:.85rem}
+      .btn.ghost{background:#fff;color:var(--brand);border:1px solid var(--line)}
+      .btn.secondary{background:#6c7a90}
+      .login-card{max-width:380px;margin:8vh auto 0;background:#fff;border-radius:16px;padding:30px 26px;box-shadow:0 10px 30px rgba(0,0,0,.12)}
+      .login-card h2{margin:0 0 6px;color:var(--brand)}
+      .field{margin-bottom:14px}
+      .field label{display:block;font-size:.82rem;color:#54607a;margin-bottom:5px;font-weight:600}
+      .field input,.field select{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font-size:.95rem;background:#fff}
+      .home-tile{max-width:420px;margin:6vh auto 0;background:#fff;border-radius:16px;padding:40px 18px;text-align:center;box-shadow:0 4px 14px rgba(0,0,0,.07);cursor:pointer;border:1px solid var(--line)}
+      .home-tile .ico{font-size:3rem}.home-tile .ttl{font-size:1.3rem;font-weight:700;margin-top:10px;color:var(--brand-d)}
+
+      /* editor layout */
+      .editor{display:grid;grid-template-columns:300px 1fr 240px;gap:14px;align-items:start}
+      @media (max-width:980px){.editor{grid-template-columns:1fr}}
+      .panel{background:#fff;border-radius:12px;padding:14px;box-shadow:0 3px 12px rgba(0,0,0,.06)}
+      .panel h3{margin:0 0 10px;color:var(--brand-d);font-size:.98rem}
+      .panel .field{margin-bottom:10px}
+      .panel label{font-size:.78rem}
+      .stagewrap{display:flex;flex-direction:column;align-items:center;gap:10px}
+      .stage{background:#cfd6e0;border-radius:12px;padding:26px;display:flex;justify-content:center}
+      /* 名刺 91x55mm */
+      .meishi{width:91mm;height:55mm;background:#fff;position:relative;box-shadow:0 3px 12px rgba(0,0,0,.25);overflow:hidden}
+      .el{position:absolute;cursor:move;white-space:pre;line-height:1.3;padding:1px 2px;border:1px dashed transparent;user-select:none}
+      .el.sel{border-color:#2f5597;background:rgba(47,85,151,.06)}
+      .el.empty{opacity:.25}
+      .el img{display:block;pointer-events:none}
+      .imgel{position:absolute;cursor:move;border:1px dashed transparent}
+      .imgel.sel{border-color:#2f5597}
+      .imgel img{width:100%;height:100%;object-fit:contain;pointer-events:none;display:block}
+      .rs{position:absolute;right:-6px;bottom:-6px;width:12px;height:12px;background:#2f5597;border-radius:50%;cursor:se-resize}
+      .des-row{display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap}
+      .des-row label{font-size:.76rem;color:#54607a;min-width:42px}
+      input[type=range]{flex:1}
+      .small{font-size:.76rem;color:#7b8698}
+      .toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+      .seg{display:flex;gap:6px}
+      .seg button{padding:5px 9px;border:1px solid var(--line);background:#fff;border-radius:7px;cursor:pointer;font-size:.8rem}
+      .seg button.on{background:var(--brand);color:#fff;border-color:var(--brand)}
+
+      @media print{
+        body *{visibility:hidden}
+        #printArea,#printArea *{visibility:visible}
+        #printArea{position:absolute;left:0;top:0}
+        .stage{background:#fff!important;padding:0!important}
+        .meishi{box-shadow:none!important}
+        .el{border-color:transparent!important;background:transparent!important}
+        .el.empty{display:none}
+        .imgel{border-color:transparent!important}
+        .rs{display:none!important}
+      }
+    </style>
+  </head>
+  <body>
+    <header class="appbar">
+      <h1 id="appTitle">名刺印刷システム</h1>
+      <span class="spacer"></span>
+      <span class="badge" id="syncBadge">…</span>
+      <button class="btn sm ghost" id="btnLogout" style="display:none">ログアウト</button>
+    </header>
+    <div class="wrap">
+      <!-- ログイン -->
+      <section id="view-login" class="view active">
+        <div class="login-card">
+          <h2>ログイン</h2>
+          <div class="field"><label>ID</label><input id="loginId" type="text" /></div>
+          <div class="field"><label>パスワード</label><input id="loginPass" type="password" /></div>
+          <button class="btn" style="width:100%" id="btnLogin">ログイン</button>
+        </div>
+      </section>
+
+      <!-- ホーム -->
+      <section id="view-home" class="view">
+        <div class="home-tile" id="tilePrint">
+          <div class="ico">🖨️</div>
+          <div class="ttl">名刺印刷</div>
+          <div class="small" style="margin-top:6px">氏名・会社などを選んでデザイン・印刷</div>
+        </div>
+      </section>
+
+      <!-- エディタ -->
+      <section id="view-editor" class="view">
+        <div class="toolbar">
+          <button class="btn ghost sm" id="btnHome">← ホーム</button>
+          <strong>名刺印刷</strong>
+          <span class="spacer" style="flex:1"></span>
+          <button class="btn sm secondary" id="btnApplyStd">全社標準に戻す</button>
+          <button class="btn sm secondary" id="btnReset">初期レイアウト</button>
+          <button class="btn sm" id="btnPrint">🖨️ 印刷</button>
+        </div>
+        <div class="editor">
+          <!-- 左: 選択 -->
+          <div class="panel">
+            <h3>項目を選択</h3>
+            <div class="field"><label>氏名</label><select id="selName"></select></div>
+            <div class="field"><label>会社・団体名</label><select id="selCompany"></select></div>
+            <div class="field"><label>所属1</label><select id="selAff1"></select></div>
+            <div class="field"><label>所属2</label><select id="selAff2"></select></div>
+            <div class="field"><label>所属3</label><select id="selAff3"></select></div>
+            <div class="field"><label>役職</label><select id="selTitle"></select></div>
+            <div class="field"><label>資格（自動）</label><input id="inQual" /></div>
+            <div class="field"><label>郵便番号</label><select id="selPostal"></select></div>
+            <div class="field"><label>住所（自動）</label><input id="inAddress" /></div>
+            <div class="field" style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+              <div><label>TEL（自動）</label><input id="inTel" /></div>
+              <div><label>FAX（自動）</label><input id="inFax" /></div>
+            </div>
+            <div class="field"><label>携帯（自動）</label><input id="inMobile" /></div>
+            <div class="field"><label>メール（自動）</label><input id="inEmail" /></div>
+            <div class="field"><label>URL（自動）</label><input id="inUrl" /></div>
+            <div class="field"><label>工事件名（任意）</label><input id="inKoji" placeholder="例: 令和○年度 ○○工事" /></div>
+            <div class="field"><label>画像（ロゴ等）</label><input type="file" id="inImage" accept="image/*" />
+              <button class="btn sm secondary" id="btnImgDel" style="margin-top:6px;display:none">画像削除</button>
+            </div>
+          </div>
+
+          <!-- 中央: プレビュー -->
+          <div class="stagewrap">
+            <div class="small">項目をドラッグで移動。クリックで選択して右側でデザイン変更。（実寸 91×55mm）</div>
+            <div id="printArea">
+              <div class="stage"><div class="meishi" id="card"></div></div>
+            </div>
+          </div>
+
+          <!-- 右: デザイン -->
+          <div class="panel">
+            <h3>デザイン</h3>
+            <div id="designNone" class="small">名刺上の項目をクリックすると、ここで文字サイズ・色・太さ・配置を変更できます。</div>
+            <div id="designCtl" style="display:none">
+              <div class="small" id="desTarget" style="margin-bottom:8px;font-weight:700;color:#1c2533"></div>
+              <div class="des-row"><label>文字</label><input type="range" id="desSize" min="6" max="60" step="1" /><span id="desSizeV" class="small"></span></div>
+              <div class="des-row"><label>色</label><input type="color" id="desColor" /></div>
+              <div class="des-row"><label>太さ</label>
+                <div class="seg"><button data-bold="0" id="desNorm">標準</button><button data-bold="1" id="desBold">太字</button></div>
+              </div>
+              <div class="des-row"><label>配置</label>
+                <div class="seg"><button data-al="left">左</button><button data-al="center">中</button><button data-al="right">右</button></div>
+              </div>
+              <div class="des-row"><label>表示</label>
+                <div class="seg"><button id="desShow">表示</button><button id="desHide">非表示</button></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <script>
+      // ===== 共通 =====
+      var records=[];
+      function show(v){document.querySelectorAll('.view').forEach(function(s){s.classList.remove('active')});document.getElementById('view-'+v).classList.add('active')}
+      function uniq(arr){var s=[];arr.forEach(function(x){if(x!=null&&String(x).trim()!==''&&s.indexOf(x)<0)s.push(x)});return s}
+      function opts(sel,arr,ph){sel.innerHTML='<option value="">'+(ph||'（選択）')+'</option>'+arr.map(function(v){return '<option>'+esc(v)+'</option>'}).join('')}
+      function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+
+      // ===== ログイン =====
+      var SK='meishi_user_login';
+      function doLogin(){
+        var c=MeishiStore.getConfig();
+        var id=document.getElementById('loginId').value.trim();
+        var pw=document.getElementById('loginPass').value;
+        if(id===(c.ownerId||'')&&pw===(c.ownerPass||'')){sessionStorage.setItem(SK,'1');document.getElementById('btnLogout').style.display='';show('home');}
+        else alert('IDまたはパスワードが違います。');
+      }
+      document.getElementById('btnLogin').addEventListener('click',doLogin);
+      document.getElementById('loginPass').addEventListener('keydown',function(e){if(e.key==='Enter')doLogin()});
+      document.getElementById('btnLogout').addEventListener('click',function(){sessionStorage.removeItem(SK);this.style.display='none';show('login')});
+      document.getElementById('tilePrint').addEventListener('click',function(){show('editor');initEditor()});
+      document.getElementById('btnHome').addEventListener('click',function(){show('home')});
+
+      // ===== カスケード選択 =====
+      var S={name:'',company:'',aff1:'',aff2:'',aff3:'',title:'',postal:''};
+      function filtered(level){
+        return records.filter(function(r){
+          if(S.name&&r.name!==S.name)return false;
+          if(level>=1&&S.company&&r.company!==S.company)return false;
+          if(level>=2&&S.aff1&&(r.aff1||'')!==S.aff1)return false;
+          if(level>=3&&S.aff2&&(r.aff2||'')!==S.aff2)return false;
+          if(level>=4&&S.aff3&&(r.aff3||'')!==S.aff3)return false;
+          if(level>=5&&S.title&&(r.title||'')!==S.title)return false;
+          return true;
+        });
+      }
+      function firstNonEmpty(rows,key){for(var i=0;i<rows.length;i++){if(rows[i][key]&&String(rows[i][key]).trim()!=='')return rows[i][key];}return ''}
+
+      function rebuild(){
+        // 氏名
+        opts(document.getElementById('selName'),uniq(records.map(function(r){return r.name})).sort(),'氏名を選択');
+        document.getElementById('selName').value=S.name;
+        var byName=filtered(0);
+        opts(document.getElementById('selCompany'),uniq(byName.map(function(r){return r.company})),'会社・団体名');
+        document.getElementById('selCompany').value=S.company;
+        var byCo=filtered(1);
+        opts(document.getElementById('selAff1'),uniq(byCo.map(function(r){return r.aff1})),'所属1');
+        document.getElementById('selAff1').value=S.aff1;
+        var b2=filtered(2);
+        opts(document.getElementById('selAff2'),uniq(b2.map(function(r){return r.aff2})),'所属2');
+        document.getElementById('selAff2').value=S.aff2;
+        var b3=filtered(3);
+        opts(document.getElementById('selAff3'),uniq(b3.map(function(r){return r.aff3})),'所属3');
+        document.getElementById('selAff3').value=S.aff3;
+        var b4=filtered(4);
+        opts(document.getElementById('selTitle'),uniq(b4.map(function(r){return r.title})),'役職');
+        document.getElementById('selTitle').value=S.title;
+        var b5=filtered(5);
+        opts(document.getElementById('selPostal'),uniq(byCo.map(function(r){return r.postal})),'郵便番号');
+        document.getElementById('selPostal').value=S.postal;
+
+        // 自動項目
+        document.getElementById('inUrl').value=firstNonEmpty(byCo,'url');
+        document.getElementById('inMobile').value=firstNonEmpty(b5.length?b5:byCo,'mobile');
+        document.getElementById('inEmail').value=firstNonEmpty(b5.length?b5:byCo,'email');
+        document.getElementById('inQual').value=firstNonEmpty(b5.length?b5:byCo,'qual');
+        var locRows=S.postal?byCo.filter(function(r){return (r.postal||'')===S.postal}):byCo;
+        document.getElementById('inAddress').value=firstNonEmpty(locRows,'address');
+        document.getElementById('inTel').value=firstNonEmpty(locRows,'tel');
+        document.getElementById('inFax').value=firstNonEmpty(locRows,'fax');
+        renderCard();
+      }
+      function bindSel(id,key,resetKeys){
+        document.getElementById(id).addEventListener('change',function(){
+          S[key]=this.value;(resetKeys||[]).forEach(function(k){S[k]=''});rebuild();
+        });
+      }
+      bindSel('selName','name',['company','aff1','aff2','aff3','title','postal']);
+      bindSel('selCompany','company',['aff1','aff2','aff3','title','postal']);
+      bindSel('selAff1','aff1',['aff2','aff3','title']);
+      bindSel('selAff2','aff2',['aff3','title']);
+      bindSel('selAff3','aff3',['title']);
+      bindSel('selTitle','title',[]);
+      document.getElementById('selPostal').addEventListener('change',function(){S.postal=this.value;rebuild()});
+      ['inQual','inAddress','inTel','inFax','inMobile','inEmail','inUrl','inKoji'].forEach(function(id){
+        document.getElementById(id).addEventListener('input',renderCard);
+      });
+
+      // ===== 画像 =====
+      var imgData='';
+      document.getElementById('inImage').addEventListener('change',function(e){
+        var f=e.target.files[0];if(!f)return;var fr=new FileReader();fr.onload=function(){imgData=fr.result;document.getElementById('btnImgDel').style.display='';renderCard();};fr.readAsDataURL(f);
+      });
+      document.getElementById('btnImgDel').addEventListener('click',function(){imgData='';document.getElementById('inImage').value='';this.style.display='none';renderCard()});
+
+      // ===== レイアウト/デザイン =====
+      var ELS = MeishiLayout.ELS;
+      var layout;
+      function resolveStdLayout() {
+        var std = MeishiStore.getDefaultLayout();
+        return std ? MeishiLayout.clone(std) : MeishiLayout.defLayout();
+      }
+      function initLayout() {
+        var local = MeishiLayout.loadLocal();
+        layout = MeishiLayout.isValidLayout(local) ? local : resolveStdLayout();
+      }
+      function saveLayout() { MeishiLayout.saveLocal(layout); }
+
+      function elText(id){
+        if(id==='company')return document.getElementById('selCompany').value;
+        if(id==='aff'){var a=[document.getElementById('selAff1').value,document.getElementById('selAff2').value,document.getElementById('selAff3').value,document.getElementById('selTitle').value].filter(Boolean);return a.join('　')}
+        if(id==='name')return document.getElementById('selName').value;
+        if(id==='qual')return document.getElementById('inQual').value;
+        if(id==='koji')return document.getElementById('inKoji').value;
+        if(id==='address'){var p=document.getElementById('inAddress').value;var po=document.getElementById('selPostal').value;return (po?('〒'+po+' '):'')+p}
+        if(id==='telfax'){var t=document.getElementById('inTel').value,f=document.getElementById('inFax').value;return [t?('TEL '+t):'',f?('FAX '+f):''].filter(Boolean).join('　')}
+        if(id==='mobile'){var m=document.getElementById('inMobile').value;return m?('携帯 '+m):''}
+        if(id==='email')return document.getElementById('inEmail').value;
+        if(id==='url')return document.getElementById('inUrl').value;
+        return '';
+      }
+      var sel=null;
+      function renderCard(){
+        var card=document.getElementById('card');card.innerHTML='';
+        ELS.forEach(function(e){
+          var st=layout.el[e.id];if(!st)return;
+          var d=document.createElement('div');d.className='el'+(e.id===sel?' sel':'');d.dataset.id=e.id;
+          var txt=elText(e.id);
+          if(st.hidden){d.style.display='none';}
+          if(!txt){d.classList.add('empty');txt='〔'+e.label+'〕';}
+          d.textContent=txt;
+          d.style.left=st.x+'px';d.style.top=st.y+'px';d.style.fontSize=st.size+'px';d.style.color=st.color;d.style.fontWeight=st.bold?'700':'400';d.style.textAlign=st.align;
+          attachDrag(d,st);
+          card.appendChild(d);
+        });
+        // 画像
+        if(imgData){
+          var iw=document.createElement('div');iw.className='imgel'+(sel==='__img'?' sel':'');iw.dataset.id='__img';
+          var im=layout.img;iw.style.left=im.x+'px';iw.style.top=im.y+'px';iw.style.width=im.w+'px';iw.style.height=im.h+'px';
+          var img=document.createElement('img');img.src=imgData;iw.appendChild(img);
+          var rs=document.createElement('div');rs.className='rs';iw.appendChild(rs);
+          attachDrag(iw,im);attachResize(rs,im);
+          card.appendChild(iw);
+        }
+      }
+      function pxFromEvent(e){return e.touches?e.touches[0]:e}
+      function attachDrag(node,st){
+        node.addEventListener('pointerdown',function(ev){
+          ev.preventDefault();selectEl(node.dataset.id);
+          var p=pxFromEvent(ev);var sx=p.clientX,sy=p.clientY,ox=st.x,oy=st.y;
+          function mv(e2){var q=pxFromEvent(e2);st.x=Math.round(ox+(q.clientX-sx));st.y=Math.round(oy+(q.clientY-sy));node.style.left=st.x+'px';node.style.top=st.y+'px';}
+          function up(){document.removeEventListener('pointermove',mv);document.removeEventListener('pointerup',up);saveLayout();}
+          document.addEventListener('pointermove',mv);document.addEventListener('pointerup',up);
+        });
+      }
+      function attachResize(handle,im){
+        handle.addEventListener('pointerdown',function(ev){
+          ev.preventDefault();ev.stopPropagation();
+          var p=pxFromEvent(ev);var sx=p.clientX,sy=p.clientY,ow=im.w,oh=im.h;
+          function mv(e2){var q=pxFromEvent(e2);im.w=Math.max(16,Math.round(ow+(q.clientX-sx)));im.h=Math.max(12,Math.round(oh+(q.clientY-sy)));renderCard();}
+          function up(){document.removeEventListener('pointermove',mv);document.removeEventListener('pointerup',up);saveLayout();}
+          document.addEventListener('pointermove',mv);document.addEventListener('pointerup',up);
+        });
+      }
+      function selectEl(id){sel=id;renderCard();showDesign();}
+      function showDesign(){
+        var ctl=document.getElementById('designCtl'),none=document.getElementById('designNone');
+        if(!sel||sel==='__img'){
+          if(sel==='__img'){none.style.display='none';ctl.style.display='none';}
+          else{none.style.display='';ctl.style.display='none';}
+          if(sel==='__img'){none.style.display='';none.textContent='画像が選択されています。右下の青い丸でサイズ変更、ドラッグで移動できます。';}
+          return;
+        }
+        none.style.display='none';ctl.style.display='';
+        var st=layout.el[sel];var lbl=(ELS.find(function(e){return e.id===sel})||{}).label||sel;
+        document.getElementById('desTarget').textContent='対象: '+lbl;
+        document.getElementById('desSize').value=st.size;document.getElementById('desSizeV').textContent=st.size+'px';
+        document.getElementById('desColor').value=st.color.length===7?st.color:'#222222';
+        document.getElementById('desNorm').classList.toggle('on',!st.bold);
+        document.getElementById('desBold').classList.toggle('on',!!st.bold);
+        document.querySelectorAll('[data-al]').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-al')===st.align)});
+      }
+      document.getElementById('desSize').addEventListener('input',function(){if(!sel||sel==='__img')return;layout.el[sel].size=+this.value;document.getElementById('desSizeV').textContent=this.value+'px';renderCard();saveLayout()});
+      document.getElementById('desColor').addEventListener('input',function(){if(!sel||sel==='__img')return;layout.el[sel].color=this.value;renderCard();saveLayout()});
+      document.getElementById('desNorm').addEventListener('click',function(){if(!sel||sel==='__img')return;layout.el[sel].bold=0;renderCard();saveLayout();showDesign()});
+      document.getElementById('desBold').addEventListener('click',function(){if(!sel||sel==='__img')return;layout.el[sel].bold=1;renderCard();saveLayout();showDesign()});
+      document.querySelectorAll('[data-al]').forEach(function(b){b.addEventListener('click',function(){if(!sel||sel==='__img')return;layout.el[sel].align=this.getAttribute('data-al');renderCard();saveLayout();showDesign()})});
+      document.getElementById('desShow').addEventListener('click',function(){if(!sel||sel==='__img')return;layout.el[sel].hidden=false;renderCard();saveLayout()});
+      document.getElementById('desHide').addEventListener('click',function(){if(!sel||sel==='__img')return;layout.el[sel].hidden=true;renderCard();saveLayout()});
+
+      document.getElementById('btnApplyStd').addEventListener('click',function(){
+        if(!confirm('全社標準レイアウトに戻しますか？（個人の調整は消えます）'))return;
+        layout=resolveStdLayout();sel=null;saveLayout();renderCard();showDesign();
+      });
+      document.getElementById('btnReset').addEventListener('click',function(){
+        if(!confirm('工場出荷時の初期レイアウトに戻しますか？'))return;
+        layout=MeishiLayout.defLayout();sel=null;saveLayout();renderCard();showDesign();
+      });
+      document.getElementById('btnPrint').addEventListener('click',function(){var s=sel;sel=null;renderCard();window.print();sel=s;renderCard();});
+
+      function initEditor(){initLayout();rebuild();renderCard();showDesign();}
+
+      // ===== 起動 =====
+      function setBadge(){var b=document.getElementById('syncBadge');if(MeishiStore.useFirebase()){b.textContent='全端末で共有中';b.style.background='rgba(40,180,99,.35)';}else{b.textContent='この端末のみ';b.style.background='rgba(243,156,18,.35)';}}
+      (async function(){
+        try{await MeishiStore.init();}catch(e){alert(e.message||e);}
+        records=MeishiStore.getRecords();
+        var c=MeishiStore.getConfig();document.getElementById('appTitle').textContent=c.title||'名刺印刷システム';document.title=c.title||'名刺印刷システム';
+        setBadge();
+        MeishiStore.onConfigChange(function(cc){document.getElementById('appTitle').textContent=cc.title||'名刺印刷システム';});
+        if(sessionStorage.getItem(SK)==='1'){document.getElementById('btnLogout').style.display='';show('home');}else show('login');
+      })();
+    </script>
+  </body>
+</html>
