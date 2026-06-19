@@ -1,0 +1,445 @@
+/**
+ * 名刺プレビュー・デザイン編集 UI（使用者・所有者で共有）
+ * ドラッグ中は DOM 再生成せず style のみ更新して軽量化。
+ * 編集時は他要素・カード端／中心へスナップ（縦横軸合わせ）。
+ */
+(function () {
+  var SNAP_THRESH = 6;
+
+  function pxFromEvent(e) { return e.touches ? e.touches[0] : e; }
+
+  function bestSnap(dragEdges, targets, thresh) {
+    var best = null;
+    dragEdges.forEach(function (de) {
+      targets.forEach(function (t) {
+        var d = Math.abs(de - t);
+        if (d <= thresh && (!best || d < best.d)) {
+          best = { d: d, delta: t - de, line: t };
+        }
+      });
+    });
+    return best;
+  }
+
+  function collectSnapTargets(cardEl, excludeNode) {
+    var cr = cardEl.getBoundingClientRect();
+    var tx = [0, cr.width / 2, cr.width];
+    var ty = [0, cr.height / 2, cr.height];
+    cardEl.querySelectorAll(".el, .imgel").forEach(function (n) {
+      if (n === excludeNode) return;
+      var r = n.getBoundingClientRect();
+      var l = r.left - cr.left;
+      var t = r.top - cr.top;
+      tx.push(l, l + r.width / 2, l + r.width);
+      ty.push(t, t + r.height / 2, t + r.height);
+    });
+    return { tx: tx, ty: ty };
+  }
+
+  function snapDragPosition(cardEl, node, nx, ny) {
+    var w = node.offsetWidth;
+    var h = node.offsetHeight;
+    var left = nx;
+    var top = ny;
+    var targets = collectSnapTargets(cardEl, node);
+    var sx = bestSnap([left, left + w / 2, left + w], targets.tx, SNAP_THRESH);
+    var sy = bestSnap([top, top + h / 2, top + h], targets.ty, SNAP_THRESH);
+    return {
+      nx: nx + (sx ? sx.delta : 0),
+      ny: ny + (sy ? sy.delta : 0),
+      guideX: sx ? sx.line : null,
+      guideY: sy ? sy.line : null,
+    };
+  }
+
+  function snapResizeBox(cardEl, node, x, y, nw, nh) {
+    var targets = collectSnapTargets(cardEl, node);
+    var sr = bestSnap([x + nw], targets.tx, SNAP_THRESH);
+    var sb = bestSnap([y + nh], targets.ty, SNAP_THRESH);
+    return {
+      w: Math.max(16, nw + (sr ? sr.delta : 0)),
+      h: Math.max(12, nh + (sb ? sb.delta : 0)),
+      guideX: sr ? sr.line : null,
+      guideY: sb ? sb.line : null,
+    };
+  }
+
+  function createCardUI(opts) {
+    var cardEl = opts.cardEl;
+    var getLayout = opts.getLayout;
+    var getElText = opts.getElText;
+    var readOnly = !!opts.readOnly;
+    var hideElements = !!opts.hideElements;
+    var getImages = opts.getImages || function () {
+      var layout = MeishiCatalog.normalizeLayout(getLayout());
+      return (layout.images || []).filter(function (im) { return im && im.src; });
+    };
+    var onSelect = opts.onSelect || function () {};
+    var sel = null;
+    var built = false;
+    var elNodes = {};
+    var imgNodes = {};
+    var guideLayer = null;
+
+    function ensureGuideLayer() {
+      if (readOnly) return;
+      if (guideLayer && guideLayer.parentNode === cardEl) return;
+      guideLayer = document.createElement("div");
+      guideLayer.className = "snap-guides";
+      guideLayer.setAttribute("aria-hidden", "true");
+      var vLine = document.createElement("div");
+      vLine.className = "snap-v";
+      var hLine = document.createElement("div");
+      hLine.className = "snap-h";
+      guideLayer.appendChild(vLine);
+      guideLayer.appendChild(hLine);
+      cardEl.appendChild(guideLayer);
+    }
+
+    function showGuides(guideX, guideY) {
+      if (!guideLayer) return;
+      var vLine = guideLayer.querySelector(".snap-v");
+      var hLine = guideLayer.querySelector(".snap-h");
+      if (guideX != null) {
+        vLine.style.display = "block";
+        vLine.style.left = guideX + "px";
+      } else vLine.style.display = "none";
+      if (guideY != null) {
+        hLine.style.display = "block";
+        hLine.style.top = guideY + "px";
+      } else hLine.style.display = "none";
+    }
+
+    function hideGuides() {
+      showGuides(null, null);
+    }
+
+    function saveLayout() {
+      if (typeof opts.onLayoutChange === "function") opts.onLayoutChange(getLayout());
+    }
+
+    function imgSelId(id) { return "__img:" + id; }
+    function isImgSel(s) { return s && s.indexOf("__img:") === 0; }
+
+    function updateSelectionHighlight() {
+      Object.keys(elNodes).forEach(function (id) {
+        elNodes[id].classList.toggle("sel", id === sel);
+      });
+      Object.keys(imgNodes).forEach(function (id) {
+        imgNodes[id].wrap.classList.toggle("sel", sel === imgSelId(id));
+      });
+    }
+
+    function applyElStyle(node, st, txt, label) {
+      if (st.hidden) node.style.display = "none";
+      else node.style.display = "";
+      if (!txt) {
+        node.classList.add("empty");
+        node.textContent = "〔" + label + "〕";
+      } else {
+        node.classList.remove("empty");
+        node.textContent = txt;
+      }
+      node.style.left = st.x + "px";
+      node.style.top = st.y + "px";
+      node.style.fontSize = st.size + "px";
+      node.style.color = st.color;
+      node.style.fontWeight = st.bold ? "700" : "400";
+      node.style.textAlign = st.align;
+    }
+
+    function ensureBuilt() {
+      if (built) return;
+      cardEl.innerHTML = "";
+      elNodes = {};
+      if (!hideElements) {
+        MeishiLayout.ELS.forEach(function (e) {
+          var st = getLayout().el[e.id];
+          if (!st) return;
+          var d = document.createElement("div");
+          d.className = "el";
+          d.dataset.id = e.id;
+          if (!readOnly) attachDrag(d, st);
+          else d.style.cursor = "default";
+          cardEl.appendChild(d);
+          elNodes[e.id] = d;
+        });
+      }
+      if (!readOnly) ensureGuideLayer();
+      built = true;
+    }
+
+    function syncImageNodes() {
+      var layout = MeishiCatalog.normalizeLayout(getLayout());
+      if (!layout.images) layout.images = [];
+      var imgs = getImages();
+      var ids = {};
+      imgs.forEach(function (im) {
+        if (!im.id) im.id = "img" + (layout.images.length + 1);
+        ids[im.id] = im;
+        var node = imgNodes[im.id];
+        if (!node) {
+          var wrap = document.createElement("div");
+          wrap.className = "imgel";
+          wrap.dataset.id = imgSelId(im.id);
+          var img = document.createElement("img");
+          img.draggable = false;
+          wrap.appendChild(img);
+          var rs = document.createElement("div");
+          rs.className = "rs";
+          wrap.appendChild(rs);
+          if (!readOnly) {
+            attachDrag(wrap, im);
+            attachResize(rs, im, wrap);
+          } else {
+            wrap.style.cursor = "default";
+            if (rs) rs.style.display = "none";
+          }
+          cardEl.appendChild(wrap);
+          imgNodes[im.id] = { wrap: wrap, img: img, rs: rs, st: im };
+        } else {
+          node.st = im;
+        }
+        var n = imgNodes[im.id];
+        n.img.src = im.src;
+        n.wrap.style.left = im.x + "px";
+        n.wrap.style.top = im.y + "px";
+        n.wrap.style.width = im.w + "px";
+        n.wrap.style.height = im.h + "px";
+      });
+      Object.keys(imgNodes).forEach(function (id) {
+        if (!ids[id]) {
+          imgNodes[id].wrap.remove();
+          delete imgNodes[id];
+        }
+      });
+    }
+
+    function renderCard() {
+      ensureBuilt();
+      var layout = getLayout();
+      if (!hideElements) {
+        MeishiLayout.ELS.forEach(function (e) {
+          var node = elNodes[e.id];
+          var st = layout.el[e.id];
+          if (!node || !st) return;
+          applyElStyle(node, st, getElText(e.id), e.label);
+        });
+      }
+      syncImageNodes();
+      updateSelectionHighlight();
+    }
+
+    function attachDrag(node, st) {
+      node.addEventListener("pointerdown", function (ev) {
+        if (readOnly) return;
+        if (ev.button !== 0) return;
+        if (ev.target.classList.contains("rs")) return;
+        ev.preventDefault();
+        var id = node.dataset.id;
+        if (sel !== id) {
+          sel = id;
+          updateSelectionHighlight();
+          onSelect(id, getLayout());
+        }
+        node.setPointerCapture(ev.pointerId);
+        cardEl.classList.add("is-dragging");
+        var p = pxFromEvent(ev);
+        var sx = p.clientX, sy = p.clientY, ox = st.x, oy = st.y;
+        var raf = 0, nx = ox, ny = oy;
+        function applyPos() {
+          raf = 0;
+          st.x = nx; st.y = ny;
+          node.style.left = nx + "px";
+          node.style.top = ny + "px";
+        }
+        function mv(e2) {
+          var q = pxFromEvent(e2);
+          var rawNx = Math.round(ox + (q.clientX - sx));
+          var rawNy = Math.round(oy + (q.clientY - sy));
+          var snapped = snapDragPosition(cardEl, node, rawNx, rawNy);
+          nx = snapped.nx;
+          ny = snapped.ny;
+          showGuides(snapped.guideX, snapped.guideY);
+          if (!raf) raf = requestAnimationFrame(applyPos);
+        }
+        function up(e2) {
+          if (raf) cancelAnimationFrame(raf);
+          applyPos();
+          hideGuides();
+          cardEl.classList.remove("is-dragging");
+          try { node.releasePointerCapture(e2.pointerId); } catch (e) {}
+          node.removeEventListener("pointermove", mv);
+          node.removeEventListener("pointerup", up);
+          node.removeEventListener("pointercancel", up);
+          saveLayout();
+        }
+        node.addEventListener("pointermove", mv);
+        node.addEventListener("pointerup", up);
+        node.addEventListener("pointercancel", up);
+      });
+    }
+
+    function attachResize(handle, im, wrap) {
+      handle.addEventListener("pointerdown", function (ev) {
+        if (readOnly) return;
+        if (ev.button !== 0) return;
+        ev.preventDefault();
+        ev.stopPropagation();
+        handle.setPointerCapture(ev.pointerId);
+        cardEl.classList.add("is-dragging");
+        var p = pxFromEvent(ev);
+        var sx = p.clientX, sy = p.clientY, ow = im.w, oh = im.h;
+        var raf = 0, nw = ow, nh = oh;
+        function applySize() {
+          raf = 0;
+          im.w = nw; im.h = nh;
+          wrap.style.width = nw + "px";
+          wrap.style.height = nh + "px";
+        }
+        function mv(e2) {
+          var q = pxFromEvent(e2);
+          var rawW = Math.max(16, Math.round(ow + (q.clientX - sx)));
+          var rawH = Math.max(12, Math.round(oh + (q.clientY - sy)));
+          var snapped = snapResizeBox(cardEl, wrap, im.x, im.y, rawW, rawH);
+          nw = snapped.w;
+          nh = snapped.h;
+          showGuides(snapped.guideX, snapped.guideY);
+          if (!raf) raf = requestAnimationFrame(applySize);
+        }
+        function up(e2) {
+          if (raf) cancelAnimationFrame(raf);
+          applySize();
+          hideGuides();
+          cardEl.classList.remove("is-dragging");
+          try { handle.releasePointerCapture(e2.pointerId); } catch (e) {}
+          handle.removeEventListener("pointermove", mv);
+          handle.removeEventListener("pointerup", up);
+          handle.removeEventListener("pointercancel", up);
+          saveLayout();
+        }
+        handle.addEventListener("pointermove", mv);
+        handle.addEventListener("pointerup", up);
+        handle.addEventListener("pointercancel", up);
+      });
+    }
+
+    function selectEl(id) {
+      if (sel === id) return;
+      sel = id;
+      updateSelectionHighlight();
+      onSelect(id, getLayout());
+    }
+
+    function invalidate() {
+      built = false;
+      elNodes = {};
+      imgNodes = {};
+      guideLayer = null;
+      cardEl.innerHTML = "";
+    }
+
+    function bindDesignPanel(panel) {
+      if (!panel) return;
+      var desSize = panel.querySelector("#desSize");
+      var desSizeV = panel.querySelector("#desSizeV");
+      var desColor = panel.querySelector("#desColor");
+      var desNorm = panel.querySelector("#desNorm");
+      var desBold = panel.querySelector("#desBold");
+      var desTarget = panel.querySelector("#desTarget");
+      var designCtl = panel.querySelector("#designCtl");
+      var designNone = panel.querySelector("#designNone");
+
+      function patchSelected(patch) {
+        if (readOnly) return;
+        if (!sel || isImgSel(sel)) return;
+        var st = getLayout().el[sel];
+        var node = elNodes[sel];
+        if (!st || !node) return;
+        Object.assign(st, patch);
+        var lbl = (MeishiLayout.ELS.find(function (e) { return e.id === sel; }) || {}).label || sel;
+        applyElStyle(node, st, getElText(sel), lbl);
+        saveLayout();
+      }
+
+      function showDesign() {
+        if (!designCtl || !designNone) return;
+        if (!sel || isImgSel(sel)) {
+          designCtl.style.display = "none";
+          designNone.style.display = "";
+          if (isImgSel(sel)) designNone.textContent = "画像が選択されています。右下の青い丸でサイズ変更、ドラッグで移動できます。";
+          else designNone.textContent = "名刺上の項目をクリックすると、ここで文字サイズ・色・太さ・配置を変更できます。";
+          return;
+        }
+        designNone.style.display = "none";
+        designCtl.style.display = "";
+        var st = getLayout().el[sel];
+        var lbl = (MeishiLayout.ELS.find(function (e) { return e.id === sel; }) || {}).label || sel;
+        if (desTarget) desTarget.textContent = "対象: " + lbl;
+        if (desSize) desSize.value = st.size;
+        if (desSizeV) desSizeV.textContent = st.size + "px";
+        if (desColor) desColor.value = st.color.length === 7 ? st.color : "#222222";
+        if (desNorm) desNorm.classList.toggle("on", !st.bold);
+        if (desBold) desBold.classList.toggle("on", !!st.bold);
+        panel.querySelectorAll("[data-al]").forEach(function (b) {
+          b.classList.toggle("on", b.getAttribute("data-al") === st.align);
+        });
+      }
+
+      if (desSize) desSize.addEventListener("input", function () {
+        if (!sel || isImgSel(sel)) return;
+        patchSelected({ size: +this.value });
+        if (desSizeV) desSizeV.textContent = this.value + "px";
+        showDesign();
+      });
+      if (desColor) desColor.addEventListener("input", function () {
+        if (!sel || isImgSel(sel)) return;
+        patchSelected({ color: this.value });
+      });
+      if (desNorm) desNorm.addEventListener("click", function () {
+        if (!sel || isImgSel(sel)) return;
+        patchSelected({ bold: 0 });
+        showDesign();
+      });
+      if (desBold) desBold.addEventListener("click", function () {
+        if (!sel || isImgSel(sel)) return;
+        patchSelected({ bold: 1 });
+        showDesign();
+      });
+      panel.querySelectorAll("[data-al]").forEach(function (b) {
+        b.addEventListener("click", function () {
+          if (!sel || isImgSel(sel)) return;
+          patchSelected({ align: this.getAttribute("data-al") });
+          showDesign();
+        });
+      });
+      var desShow = panel.querySelector("#desShow");
+      var desHide = panel.querySelector("#desHide");
+      if (desShow) desShow.addEventListener("click", function () {
+        if (!sel || isImgSel(sel)) return;
+        patchSelected({ hidden: false });
+      });
+      if (desHide) desHide.addEventListener("click", function () {
+        if (!sel || isImgSel(sel)) return;
+        patchSelected({ hidden: true });
+      });
+
+      return {
+        showDesign: showDesign,
+        clearSelection: function () { sel = null; updateSelectionHighlight(); showDesign(); },
+      };
+    }
+
+    return {
+      renderCard: renderCard,
+      selectEl: selectEl,
+      bindDesignPanel: bindDesignPanel,
+      clearSelection: function () { sel = null; updateSelectionHighlight(); },
+      invalidate: invalidate,
+      getSelection: function () { return sel; },
+      setSelection: function (v) { sel = v; updateSelectionHighlight(); },
+    };
+  }
+
+  window.MeishiCardUI = { createCardUI: createCardUI };
+})();

@@ -46,10 +46,16 @@ scripts/
    deploy-paths.txt
 ```
 
-## GitHub Pages（本番）
+## GitHub Pages（本番・携帯・他PC）
 - **使用者**: https://yutakatakahagink-cloud.github.io/meishi-system-repo/user.html
 - **所有者**: https://yutakatakahagink-cloud.github.io/meishi-system-repo/owner.html
 - リポジトリ: 作業box 直下の `meishi-system-repo/`（GitHub: `yutakatakahagink-cloud/meishi-system-repo`）
+
+### 初回セットアップ（GitHub リポジトリ未作成の場合）
+1. GitHub にログイン → **New repository**
+2. Repository name: **`meishi-system-repo`** / Public / **README は追加しない**
+3. 作成後 → **Settings → Pages → Build and deployment → Source: GitHub Actions**
+4. 下記デプロイコマンドを実行（`git push` 成功後、Actions が自動公開）
 
 ### デプロイ手順
 ```powershell
@@ -58,7 +64,12 @@ Set-Location -LiteralPath "<作業box>\14_名刺印刷ソフト\scripts"
 ```
 
 - Excel 更新後は `python convert_xlsx.py` してからデプロイ。
-- `config.js` は `-IncludeConfigJs` で本番に反映（Firebase 設定含む）。
+- `config.js` は `-IncludeConfigJs` で本番に反映（Firebase 設定含む）。携帯・他PCで設定を共有するには必須。
+- push 後 1〜2 分で Pages が更新されます。反映確認は **Ctrl+Shift+R**（強制再読み込み）。
+
+### 携帯への共有
+1. 所有者ページ → **使用者URL** → **QR表示** で QR を社員に見せる
+2. または URL をコピーして LINE 等で送付
 
 ## 全社標準レイアウト
 1. 所有者が使用者ページでデザインを調整（または JSON を用意）。
@@ -70,7 +81,7 @@ Set-Location -LiteralPath "<作業box>\14_名刺印刷ソフト\scripts"
 2. 所有者ページでID/PW設定（既定: `admin` / `1234`）
 3. 使用者ページでログイン → 印刷
 
-> ※ `index.html` を直接ダブルクリック（file://）すると JSON を読めません。必ず start.bat 経由で開いてください。
+> ※ ローカルでは `start.bat` または HTML を直接開けます（`data/meishi-records.js` 付き）。
 
 ## データ保存先
 - `config.js` の Firebase があれば、ログインID/PW・システム名・**全社標準レイアウト**は **`/meishi_config`** に保存され全端末で共有。無ければ端末ごとの localStorage。

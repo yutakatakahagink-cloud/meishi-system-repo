@@ -20,7 +20,7 @@
     return JSON.parse(JSON.stringify(o));
   }
   function defLayout() {
-    var o = { el: {}, img: { x: 250, y: 8, w: 80, h: 44 } };
+    var o = { el: {}, images: [] };
     ELS.forEach(function (e) { o.el[e.id] = clone(e.def); });
     return o;
   }

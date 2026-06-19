@@ -11,6 +11,7 @@ BASE = os.path.dirname(os.path.abspath(__file__))
 XLSX = os.path.join(BASE, '名刺ﾃﾞｰﾀ.xlsx')
 OUTDIR = os.path.join(BASE, 'meishi-app', 'public', 'data')
 OUT = os.path.join(OUTDIR, 'meishi-records.json')
+OUT_JS = os.path.join(OUTDIR, 'meishi-records.js')
 
 KEYMAP = {
     '番号': 'no', '氏名': 'name', '会社・団体名': 'company',
@@ -40,7 +41,12 @@ def main():
         recs.append(rec)
     with open(OUT, 'w', encoding='utf-8') as f:
         json.dump(recs, f, ensure_ascii=False, indent=1)
+    with open(OUT_JS, 'w', encoding='utf-8') as f:
+        f.write('window.__MEISHI_DEFAULT_RECORDS__ = ')
+        json.dump(recs, f, ensure_ascii=False, separators=(',', ':'))
+        f.write(';\n')
     print(f"{len(recs)} 件を書き出しました -> {OUT}")
+    print(f"file:// 用 JS -> {OUT_JS}")
 
 
 if __name__ == '__main__':

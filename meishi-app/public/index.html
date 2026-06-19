@@ -4,13 +4,6 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>名刺印刷システム</title>
-    <script src="config.js" onerror=""></script>
-    <script>
-      if (location.protocol === "file:") {
-        var base = window.MEISHI_BASE_URL || "https://yutakatakahagink-cloud.github.io/meishi-system-repo/";
-        location.replace(base.replace(/\/?$/, "/"));
-      }
-    </script>
     <style>
       :root{--brand:#2f5597;--brand-d:#21406f;--bg:#eef2f7;--line:#d6dde8}
       *{box-sizing:border-box}body{margin:0;font-family:"Hiragino Kaku Gothic ProN","Meiryo",system-ui,sans-serif;background:var(--bg);color:#1c2533}
@@ -23,6 +16,7 @@
       a.tile:hover{transform:translateY(-3px);box-shadow:0 10px 22px rgba(0,0,0,.12)}
       .ico{font-size:2.8rem}.ttl{font-size:1.2rem;font-weight:700;margin-top:8px;color:var(--brand-d)}
       .sub{font-size:.82rem;color:#7b8698;margin-top:4px}
+      .hint{margin-top:1rem;font-size:.88rem;color:#666}
     </style>
   </head>
   <body>
@@ -31,6 +25,14 @@
       <div class="grid">
         <a class="tile" href="owner.html"><div class="ico">⚙️</div><div class="ttl">所有者ページ</div><div class="sub">ログインID/パスワードの設定・使用者URLの発行</div></a>
         <a class="tile" href="user.html"><div class="ico">🖨️</div><div class="ttl">使用者ページ</div><div class="sub">ログイン→名刺の選択・デザイン・印刷</div></a>
+      </div>
+      <p class="hint">ローカル: <code>meishi-app\start.bat</code> ／ 携帯・他PC: 下記の GitHub Pages URL をブックマーク</p>
+      <div class="note" style="background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-top:12px">
+        <strong>📱 携帯・他PCから（本番）</strong>
+        <p style="margin:.5rem 0 .25rem;font-size:.9rem">
+          <a href="https://yutakatakahagink-cloud.github.io/meishi-system-repo/user.html">使用者ページ</a><br />
+          <a href="https://yutakatakahagink-cloud.github.io/meishi-system-repo/owner.html">所有者ページ</a>
+        </p>
       </div>
     </div>
   </body>
