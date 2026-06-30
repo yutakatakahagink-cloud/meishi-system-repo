@@ -23,10 +23,10 @@
     if (mm > 0) return "左へ " + mm + "mm";
     return "右へ " + (-mm) + "mm";
   }
-  /** 改行・縦位置自動調整の対象列（textFlow 有効時のみ） */
-  var FLOW_COLUMNS = [
-    ["company", "aff", "name", "qual", "koji"],
-    ["address", "telfax", "mobile", "email", "url"],
+  /** プレビュー時の縦位置調整の並び（左右はゾーン別に処理） */
+  var FLOW_STACK_ORDER = [
+    "company", "aff", "name", "qual", "koji",
+    "address", "telfax", "mobile", "email", "url",
   ];
   /** 長いときに改行してよい項目 */
   var WRAP_ELIGIBLE_IDS = {
@@ -346,11 +346,13 @@
       node.style.maxWidth = "";
       node.style.width = "";
       node.removeAttribute("data-text-wrapped");
+      node.removeAttribute("data-zone-side");
     }
 
     function applyTextWrapIfOverflow(node, st, txt, elId) {
       clearTextWrapStyle(node);
       if (!useAutoWrap() || !txt || NO_WRAP_IDS[elId] || !WRAP_ELIGIBLE_IDS[elId]) return false;
+      var side = textElementSide(st);
       var mw = textMaxWidth(st);
       var lineH = singleLineHeight(st);
       node.style.whiteSpace = "pre-wrap";
@@ -362,7 +364,12 @@
         clearTextWrapStyle(node);
         return false;
       }
+      if (textElementSide(st) !== side) {
+        clearTextWrapStyle(node);
+        return false;
+      }
       node.setAttribute("data-text-wrapped", "1");
+      node.setAttribute("data-zone-side", side);
       return true;
     }
 
@@ -413,18 +420,40 @@
       }
     }
 
+    function hasLineBreak(txt) {
+      return !!(txt && /[\r\n]/.test(txt));
+    }
+
+    /** プレビュー：資格が空で所属に改行がなければ所属を一段下げる */
+    function flowBaseY(id, st, layout) {
+      if (textFlow && readOnly && id === "aff") {
+        if (!getElText("qual") && !hasLineBreak(getElText("aff"))) {
+          var qualSt = layout.el.qual;
+          if (qualSt) return st.y + singleLineHeight(qualSt);
+        }
+      }
+      return st.y;
+    }
+
+    function collectFlowItems(layout, zoneSide) {
+      var items = [];
+      FLOW_STACK_ORDER.forEach(function (id) {
+        var node = elNodes[id];
+        var st = layout.el[id];
+        if (!node || !st || st.hidden || node.style.display === "none") return;
+        if (textElementSide(st) !== zoneSide) return;
+        var txt = getElText(id);
+        if (!txt) return;
+        items.push({ node: node, st: st, baseY: flowBaseY(id, st, layout), id: id });
+      });
+      items.sort(function (a, b) { return a.baseY - b.baseY; });
+      return items;
+    }
+
     function reflowTextElements(layout) {
       if (!textFlow || hideElements) return;
-      FLOW_COLUMNS.forEach(function (colIds) {
-        var items = [];
-        colIds.forEach(function (id) {
-          var node = elNodes[id];
-          var st = layout.el[id];
-          if (!node || !st || st.hidden || node.style.display === "none") return;
-          var txt = getElText(id);
-          if (!txt) return;
-          items.push({ node: node, st: st, baseY: st.y });
-        });
+      ["left", "right"].forEach(function (zoneSide) {
+        var items = collectFlowItems(layout, zoneSide);
         if (!items.length) return;
         var wrapPush = 0;
         items.forEach(function (item) {
@@ -540,12 +569,25 @@
       ensureBuilt();
       var layout = getLayout();
       if (!hideElements) {
-        MeishiLayout.ELS.forEach(function (e) {
-          var node = elNodes[e.id];
-          var st = layout.el[e.id];
-          if (!node || !st) return;
-          applyElStyle(node, st, getElText(e.id), e.label, e.id);
-        });
+        if (textFlow) {
+          ["left", "right"].forEach(function (zoneSide) {
+            FLOW_STACK_ORDER.forEach(function (id) {
+              var st = layout.el[id];
+              if (!st || textElementSide(st) !== zoneSide) return;
+              var node = elNodes[id];
+              if (!node) return;
+              var meta = MeishiLayout.ELS.find(function (e) { return e.id === id; }) || { label: id };
+              applyElStyle(node, st, getElText(id), meta.label, id);
+            });
+          });
+        } else {
+          MeishiLayout.ELS.forEach(function (e) {
+            var node = elNodes[e.id];
+            var st = layout.el[e.id];
+            if (!node || !st) return;
+            applyElStyle(node, st, getElText(e.id), e.label, e.id);
+          });
+        }
         reflowTextElements(layout);
       }
       syncImageNodes();
