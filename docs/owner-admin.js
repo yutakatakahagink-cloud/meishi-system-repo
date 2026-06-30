@@ -81,6 +81,7 @@
     if (!userPrint) {
       userPrint = MeishiUserPrint.create({
         ids: PREVIEW_IDS,
+        textFlow: true,
         isActive: function () {
           var p = document.getElementById("panel-preview");
           return p && p.classList.contains("on");

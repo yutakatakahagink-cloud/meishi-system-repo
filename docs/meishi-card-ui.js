@@ -12,6 +12,11 @@
     ["company", "aff", "name", "qual", "koji"],
     ["address", "telfax", "mobile", "email", "url"],
   ];
+  /** 長いときに改行してよい項目 */
+  var WRAP_ELIGIBLE_IDS = {
+    company: true, aff: true, name: true, qual: true, koji: true,
+    address: true, mobile: true, email: true, url: true,
+  };
   /** 改行しない項目（TEL/FAX など1行表示） */
   var NO_WRAP_IDS = { telfax: true };
 
@@ -144,6 +149,29 @@
       return Math.max(32, cardEl.clientWidth - st.x - FLOW_PAD);
     }
 
+    function clearTextWrapStyle(node) {
+      node.style.whiteSpace = "pre";
+      node.style.wordBreak = "";
+      node.style.overflowWrap = "";
+      node.style.maxWidth = "";
+      node.style.width = "";
+      node.removeAttribute("data-text-wrapped");
+    }
+
+    function applyTextWrapIfOverflow(node, st, txt, elId) {
+      clearTextWrapStyle(node);
+      if (!textFlow || !txt || NO_WRAP_IDS[elId] || !WRAP_ELIGIBLE_IDS[elId]) return false;
+      var mw = textMaxWidth(st);
+      if (node.scrollWidth <= mw + 1) return false;
+      node.style.whiteSpace = "pre-wrap";
+      node.style.wordBreak = "break-word";
+      node.style.overflowWrap = "anywhere";
+      node.style.maxWidth = mw + "px";
+      node.style.width = mw + "px";
+      node.setAttribute("data-text-wrapped", "1");
+      return true;
+    }
+
     function applyElStyle(node, st, txt, label, elId) {
       if (st.hidden) node.style.display = "none";
       else node.style.display = "";
@@ -151,6 +179,7 @@
         node.classList.add("empty");
         node.textContent = "〔" + label + "〕";
         if (readOnly) node.style.display = "none";
+        clearTextWrapStyle(node);
       } else {
         node.classList.remove("empty");
         node.textContent = txt;
@@ -161,20 +190,14 @@
       node.style.color = st.color;
       node.style.fontWeight = st.bold ? "700" : "400";
       node.style.textAlign = st.align;
-      var nowrap = textFlow && NO_WRAP_IDS[elId];
-      if (textFlow && !nowrap) {
-        var mw = textMaxWidth(st);
-        node.style.whiteSpace = "pre-wrap";
-        node.style.wordBreak = "break-word";
-        node.style.overflowWrap = "anywhere";
-        node.style.maxWidth = mw + "px";
-        node.style.width = mw + "px";
-      } else {
-        node.style.whiteSpace = nowrap ? "nowrap" : "pre";
-        node.style.wordBreak = "";
-        node.style.overflowWrap = "";
+      if (textFlow && NO_WRAP_IDS[elId]) {
+        node.style.whiteSpace = "nowrap";
         node.style.maxWidth = "";
         node.style.width = "";
+      } else if (textFlow && txt) {
+        applyTextWrapIfOverflow(node, st, txt, elId);
+      } else {
+        clearTextWrapStyle(node);
       }
     }
 
