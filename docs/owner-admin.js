@@ -532,6 +532,7 @@
           return window.MeishiImageLib ? MeishiImageLib.resolveImages(imgs) : imgs;
         },
         onLayoutChange: function () {},
+        onCenterShiftChange: function () { updateCoCenterShiftUI(); },
         onSelect: function () { if (coPanel) coPanel.showDesign(); },
       });
       coPanel = coUI.bindDesignPanel(document.getElementById("coDesignPanel"));

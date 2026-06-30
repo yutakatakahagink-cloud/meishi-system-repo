@@ -110,6 +110,7 @@
       return (layout.images || []).filter(function (im) { return im && im.src; });
     };
     var onSelect = opts.onSelect || function () {};
+    var onCenterShiftChange = opts.onCenterShiftChange || function () {};
     var sel = null;
     var built = false;
     var elNodes = {};
@@ -145,6 +146,65 @@
       var leftMm = (z.centerStart / z.cardW) * CARD_W_MM;
       var rightMm = (z.centerEnd / z.cardW) * CARD_W_MM;
       zoneLayer.style.background = "linear-gradient(90deg,transparent 0,transparent " + leftMm + "mm,rgba(47,85,151,.05) " + leftMm + "mm,rgba(47,85,151,.05) " + rightMm + "mm,transparent " + rightMm + "mm)";
+      var handle = zoneLayer.querySelector(".card-zone-drag");
+      if (handle) {
+        handle.style.left = z.centerStart + "px";
+        handle.style.width = Math.max(4, z.centerEnd - z.centerStart) + "px";
+      }
+    }
+
+    function setCenterShiftMm(mm) {
+      var layout = getLayout();
+      if (!layout) return;
+      layout.centerShiftMm = clampCenterShiftMm(mm);
+      updateZoneLayerVisual();
+      applyZoneChangeToText();
+      onCenterShiftChange(layout.centerShiftMm);
+    }
+
+    function applyZoneChangeToText() {
+      if (hideElements) return;
+      var layout = getLayout();
+      MeishiLayout.ELS.forEach(function (e) {
+        var node = elNodes[e.id];
+        var st = layout.el[e.id];
+        if (!node || !st) return;
+        applyElStyle(node, st, getElText(e.id), e.label, e.id);
+      });
+      reflowTextElements(layout);
+    }
+
+    function attachCenterLineDrag(handle) {
+      handle.addEventListener("pointerdown", function (ev) {
+        if (readOnly || hideElements) return;
+        if (ev.button !== 0) return;
+        ev.preventDefault();
+        ev.stopPropagation();
+        handle.setPointerCapture(ev.pointerId);
+        cardEl.classList.add("is-dragging-center");
+        var startShift = getCenterShiftMm();
+        var startX = pxFromEvent(ev).clientX;
+        var cardW = cardEl.clientWidth || 1;
+        function shiftFromDelta(clientX) {
+          var deltaPx = clientX - startX;
+          var deltaMm = deltaPx * CARD_W_MM / cardW;
+          return clampCenterShiftMm(startShift - deltaMm);
+        }
+        function mv(e2) {
+          setCenterShiftMm(shiftFromDelta(pxFromEvent(e2).clientX));
+        }
+        function up(e2) {
+          cardEl.classList.remove("is-dragging-center");
+          try { handle.releasePointerCapture(e2.pointerId); } catch (e) {}
+          handle.removeEventListener("pointermove", mv);
+          handle.removeEventListener("pointerup", up);
+          handle.removeEventListener("pointercancel", up);
+          saveLayout();
+        }
+        handle.addEventListener("pointermove", mv);
+        handle.addEventListener("pointerup", up);
+        handle.addEventListener("pointercancel", up);
+      });
     }
 
     function zoneSnapEdges() {
@@ -203,11 +263,18 @@
 
     function ensureZoneLayer() {
       if (!zoneSplit || readOnly || hideElements) return;
-      if (zoneLayer && zoneLayer.parentNode === cardEl) return;
-      zoneLayer = document.createElement("div");
-      zoneLayer.className = "card-zone-layer";
-      zoneLayer.setAttribute("aria-hidden", "true");
-      cardEl.insertBefore(zoneLayer, cardEl.firstChild);
+      if (!zoneLayer || zoneLayer.parentNode !== cardEl) {
+        zoneLayer = document.createElement("div");
+        zoneLayer.className = "card-zone-layer";
+        cardEl.insertBefore(zoneLayer, cardEl.firstChild);
+      }
+      if (!zoneLayer.querySelector(".card-zone-drag")) {
+        var handle = document.createElement("div");
+        handle.className = "card-zone-drag";
+        handle.title = "中央線をドラッグして左右に移動";
+        zoneLayer.appendChild(handle);
+        attachCenterLineDrag(handle);
+      }
     }
 
     function ensureGuideLayer() {
