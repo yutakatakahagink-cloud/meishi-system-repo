@@ -23,7 +23,7 @@
       header.appbar h1{font-size:1.05rem;margin:0}
       .spacer{flex:1}
       .badge{font-size:.72rem;padding:3px 8px;border-radius:999px;background:rgba(255,255,255,.2)}
-      .wrap{max-width:1100px;margin:0 auto;padding:16px 14px 60px}
+      .wrap{max-width:min(1900px, 100%);margin:0 auto;padding:16px 14px 60px}
       .view{display:none}.view.active{display:block}
       .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:none;border-radius:10px;cursor:pointer;font-size:1rem;padding:11px 18px;font-weight:600;background:var(--brand);color:#fff}
       .btn:hover{filter:brightness(1.07)}
@@ -48,9 +48,6 @@
       .panel .field{margin-bottom:10px}
       .panel label{font-size:.78rem}
       .stagewrap{display:flex;flex-direction:column;align-items:center;gap:10px}
-      .preview-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;width:100%;max-width:calc(91mm + 52px)}
-      .preview-head .small{flex:1;text-align:left;margin:0}
-      .preview-head .btn{flex-shrink:0;margin-top:0}
       .stage{background:#cfd6e0;border-radius:12px;padding:26px;display:flex;justify-content:center}
       /* 名刺 91x55mm */
       .meishi{width:91mm;height:55mm;background:#fff;position:relative;box-shadow:0 3px 12px rgba(0,0,0,.25);overflow:hidden}
@@ -136,12 +133,11 @@
 
           <!-- 中央: プレビュー -->
           <div class="stagewrap">
-            <div class="preview-head">
-              <div class="small">デザインは所有者設定の内容が反映されます。項目を選んでプレビュー確認後、印刷してください。（実寸 91×55mm）</div>
-              <button class="btn sm secondary" type="button" id="btnPreview">👁 プレビュー</button>
-            </div>
+            <div class="small">デザインは所有者設定の内容が反映されます。項目を選んでプレビュー確認後、印刷してください。（画面は4倍表示・印刷は実寸 91×55mm）</div>
             <div id="printArea">
-              <div class="stage"><div class="meishi" id="card"></div></div>
+              <div class="preview-scale-box">
+                <div class="stage"><div class="meishi" id="card"></div></div>
+              </div>
             </div>
           </div>
         </div>

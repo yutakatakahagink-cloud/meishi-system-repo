@@ -1,3 +1,27 @@
+/* 画面プレビュー：名刺を4倍表示（印刷は実寸） */
+.preview-scale-box {
+  --preview-scale: 4;
+  --card-w: 91mm;
+  --card-h: 55mm;
+  width: calc(var(--card-w) * var(--preview-scale) + 52px);
+  height: calc(var(--card-h) * var(--preview-scale) + 52px);
+  max-width: 100%;
+  margin: 0 auto;
+  position: relative;
+}
+
+.preview-scale-box--stack {
+  height: calc((var(--card-h) + 32px) * var(--preview-scale) + 52px);
+}
+
+.preview-scale-box > .stage {
+  position: absolute;
+  left: 50%;
+  top: 26px;
+  transform: translateX(-50%) scale(var(--preview-scale));
+  transform-origin: top center;
+}
+
 /* 画面では印刷シートを非表示（印刷時のみ表示） */
 .meishi-a4-print-overlay {
   display: none;
@@ -26,6 +50,21 @@
     margin: 0 !important;
     padding: 0 !important;
     overflow: hidden !important;
+  }
+
+  .preview-scale-box {
+    width: auto !important;
+    height: auto !important;
+    max-width: none !important;
+    margin: 0 !important;
+    position: static !important;
+  }
+
+  .preview-scale-box > .stage {
+    position: static !important;
+    left: auto !important;
+    top: auto !important;
+    transform: none !important;
   }
 
   .stage[data-meishi-print-hidden] {
