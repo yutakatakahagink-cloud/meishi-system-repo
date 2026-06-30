@@ -59,6 +59,7 @@
       if (o.src && o.src.indexOf("data:") === 0) return o;
       if (o.path) o.src = assetUrl(o.path);
       else if (o.src && o.src.indexOf("images/") === 0) o.src = assetUrl(o.src);
+      else if (o.file) o.src = assetUrl("images/" + String(o.file).replace(/^\//, "").replace(/^images\//, ""));
       return o.src ? o : null;
     }).filter(Boolean);
   }
@@ -73,6 +74,7 @@
       w: 80,
       h: 44,
     };
+    if (item.id) out.libId = item.id;
     if (item.path) out.path = item.path;
     else if (item.file && String(item.src || "").indexOf("data:") !== 0) {
       out.path = "images/" + String(item.file).replace(/^\//, "").replace(/^images\//, "");

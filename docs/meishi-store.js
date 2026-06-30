@@ -389,26 +389,70 @@
     void applyLocalImageLibrary();
   }
 
+  function findLibraryPathForImage(im) {
+    var lib = getImageLibrary();
+    if (!im || !lib.length) return "";
+    var src = String(im.src || "");
+    var path = String(im.path || "").replace(/^\//, "");
+    var file = String(im.file || "").replace(/^images\//, "").replace(/^\//, "");
+    var libId = im.libId || im.id;
+    for (var i = 0; i < lib.length; i++) {
+      var x = lib[i];
+      if (!x) continue;
+      var xp = String(x.path || "").replace(/^\//, "");
+      var xf = String(x.file || "").replace(/^images\//, "").replace(/^\//, "");
+      if (!xp && xf) xp = "images/" + xf;
+      if (libId && x.id === libId) return xp;
+      if (path && (xp === path || ("images/" + xf) === path)) return xp;
+      if (file && xf === file) return xp;
+      if (src && x.src && src === x.src) return xp;
+      if (src && xp && src.indexOf(xp) >= 0) return xp;
+    }
+    return "";
+  }
+
+  function normalizeLayoutImageForStore(im) {
+    if (!im) return null;
+    var o = clone(im);
+    var libPath = findLibraryPathForImage(o);
+    if (libPath) o.path = libPath.replace(/^\//, "");
+    if (!o.path && o.file) {
+      o.path = "images/" + String(o.file).replace(/^\//, "").replace(/^images\//, "");
+    }
+    if (o.path) {
+      o.path = String(o.path).replace(/^\//, "");
+      if (o.path.indexOf("images/") !== 0) o.path = "images/" + o.path;
+      delete o.src;
+      delete o.file;
+      return o;
+    }
+    if (o.src && String(o.src).indexOf("images/") === 0) {
+      o.path = String(o.src);
+      delete o.src;
+      delete o.file;
+      return o;
+    }
+    if (o.src && /^https?:\/\//i.test(String(o.src))) {
+      var m = String(o.src).match(/\/images\/(.+?)(?:\?|#|$)/i);
+      if (m) {
+        try { o.path = "images/" + decodeURIComponent(m[1]); } catch (e) { o.path = "images/" + m[1]; }
+        delete o.src;
+        delete o.file;
+        return o;
+      }
+    }
+    if (o.src && String(o.src).indexOf("data:") === 0) {
+      delete o.file;
+      return o;
+    }
+    if (!o.src) return null;
+    return o;
+  }
+
   function compactLayoutForStore(layout) {
     var l = MeishiCatalog.normalizeLayout(clone(layout));
     if (!l || !l.el) return l;
-    l.images = (l.images || []).map(function (im) {
-      if (!im) return null;
-      var o = clone(im);
-      if (o.path) {
-        delete o.src;
-      } else if (o.src && String(o.src).indexOf("images/") === 0) {
-        o.path = String(o.src);
-        delete o.src;
-      } else if (o.src && /^https?:\/\//i.test(String(o.src))) {
-        var idx = String(o.src).indexOf("/images/");
-        if (idx >= 0) {
-          o.path = String(o.src).slice(idx + 1);
-          delete o.src;
-        }
-      }
-      return o;
-    }).filter(Boolean);
+    l.images = (l.images || []).map(normalizeLayoutImageForStore).filter(Boolean);
     return l;
   }
 
@@ -634,31 +678,33 @@
   }
 
   function normalizeDeptProfile(raw, company, aff1, aff2) {
-    var imgs = [];
-    if (raw && raw.layout && raw.layout.images && raw.layout.images.length) imgs = raw.layout.images;
-    else if (raw && raw.images && raw.images.length) imgs = raw.images;
-    var baseLayout = null;
-    if (raw && raw.layout && MeishiLayout.isValidLayout(raw.layout)) baseLayout = clone(raw.layout);
-    else if (imgs.length) {
-      baseLayout = MeishiLayout.defLayout();
-      MeishiLayout.ELS.forEach(function (e) {
-        if (baseLayout.el[e.id]) baseLayout.el[e.id].hidden = true;
-      });
-    }
-    var layout = null;
-    var compactImgs = [];
-    if (baseLayout) {
-      if (imgs.length) baseLayout.images = imgs;
-      layout = compactLayoutForStore(baseLayout);
-      compactImgs = layout.images || [];
-    }
-    return {
+    var out = {
       company: MeishiFields.norm(company),
       aff1: MeishiFields.norm(aff1),
       aff2: MeishiFields.norm(aff2 || ""),
-      layout: layout,
-      images: clone(compactImgs),
+      layout: null,
+      images: [],
     };
+    if (!raw || typeof raw !== "object") return out;
+    var layout = null;
+    if (raw.layout && MeishiLayout.isValidLayout(raw.layout)) {
+      layout = compactLayoutForStore(raw.layout);
+    } else {
+      var imgs = (raw.images && raw.images.length) ? raw.images : [];
+      if (imgs.length) {
+        var shell = MeishiLayout.defLayout();
+        MeishiLayout.ELS.forEach(function (e) {
+          if (shell.el[e.id]) shell.el[e.id].hidden = true;
+        });
+        shell.images = imgs;
+        layout = compactLayoutForStore(shell);
+      }
+    }
+    if (layout) {
+      out.layout = layout;
+      out.images = clone(layout.images || []);
+    }
+    return out;
   }
 
   function migrateDeptKeys() {
@@ -821,8 +867,18 @@
   function saveDeptSettings(company, aff1, aff2, data) {
     var k = MeishiFields.deptKey(company, aff1, aff2);
     _config.deptSettings = _config.deptSettings || {};
-    var profile = normalizeDeptProfile(data, company, aff1, aff2);
-    _config.deptSettings[k] = profile;
+    var out = {
+      company: MeishiFields.norm(company),
+      aff1: MeishiFields.norm(aff1),
+      aff2: MeishiFields.norm(aff2 || ""),
+      layout: null,
+      images: [],
+    };
+    if (data && data.layout && MeishiLayout.isValidLayout(data.layout)) {
+      out.layout = compactLayoutForStore(data.layout);
+      out.images = clone(out.layout.images || []);
+    }
+    _config.deptSettings[k] = out;
     var ok = persistCfg();
     if (!ok) return false;
     fireCfg();

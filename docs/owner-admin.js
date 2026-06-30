@@ -683,6 +683,20 @@
     refreshDeptDesign();
   }
 
+  function collectDeptProfile() {
+    var pk = getDeptPickers();
+    pk.aff1 = document.getElementById("deAff1Pick").value;
+    pk.aff2 = document.getElementById("deAff2Pick").value;
+    if (!deLayout) loadDeptLayout();
+    if (!deLayout) deLayout = newDeptLayout();
+    return {
+      company: pk.co,
+      aff1: pk.aff1,
+      aff2: pk.aff2,
+      layout: MeishiCatalog.normalizeLayout(MeishiLayout.clone(deLayout)),
+    };
+  }
+
   function saveCurrentDeptLayout() {
     var pk = getDeptPickers();
     pk.aff1 = document.getElementById("deAff1Pick").value;
@@ -691,19 +705,9 @@
       alert("会社と所属1を選択してください");
       return false;
     }
-    if (!deLayout) loadDeptLayout();
-    if (!deLayout) deLayout = newDeptLayout();
-    var layout = MeishiCatalog.normalizeLayout(MeishiLayout.clone(deLayout));
-    if (!layout.images || !layout.images.length) {
-      alert("部署画像がありません。「＋部署画像」から追加してください。");
-      return false;
-    }
     window._deptSaving = true;
     try {
-      return MeishiStore.saveDeptSettings(pk.co, pk.aff1, pk.aff2, {
-        layout: layout,
-        images: layout.images.slice(),
-      });
+      return MeishiStore.saveDeptSettings(pk.co, pk.aff1, pk.aff2, collectDeptProfile());
     } finally {
       window._deptSaving = false;
     }
@@ -762,10 +766,9 @@
   function renderDeImgList() {
     var list = document.getElementById("deImgList");
     if (!list || !deLayout) return;
-    var imgs = deLayout.images || [];
-    if (window.MeishiImageLib) imgs = MeishiImageLib.resolveImages(imgs);
-    list.innerHTML = imgs.map(function (im, i) {
-      return "<div class='img-item'><img src='" + esc(im.src || "") + "' /><button type='button' data-i='" + i + "' class='linkbtn'>削除</button></div>";
+    list.innerHTML = (deLayout.images || []).map(function (im, i) {
+      var src = window.MeishiImageLib ? MeishiImageLib.itemUrl(im) : (im.src || "");
+      return "<div class='img-item'><img src='" + esc(src) + "' /><button type='button' data-i='" + i + "' class='linkbtn'>削除</button></div>";
     }).join("");
     list.querySelectorAll("[data-i]").forEach(function (btn) {
       btn.onclick = function () {
