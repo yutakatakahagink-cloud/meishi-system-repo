@@ -49,20 +49,24 @@
     return window.location.origin + dir + rel;
   }
   /** 使用者/所有者ページ URL（開く・コピー用）。表示中のサイト origin を優先。 */
-  function publicPageUrl(page) {
+  function publicPageUrl(page, opts) {
+    opts = opts || {};
     var p = String(page || "").replace(/^\//, "");
+    var url;
     if (window.location.protocol === "http:" || window.location.protocol === "https:") {
-      return assetUrl(p);
-    }
-    if (window.location.protocol === "file:") {
+      url = assetUrl(p);
+    } else if (window.location.protocol === "file:") {
       try {
-        return new URL(p, window.location.href).href;
+        url = new URL(p, window.location.href).href;
       } catch (e) {
-        return p;
+        url = p;
       }
+    } else {
+      var base = window.MEISHI_BASE_URL;
+      url = base ? String(base).replace(/\/?$/, "/") + p : assetUrl(p);
     }
-    var base = window.MEISHI_BASE_URL;
-    return base ? String(base).replace(/\/?$/, "/") + p : assetUrl(p);
+    if (opts.hash) url += "#" + String(opts.hash).replace(/^#/, "");
+    return url;
   }
   function isFileProtocol() {
     return typeof window.location !== "undefined" && window.location.protocol === "file:";
@@ -1171,8 +1175,8 @@
     useFirebase: function () { return _useFirebase; },
     onConfigChange: function (cb) { if (typeof cb === "function") _cfgListeners.push(cb); },
     onRecordsChange: function (cb) { if (typeof cb === "function") _recListeners.push(cb); },
-    userUrl: function () { return publicPageUrl("user.html"); },
-    ownerUrl: function () { return publicPageUrl("owner.html"); },
+    userUrl: function () { return publicPageUrl("user.html", { hash: "preview" }); },
+    ownerUrl: function () { return publicPageUrl("owner.html", { hash: "preview" }); },
     get ready() { return _ready; },
   };
 })();

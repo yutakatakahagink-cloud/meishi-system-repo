@@ -51,6 +51,21 @@
     else { b.textContent = "この端末のみ"; b.style.background = "rgba(243,156,18,.35)"; }
   }
 
+  function isPreviewDeepLink() {
+    var h = (location.hash || "").replace(/^#/, "").toLowerCase();
+    return h === "preview" || h === "print" || h === "editor";
+  }
+
+  function applyPreviewOnlyMode() {
+    if (!isPreviewDeepLink()) return;
+    var tabs = document.getElementById("tabs");
+    if (tabs) tabs.style.display = "none";
+    document.querySelectorAll(".panel").forEach(function (p) { p.classList.remove("on"); });
+    var prev = document.getElementById("panel-preview");
+    if (prev) prev.classList.add("on");
+    initPreviewPanel();
+  }
+
   function showTab(id) {
     document.querySelectorAll(".tabs button").forEach(function (b) {
       b.classList.toggle("on", b.getAttribute("data-tab") === id);
@@ -1147,6 +1162,7 @@
         document.getElementById("selRecNo").innerHTML =
           "<option value=''>行番号で選択</option>" + nos2.map(function (n) { return "<option>" + esc(n) + "</option>"; }).join("");
       });
+      applyPreviewOnlyMode();
     },
   };
 })();

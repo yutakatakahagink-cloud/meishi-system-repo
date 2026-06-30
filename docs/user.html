@@ -9,7 +9,7 @@
     <script src="config.js" onerror="console.info('[Meishi] config.js なし → localStorage モード')"></script>
     <script src="meishi-fields.js"></script>
     <script src="meishi-catalog.js"></script>
-    <script src="meishi-store.js?v=20250615d"></script>
+    <script src="meishi-store.js?v=20250617b"></script>
     <script src="meishi-layout.js"></script>
     <script src="meishi-image-lib.js"></script>
     <script src="meishi-card-ui.js?v=20250617a"></script>
@@ -157,6 +157,15 @@
         document.getElementById("view-" + v).classList.add("active");
       }
 
+      function isPreviewDeepLink() {
+        var h = (location.hash || "").replace(/^#/, "").toLowerCase();
+        return h === "preview" || h === "print" || h === "editor";
+      }
+
+      function afterLoginView() {
+        return isPreviewDeepLink() ? "editor" : "home";
+      }
+
       var userPrint = MeishiUserPrint.create({
         textFlow: true,
         isActive: function () {
@@ -172,7 +181,12 @@
         if (id === (c.ownerId || "") && pw === (c.ownerPass || "")) {
           sessionStorage.setItem(SK, "1");
           document.getElementById("btnLogout").style.display = "";
-          show("home");
+          show(afterLoginView());
+          if (isPreviewDeepLink()) {
+            userPrint.rebuild();
+            var btnHome = document.getElementById("btnHome");
+            if (btnHome) btnHome.style.display = "none";
+          }
         } else alert("IDまたはパスワードが違います。");
       }
       document.getElementById("btnLogin").addEventListener("click", doLogin);
@@ -211,7 +225,12 @@
         });
         if (sessionStorage.getItem(SK) === "1") {
           document.getElementById("btnLogout").style.display = "";
-          show("home");
+          show(afterLoginView());
+          if (isPreviewDeepLink()) {
+            userPrint.rebuild();
+            var btnHome = document.getElementById("btnHome");
+            if (btnHome) btnHome.style.display = "none";
+          }
         } else show("login");
       })();
     </script>
