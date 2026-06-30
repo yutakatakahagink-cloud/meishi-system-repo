@@ -5,7 +5,6 @@
  */
 (function () {
   var SNAP_THRESH = 6;
-  var FLOW_GAP = 3;
   var FLOW_PAD = 6;
   /** 改行・縦位置自動調整の対象列（textFlow 有効時のみ） */
   var FLOW_COLUMNS = [
@@ -149,6 +148,10 @@
       return Math.max(32, cardEl.clientWidth - st.x - FLOW_PAD);
     }
 
+    function singleLineHeight(st) {
+      return Math.ceil(st.size * 1.3) + 2;
+    }
+
     function clearTextWrapStyle(node) {
       node.style.whiteSpace = "pre";
       node.style.wordBreak = "";
@@ -162,12 +165,16 @@
       clearTextWrapStyle(node);
       if (!textFlow || !txt || NO_WRAP_IDS[elId] || !WRAP_ELIGIBLE_IDS[elId]) return false;
       var mw = textMaxWidth(st);
-      if (node.scrollWidth <= mw + 1) return false;
+      var lineH = singleLineHeight(st);
       node.style.whiteSpace = "pre-wrap";
       node.style.wordBreak = "break-word";
       node.style.overflowWrap = "anywhere";
       node.style.maxWidth = mw + "px";
       node.style.width = mw + "px";
+      if (node.scrollHeight <= lineH + 1) {
+        clearTextWrapStyle(node);
+        return false;
+      }
       node.setAttribute("data-text-wrapped", "1");
       return true;
     }
@@ -203,7 +210,6 @@
 
     function reflowTextElements(layout) {
       if (!textFlow || hideElements) return;
-      var cardH = cardEl.clientHeight;
       FLOW_COLUMNS.forEach(function (colIds) {
         var items = [];
         colIds.forEach(function (id) {
@@ -215,14 +221,13 @@
           items.push({ node: node, st: st, baseY: st.y });
         });
         if (!items.length) return;
-        var cursorBottom = -Infinity;
+        var wrapPush = 0;
         items.forEach(function (item) {
-          var top = Math.max(item.baseY, cursorBottom + (cursorBottom > -Infinity ? FLOW_GAP : 0));
-          if (top + item.node.offsetHeight > cardH) {
-            top = Math.max(0, cardH - item.node.offsetHeight);
+          item.node.style.top = (item.baseY + wrapPush) + "px";
+          if (item.node.getAttribute("data-text-wrapped") === "1") {
+            var extra = Math.max(0, item.node.offsetHeight - singleLineHeight(item.st));
+            wrapPush += extra;
           }
-          item.node.style.top = top + "px";
-          cursorBottom = top + item.node.offsetHeight;
         });
       });
     }
