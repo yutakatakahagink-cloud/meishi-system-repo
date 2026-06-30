@@ -8,6 +8,8 @@
   var FLOW_PAD = 6;
   var CARD_W_MM = 91;
   var CENTER_GAP_MM = 5;
+  /** 中央帯の中心をカード中央から左へずらす量（mm） */
+  var CENTER_SHIFT_LEFT_MM = 5;
   /** 改行・縦位置自動調整の対象列（textFlow 有効時のみ） */
   var FLOW_COLUMNS = [
     ["company", "aff", "name", "qual", "koji"],
@@ -105,7 +107,8 @@
     function getCardZones() {
       var w = cardEl.clientWidth || 1;
       var centerPx = w * (CENTER_GAP_MM / CARD_W_MM);
-      var centerStart = (w - centerPx) / 2;
+      var shiftPx = w * (CENTER_SHIFT_LEFT_MM / CARD_W_MM);
+      var centerStart = Math.max(0, Math.min((w - centerPx) / 2 - shiftPx, w - centerPx));
       return {
         cardW: w,
         centerStart: centerStart,
