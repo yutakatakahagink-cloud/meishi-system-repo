@@ -33,7 +33,8 @@ th{background:#f3f6fb;position:sticky;top:0}tr.sel{background:#e8eef8}tr:hover{b
 .stage{background:#cfd6e0;border-radius:12px;padding:16px;display:flex;justify-content:center}
 .el,.imgel{position:absolute;cursor:move;touch-action:none;border:1px dashed transparent;user-select:none}
 .el{white-space:pre;line-height:1.3;padding:1px 2px;box-sizing:border-box}
-.meishi.print-readonly .el{white-space:pre-wrap;word-break:break-word;overflow-wrap:anywhere}.el.sel,.imgel.sel{border-color:#2f5597;background:rgba(47,85,151,.06)}
+.meishi.text-flow .el{white-space:pre-wrap;word-break:break-word;overflow-wrap:anywhere}
+.meishi.text-flow .el[data-id="telfax"]{white-space:nowrap}.el.sel,.imgel.sel{border-color:#2f5597;background:rgba(47,85,151,.06)}
 .el.empty{opacity:.25}.imgel img{width:100%;height:100%;object-fit:contain;pointer-events:none;display:block}
 .rs{position:absolute;right:-6px;bottom:-6px;width:12px;height:12px;background:#2f5597;border-radius:50%;cursor:se-resize}
 .meishi.is-dragging .el,.meishi.is-dragging .imgel{cursor:grabbing}

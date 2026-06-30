@@ -133,7 +133,7 @@
       if (id === "telfax") {
         var t = el("inTel").value;
         var f = el("inFax").value;
-        return [t ? "TEL " + t : "", f ? "FAX " + f : ""].filter(Boolean).join("　");
+        return [t ? "TEL " + t : "", f ? "FAX " + f : ""].filter(Boolean).join("\u3000");
       }
       if (id === "mobile") {
         var m = el("inMobile").value;
@@ -149,6 +149,7 @@
       cardUI = MeishiCardUI.createCardUI({
         cardEl: el("card"),
         readOnly: true,
+        textFlow: !!cfg.textFlow,
         getLayout: function () { return layout; },
         getElText: elText,
         getImages: function () {

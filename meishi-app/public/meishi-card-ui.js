@@ -7,11 +7,13 @@
   var SNAP_THRESH = 6;
   var FLOW_GAP = 3;
   var FLOW_PAD = 6;
-  /** 縦方向に重なりを解消するテキスト列（上→下） */
+  /** 改行・縦位置自動調整の対象列（textFlow 有効時のみ） */
   var FLOW_COLUMNS = [
     ["company", "aff", "name", "qual", "koji"],
     ["address", "telfax", "mobile", "email", "url"],
   ];
+  /** 改行しない項目（TEL/FAX など1行表示） */
+  var NO_WRAP_IDS = { telfax: true };
 
   function pxFromEvent(e) { return e.touches ? e.touches[0] : e; }
 
@@ -77,6 +79,7 @@
     var getElText = opts.getElText;
     var readOnly = !!opts.readOnly;
     var hideElements = !!opts.hideElements;
+    var textFlow = !!opts.textFlow;
     var getImages = opts.getImages || function () {
       var layout = MeishiCatalog.normalizeLayout(getLayout());
       return (layout.images || []).filter(function (im) { return im && im.src; });
@@ -141,7 +144,7 @@
       return Math.max(32, cardEl.clientWidth - st.x - FLOW_PAD);
     }
 
-    function applyElStyle(node, st, txt, label) {
+    function applyElStyle(node, st, txt, label, elId) {
       if (st.hidden) node.style.display = "none";
       else node.style.display = "";
       if (!txt) {
@@ -158,7 +161,8 @@
       node.style.color = st.color;
       node.style.fontWeight = st.bold ? "700" : "400";
       node.style.textAlign = st.align;
-      if (readOnly) {
+      var nowrap = textFlow && NO_WRAP_IDS[elId];
+      if (textFlow && !nowrap) {
         var mw = textMaxWidth(st);
         node.style.whiteSpace = "pre-wrap";
         node.style.wordBreak = "break-word";
@@ -166,7 +170,7 @@
         node.style.maxWidth = mw + "px";
         node.style.width = mw + "px";
       } else {
-        node.style.whiteSpace = "pre";
+        node.style.whiteSpace = nowrap ? "nowrap" : "pre";
         node.style.wordBreak = "";
         node.style.overflowWrap = "";
         node.style.maxWidth = "";
@@ -175,7 +179,7 @@
     }
 
     function reflowTextElements(layout) {
-      if (!readOnly || hideElements) return;
+      if (!textFlow || hideElements) return;
       var cardH = cardEl.clientHeight;
       FLOW_COLUMNS.forEach(function (colIds) {
         var items = [];
@@ -206,6 +210,8 @@
       elNodes = {};
       if (readOnly) cardEl.classList.add("print-readonly");
       else cardEl.classList.remove("print-readonly");
+      if (textFlow) cardEl.classList.add("text-flow");
+      else cardEl.classList.remove("text-flow");
       if (!hideElements) {
         MeishiLayout.ELS.forEach(function (e) {
           var st = getLayout().el[e.id];
@@ -294,7 +300,7 @@
           var node = elNodes[e.id];
           var st = layout.el[e.id];
           if (!node || !st) return;
-          applyElStyle(node, st, getElText(e.id), e.label);
+          applyElStyle(node, st, getElText(e.id), e.label, e.id);
         });
         reflowTextElements(layout);
       }
@@ -430,7 +436,7 @@
         if (!st || !node) return;
         Object.assign(st, patch);
         var lbl = (MeishiLayout.ELS.find(function (e) { return e.id === sel; }) || {}).label || sel;
-        applyElStyle(node, st, getElText(sel), lbl);
+        applyElStyle(node, st, getElText(sel), lbl, sel);
         saveLayout();
       }
 
