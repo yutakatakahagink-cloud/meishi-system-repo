@@ -6,6 +6,8 @@
 (function () {
   var SNAP_THRESH = 6;
   var FLOW_PAD = 6;
+  var CARD_W_MM = 91;
+  var CENTER_GAP_MM = 5;
   /** 改行・縦位置自動調整の対象列（textFlow 有効時のみ） */
   var FLOW_COLUMNS = [
     ["company", "aff", "name", "qual", "koji"],
@@ -34,10 +36,13 @@
     return best;
   }
 
-  function collectSnapTargets(cardEl, excludeNode) {
+  function collectSnapTargets(cardEl, excludeNode, zoneEdges) {
     var cr = cardEl.getBoundingClientRect();
     var tx = [0, cr.width / 2, cr.width];
     var ty = [0, cr.height / 2, cr.height];
+    if (zoneEdges) {
+      tx.push(zoneEdges.leftEnd, zoneEdges.centerStart, zoneEdges.centerEnd, zoneEdges.rightStart);
+    }
     cardEl.querySelectorAll(".el, .imgel").forEach(function (n) {
       if (n === excludeNode) return;
       var r = n.getBoundingClientRect();
@@ -49,12 +54,12 @@
     return { tx: tx, ty: ty };
   }
 
-  function snapDragPosition(cardEl, node, nx, ny) {
+  function snapDragPosition(cardEl, node, nx, ny, zoneEdges) {
     var w = node.offsetWidth;
     var h = node.offsetHeight;
     var left = nx;
     var top = ny;
-    var targets = collectSnapTargets(cardEl, node);
+    var targets = collectSnapTargets(cardEl, node, zoneEdges);
     var sx = bestSnap([left, left + w / 2, left + w], targets.tx, SNAP_THRESH);
     var sy = bestSnap([top, top + h / 2, top + h], targets.ty, SNAP_THRESH);
     return {
@@ -65,8 +70,8 @@
     };
   }
 
-  function snapResizeBox(cardEl, node, x, y, nw, nh) {
-    var targets = collectSnapTargets(cardEl, node);
+  function snapResizeBox(cardEl, node, x, y, nw, nh, zoneEdges) {
+    var targets = collectSnapTargets(cardEl, node, zoneEdges);
     var sr = bestSnap([x + nw], targets.tx, SNAP_THRESH);
     var sb = bestSnap([y + nh], targets.ty, SNAP_THRESH);
     return {
@@ -84,6 +89,7 @@
     var readOnly = !!opts.readOnly;
     var hideElements = !!opts.hideElements;
     var textFlow = !!opts.textFlow;
+    var zoneSplit = opts.zoneSplit !== false;
     var getImages = opts.getImages || function () {
       var layout = MeishiCatalog.normalizeLayout(getLayout());
       return (layout.images || []).filter(function (im) { return im && im.src; });
@@ -94,6 +100,38 @@
     var elNodes = {};
     var imgNodes = {};
     var guideLayer = null;
+    var zoneLayer = null;
+
+    function getCardZones() {
+      var w = cardEl.clientWidth || 1;
+      var centerPx = w * (CENTER_GAP_MM / CARD_W_MM);
+      var centerStart = (w - centerPx) / 2;
+      return {
+        cardW: w,
+        centerStart: centerStart,
+        centerEnd: centerStart + centerPx,
+        leftEnd: centerStart,
+        rightStart: centerStart + centerPx,
+      };
+    }
+
+    function zoneSnapEdges() {
+      if (!zoneSplit || readOnly) return null;
+      return getCardZones();
+    }
+
+    function useAutoWrap() {
+      return zoneSplit && (textFlow || !readOnly);
+    }
+
+    function ensureZoneLayer() {
+      if (!zoneSplit || readOnly || hideElements) return;
+      if (zoneLayer && zoneLayer.parentNode === cardEl) return;
+      zoneLayer = document.createElement("div");
+      zoneLayer.className = "card-zone-layer";
+      zoneLayer.setAttribute("aria-hidden", "true");
+      cardEl.insertBefore(zoneLayer, cardEl.firstChild);
+    }
 
     function ensureGuideLayer() {
       if (readOnly) return;
@@ -145,7 +183,12 @@
     }
 
     function textMaxWidth(st) {
-      return Math.max(32, cardEl.clientWidth - st.x - FLOW_PAD);
+      if (!zoneSplit) return Math.max(32, cardEl.clientWidth - st.x - FLOW_PAD);
+      var zones = getCardZones();
+      var x = st.x;
+      var pad = FLOW_PAD;
+      if (x >= zones.rightStart) return Math.max(16, zones.cardW - x - pad);
+      return Math.max(16, zones.leftEnd - x - pad);
     }
 
     function singleLineHeight(st) {
@@ -163,7 +206,7 @@
 
     function applyTextWrapIfOverflow(node, st, txt, elId) {
       clearTextWrapStyle(node);
-      if (!textFlow || !txt || NO_WRAP_IDS[elId] || !WRAP_ELIGIBLE_IDS[elId]) return false;
+      if (!useAutoWrap() || !txt || NO_WRAP_IDS[elId] || !WRAP_ELIGIBLE_IDS[elId]) return false;
       var mw = textMaxWidth(st);
       var lineH = singleLineHeight(st);
       node.style.whiteSpace = "pre-wrap";
@@ -197,11 +240,11 @@
       node.style.color = st.color;
       node.style.fontWeight = st.bold ? "700" : "400";
       node.style.textAlign = st.align;
-      if (textFlow && NO_WRAP_IDS[elId]) {
+      if (NO_WRAP_IDS[elId] && useAutoWrap()) {
         node.style.whiteSpace = "nowrap";
         node.style.maxWidth = "";
         node.style.width = "";
-      } else if (textFlow && txt) {
+      } else if (useAutoWrap() && txt) {
         applyTextWrapIfOverflow(node, st, txt, elId);
       } else {
         clearTextWrapStyle(node);
@@ -240,6 +283,12 @@
       else cardEl.classList.remove("print-readonly");
       if (textFlow) cardEl.classList.add("text-flow");
       else cardEl.classList.remove("text-flow");
+      if (zoneSplit && !readOnly && !hideElements) {
+        cardEl.classList.add("design-mode", "zone-split");
+        ensureZoneLayer();
+      } else {
+        cardEl.classList.remove("design-mode", "zone-split");
+      }
       if (!hideElements) {
         MeishiLayout.ELS.forEach(function (e) {
           var st = getLayout().el[e.id];
@@ -363,7 +412,7 @@
           var q = pxFromEvent(e2);
           var rawNx = Math.round(ox + (q.clientX - sx));
           var rawNy = Math.round(oy + (q.clientY - sy));
-          var snapped = snapDragPosition(cardEl, node, rawNx, rawNy);
+          var snapped = snapDragPosition(cardEl, node, rawNx, rawNy, zoneSnapEdges());
           nx = snapped.nx;
           ny = snapped.ny;
           showGuides(snapped.guideX, snapped.guideY);
@@ -378,6 +427,11 @@
           node.removeEventListener("pointermove", mv);
           node.removeEventListener("pointerup", up);
           node.removeEventListener("pointercancel", up);
+          if (useAutoWrap() && id && !isImgSel(id)) {
+            var st2 = getLayout().el[id];
+            var lbl2 = (MeishiLayout.ELS.find(function (e) { return e.id === id; }) || {}).label || id;
+            if (st2) applyElStyle(node, st2, getElText(id), lbl2, id);
+          }
           saveLayout();
         }
         node.addEventListener("pointermove", mv);
@@ -407,7 +461,7 @@
           var q = pxFromEvent(e2);
           var rawW = Math.max(16, Math.round(ow + (q.clientX - sx)));
           var rawH = Math.max(12, Math.round(oh + (q.clientY - sy)));
-          var snapped = snapResizeBox(cardEl, wrap, im.x, im.y, rawW, rawH);
+          var snapped = snapResizeBox(cardEl, wrap, im.x, im.y, rawW, rawH, zoneSnapEdges());
           nw = snapped.w;
           nh = snapped.h;
           showGuides(snapped.guideX, snapped.guideY);
@@ -442,6 +496,7 @@
       elNodes = {};
       imgNodes = {};
       guideLayer = null;
+      zoneLayer = null;
       cardEl.innerHTML = "";
     }
 
