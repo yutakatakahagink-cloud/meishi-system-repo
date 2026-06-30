@@ -502,17 +502,27 @@
       built = true;
     }
 
+    function hasImageRef(im) {
+      return !!(im && (im.src || im.path || im.libId || im.file));
+    }
+
     function syncImageNodes() {
       var layout = MeishiCatalog.normalizeLayout(getLayout());
       if (!layout.images) layout.images = [];
       var pairs = [];
       if (readOnly) {
         getImages().forEach(function (im) {
-          if (im && (im.src || im.path)) pairs.push({ raw: im, display: im });
+          if (!hasImageRef(im)) return;
+          var display = im;
+          if (window.MeishiImageLib) {
+            var rs = MeishiImageLib.resolveImages([im]);
+            if (rs[0]) display = rs[0];
+          }
+          pairs.push({ raw: im, display: display });
         });
       } else {
         layout.images.forEach(function (raw) {
-          if (!raw || (!raw.src && !raw.path)) return;
+          if (!hasImageRef(raw)) return;
           var display = raw;
           if (window.MeishiImageLib) {
             var rs = MeishiImageLib.resolveImages([raw]);
