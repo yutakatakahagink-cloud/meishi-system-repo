@@ -362,11 +362,14 @@
       var rv = remoteMap[k];
       var lv = out[k];
       if (rv && typeof rv === "object" && lv && typeof lv === "object") {
-        if (k.indexOf("|") >= 0) out[k] = mergeDeptSettingsEntry(lv, rv);
-        else {
-          out[k] = Object.assign({}, lv, rv);
-          if (lv.layout && MeishiLayout.isValidLayout(lv.layout) && !(rv.layout && MeishiLayout.isValidLayout(rv.layout))) {
+        if (k.indexOf("|") >= 0) {
+          out[k] = mergeDeptSettingsEntry(lv, rv);
+        } else {
+          out[k] = Object.assign({}, rv, lv);
+          if (lv.layout && MeishiLayout.isValidLayout(lv.layout)) {
             out[k].layout = clone(lv.layout);
+          } else if (rv.layout && MeishiLayout.isValidLayout(rv.layout)) {
+            out[k].layout = clone(rv.layout);
           }
         }
       } else {

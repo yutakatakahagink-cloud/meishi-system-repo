@@ -109,6 +109,24 @@
       return changed;
     }
 
+    function syncSelectionFromForm() {
+      var co = el("selCompany");
+      if (co) S.company = co.value || "";
+      var a1 = el("selAff1");
+      if (a1) S.aff1 = a1.value || "";
+      var a2 = el("selAff2");
+      if (a2) S.aff2 = a2.value || "";
+    }
+
+    function refreshLayoutFromStore() {
+      syncSelectionFromForm();
+      if (!S.company) return;
+      layout = MeishiCatalog.normalizeLayout(MeishiLayout.clone(
+        MeishiStore.getEffectiveLayout(S.company, S.aff1, S.aff2)
+      ));
+      if (cardUI) cardUI.invalidate();
+    }
+
     function resolveStdLayout() {
       if (S.company) {
         var eff = MeishiStore.getEffectiveLayout(S.company, S.aff1, S.aff2);
@@ -119,8 +137,11 @@
     }
 
     function initLayout() {
-      layout = MeishiCatalog.normalizeLayout(resolveStdLayout());
-      if (cardUI) cardUI.invalidate();
+      refreshLayoutFromStore();
+      if (!layout) {
+        layout = MeishiCatalog.normalizeLayout(resolveStdLayout());
+        if (cardUI) cardUI.invalidate();
+      }
     }
 
     function elText(id) {
@@ -196,11 +217,7 @@
       el("inAddress").value = firstNonEmpty(locRows, "address");
       el("inTel").value = firstNonEmpty(locRows, "tel");
       el("inFax").value = firstNonEmpty(locRows, "fax");
-      if (S.company) {
-        layout = resolveStdLayout();
-        layout = MeishiCatalog.normalizeLayout(layout);
-        if (cardUI) cardUI.invalidate();
-      }
+      refreshLayoutFromStore();
       renderCard();
     }
 
@@ -284,7 +301,12 @@
       storeHooked = true;
       MeishiStore.onConfigChange(function () {
         reloadRecords();
-        if (cfg.isActive && cfg.isActive()) rebuild();
+        if (cfg.isActive && cfg.isActive()) {
+          rebuild();
+        } else {
+          refreshLayoutFromStore();
+          if (layout) renderCard();
+        }
       });
       MeishiStore.onRecordsChange(function () {
         reloadRecords();

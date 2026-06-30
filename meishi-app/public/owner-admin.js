@@ -350,7 +350,7 @@
     renderRecTable();
     fillDeptPanel();
     refreshCoDesign();
-    if (previewPanel) previewPanel.rebuild();
+    initPreviewPanel();
   }
 
   function collectCoProfile() {
@@ -1005,6 +1005,8 @@
         var deptOn = document.getElementById("panel-dept") && document.getElementById("panel-dept").classList.contains("on");
         if (!deptOn) fillDeptPanel();
         refreshRecFormIfOpen();
+        var prevOn = document.getElementById("panel-preview") && document.getElementById("panel-preview").classList.contains("on");
+        if (prevOn) initPreviewPanel();
       });
       MeishiStore.onRecordsChange(function () {
         refreshCoPickOptions();
