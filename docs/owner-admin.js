@@ -37,6 +37,7 @@
     inKoji: "pvInKoji",
     card: "pvCard",
     btnPrint: "pvBtnPrint",
+    btnClear: "pvBtnClear",
   };
 
   function esc(s) {
@@ -105,6 +106,9 @@
         onBeforePrint: function () {
           if (userPrint) userPrint.renderCard();
           refreshPreviewPersonal();
+        },
+        onClear: function () {
+          loadPreviewPersonalImages();
         },
       });
       userPrint.init();

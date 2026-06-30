@@ -275,6 +275,7 @@
       if (koji) koji.value = "";
       initLayout();
       rebuild();
+      if (typeof cfg.onClear === "function") cfg.onClear();
     }
 
     function hookStore() {
