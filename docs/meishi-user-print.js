@@ -52,16 +52,21 @@
       records = MeishiStore.getMergedRecords();
     }
 
-    function filtered(level) {
+    function filteredExcept(skipKey) {
       return records.filter(function (r) {
-        if (S.name && r.name !== S.name) return false;
-        if (level >= 1 && S.company && r.company !== S.company) return false;
-        if (level >= 2 && S.aff1 && (r.aff1 || "") !== S.aff1) return false;
-        if (level >= 3 && S.aff2 && (r.aff2 || "") !== S.aff2) return false;
-        if (level >= 4 && S.aff3 && (r.aff3 || "") !== S.aff3) return false;
-        if (level >= 5 && S.title && (r.title || "") !== S.title) return false;
+        if (skipKey !== "name" && S.name && r.name !== S.name) return false;
+        if (skipKey !== "company" && S.company && r.company !== S.company) return false;
+        if (skipKey !== "aff1" && S.aff1 && (r.aff1 || "") !== S.aff1) return false;
+        if (skipKey !== "aff2" && S.aff2 && (r.aff2 || "") !== S.aff2) return false;
+        if (skipKey !== "aff3" && S.aff3 && (r.aff3 || "") !== S.aff3) return false;
+        if (skipKey !== "title" && S.title && (r.title || "") !== S.title) return false;
+        if (skipKey !== "postal" && S.postal && (r.postal || "") !== S.postal) return false;
         return true;
       });
+    }
+
+    function filtered() {
+      return filteredExcept(null);
     }
 
     function firstNonEmpty(rows, key) {
@@ -171,27 +176,20 @@
       var changed = true;
       while (changed && guard++ < 20) {
         changed = false;
-        changed = fillSelect(el("selName"), records.map(function (r) { return r.name; }).sort(), "氏名を選択", "name") || changed;
-        var byName = filtered(0);
-        changed = fillSelect(el("selCompany"), byName.map(function (r) { return r.company; }), "会社・団体名", "company") || changed;
-        var byCo = filtered(1);
-        changed = fillSelect(el("selAff1"), byCo.map(function (r) { return r.aff1; }), "所属1", "aff1") || changed;
-        var b2 = filtered(2);
-        changed = fillSelect(el("selAff2"), b2.map(function (r) { return r.aff2; }), "所属2", "aff2") || changed;
-        var b3 = filtered(3);
-        changed = fillSelect(el("selAff3"), b3.map(function (r) { return r.aff3; }), "所属3", "aff3") || changed;
-        var b4 = filtered(4);
-        changed = fillSelect(el("selTitle"), b4.map(function (r) { return r.title; }), "役職", "title") || changed;
-        var b5 = filtered(5);
-        changed = fillSelect(el("selPostal"), b5.map(function (r) { return r.postal; }), "郵便番号", "postal") || changed;
+        changed = fillSelect(el("selName"), filteredExcept("name").map(function (r) { return r.name; }).sort(), "氏名を選択", "name") || changed;
+        changed = fillSelect(el("selCompany"), filteredExcept("company").map(function (r) { return r.company; }), "会社・団体名", "company") || changed;
+        changed = fillSelect(el("selAff1"), filteredExcept("aff1").map(function (r) { return r.aff1; }), "所属1", "aff1") || changed;
+        changed = fillSelect(el("selAff2"), filteredExcept("aff2").map(function (r) { return r.aff2; }), "所属2", "aff2") || changed;
+        changed = fillSelect(el("selAff3"), filteredExcept("aff3").map(function (r) { return r.aff3; }), "所属3", "aff3") || changed;
+        changed = fillSelect(el("selTitle"), filteredExcept("title").map(function (r) { return r.title; }), "役職", "title") || changed;
+        changed = fillSelect(el("selPostal"), filteredExcept("postal").map(function (r) { return r.postal; }), "郵便番号", "postal") || changed;
       }
-      var byCo2 = filtered(1);
-      var b5f = filtered(5);
-      el("inUrl").value = firstNonEmpty(byCo2, "url");
-      el("inMobile").value = firstNonEmpty(b5f.length ? b5f : byCo2, "mobile");
-      el("inEmail").value = firstNonEmpty(b5f.length ? b5f : byCo2, "email");
-      el("inQual").value = firstNonEmpty(b5f.length ? b5f : byCo2, "qual");
-      var locRows = S.postal ? b5f.filter(function (r) { return (r.postal || "") === S.postal; }) : (b5f.length ? b5f : byCo2);
+      var rows = filtered();
+      el("inUrl").value = firstNonEmpty(rows, "url");
+      el("inMobile").value = firstNonEmpty(rows, "mobile");
+      el("inEmail").value = firstNonEmpty(rows, "email");
+      el("inQual").value = firstNonEmpty(rows, "qual");
+      var locRows = S.postal ? rows.filter(function (r) { return (r.postal || "") === S.postal; }) : rows;
       el("inAddress").value = firstNonEmpty(locRows, "address");
       el("inTel").value = firstNonEmpty(locRows, "tel");
       el("inFax").value = firstNonEmpty(locRows, "fax");
@@ -215,11 +213,11 @@
     }
 
     function bindInputs() {
-      bindSel("selName", "name", ["company", "aff1", "aff2", "aff3", "title", "postal"]);
-      bindSel("selCompany", "company", ["aff1", "aff2", "aff3", "title", "postal"]);
-      bindSel("selAff1", "aff1", ["aff2", "aff3", "title"]);
-      bindSel("selAff2", "aff2", ["aff3", "title"]);
-      bindSel("selAff3", "aff3", ["title"]);
+      bindSel("selName", "name", []);
+      bindSel("selCompany", "company", []);
+      bindSel("selAff1", "aff1", []);
+      bindSel("selAff2", "aff2", []);
+      bindSel("selAff3", "aff3", []);
       bindSel("selTitle", "title", []);
       var sp = el("selPostal");
       if (sp && !sp._mpBound) {
