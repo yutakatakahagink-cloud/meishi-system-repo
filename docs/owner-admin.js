@@ -1043,18 +1043,6 @@
       if (coUI) coUI.invalidate();
       refreshCoDesign();
     };
-    var coCenterShift = document.getElementById("coCenterShift");
-    if (coCenterShift) {
-      coCenterShift.oninput = function () { setCoCenterShiftMm(+this.value); };
-    }
-    var coCenterLeft = document.getElementById("coCenterLeft");
-    if (coCenterLeft) {
-      coCenterLeft.onclick = function () { setCoCenterShiftMm(coCenterShiftValue() + 1); };
-    }
-    var coCenterRight = document.getElementById("coCenterRight");
-    if (coCenterRight) {
-      coCenterRight.onclick = function () { setCoCenterShiftMm(coCenterShiftValue() - 1); };
-    }
     document.getElementById("deCoPick").onchange = function () { currentDeptKey = ""; fillDeptAff1(); };
     document.getElementById("deAff1Pick").onchange = function () { currentDeptKey = ""; fillDeptAff2(); };
     document.getElementById("deAff2Pick").onchange = function () { currentDeptKey = ""; fillDeptAff2(); };
