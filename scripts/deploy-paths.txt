@@ -6,7 +6,6 @@ convert_xlsx.py
 scripts/Deploy-GitHubPages.ps1
 scripts/deploy-paths.txt
 14_名刺印刷ソフト_idea_obsidian.md
-.github/workflows/pages.yml
 start.bat
 start-meishi.ps1
 meishi-app/start.bat

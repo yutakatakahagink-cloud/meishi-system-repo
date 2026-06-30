@@ -63,6 +63,22 @@ if ($copied -eq 0) {
   throw "No files copied."
 }
 
+# GitHub Pages 公開ルート（branch: main /docs → URL は /user.html 等）
+$publicSrc = Join-Path $SourceRoot "meishi-app\public"
+$docsDest = Join-Path $RepoPath "docs"
+if (Test-Path -LiteralPath $publicSrc) {
+  if (Test-Path -LiteralPath $docsDest) { Remove-Item -LiteralPath $docsDest -Recurse -Force }
+  Copy-Item -LiteralPath $publicSrc -Destination $docsDest -Recurse -Force
+  if ($IncludeConfigJs) {
+    $cfgSrc = Join-Path $publicSrc "config.js"
+    if (Test-Path -LiteralPath $cfgSrc) {
+      Copy-Item -LiteralPath $cfgSrc -Destination (Join-Path $docsDest "config.js") -Force
+    }
+  }
+  New-Item -Path (Join-Path $docsDest ".nojekyll") -ItemType File -Force | Out-Null
+  Write-Host "OK docs/ (Pages publish root from meishi-app/public)"
+}
+
 if ($DryRun -or $SyncOnly) {
   Write-Host "SyncOnly or DryRun: skipping git."
   exit 0
@@ -161,6 +177,47 @@ try {
 
   Invoke-RepoGit @("push", "-u", "origin", "main")
   Write-Host "Push OK."
+
+  try {
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = "git"
+    $psi.Arguments = "credential fill"
+    $psi.RedirectStandardInput = $true
+    $psi.RedirectStandardOutput = $true
+    $psi.UseShellExecute = $false
+    $proc = [System.Diagnostics.Process]::Start($psi)
+    $proc.StandardInput.WriteLine("protocol=https")
+    $proc.StandardInput.WriteLine("host=github.com")
+    $proc.StandardInput.WriteLine("")
+    $proc.StandardInput.Close()
+    $credOut = $proc.StandardOutput.ReadToEnd()
+    $proc.WaitForExit()
+    if ($credOut -match "password=(.+)") {
+      $ghToken = $Matches[1].Trim()
+      $ghHeaders = @{
+        Authorization = "Bearer $ghToken"
+        Accept        = "application/vnd.github+json"
+        "X-GitHub-Api-Version" = "2022-11-28"
+      }
+      $pagesBody = '{"source":{"branch":"main","path":"/docs"}}'
+      try {
+        Invoke-RestMethod -Uri "https://api.github.com/repos/yutakatakahagink-cloud/meishi-system-repo/pages" -Method Post -Headers $ghHeaders -Body $pagesBody -ContentType "application/json" | Out-Null
+        Write-Host "GitHub Pages enabled (main /docs)."
+      }
+      catch {
+        try {
+          Invoke-RestMethod -Uri "https://api.github.com/repos/yutakatakahagink-cloud/meishi-system-repo/pages" -Method Put -Headers $ghHeaders -Body $pagesBody -ContentType "application/json" | Out-Null
+          Write-Host "GitHub Pages updated (main /docs)."
+        }
+        catch {
+          Write-Warning "GitHub Pages API skipped: $($_.Exception.Message)"
+        }
+      }
+    }
+  }
+  catch {
+    Write-Warning "GitHub Pages enable skipped: $($_.Exception.Message)"
+  }
 }
 finally {
   Pop-Location

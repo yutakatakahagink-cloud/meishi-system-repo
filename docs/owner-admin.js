@@ -1,0 +1,1140 @@
+/**
+ * 所有者画面ロジック
+ */
+(function () {
+  var editRecIdx = -1;
+  var copySourceRec = null;
+  var recFilter = "";
+  var coUI = null;
+  var coPanel = null;
+  var coLayout = null;
+  var currentCo = "";
+  var deCoUI = null;
+  var deUI = null;
+  var deCoLayout = null;
+  var deLayout = null;
+  var currentDeptKey = "";
+  var userPrint = null;
+  var pvPersonalLayout = null;
+  var pvPersonalUI = null;
+  var pvPersonalHooked = false;
+
+  var PREVIEW_IDS = {
+    selName: "pvSelName",
+    selCompany: "pvSelCompany",
+    selAff1: "pvSelAff1",
+    selAff2: "pvSelAff2",
+    selAff3: "pvSelAff3",
+    selTitle: "pvSelTitle",
+    selPostal: "pvSelPostal",
+    inQual: "pvInQual",
+    inAddress: "pvInAddress",
+    inTel: "pvInTel",
+    inFax: "pvInFax",
+    inMobile: "pvInMobile",
+    inEmail: "pvInEmail",
+    inUrl: "pvInUrl",
+    inKoji: "pvInKoji",
+    card: "pvCard",
+    btnPrint: "pvBtnPrint",
+  };
+
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
+    });
+  }
+
+  function setBadge() {
+    var b = document.getElementById("syncBadge");
+    if (MeishiStore.useFirebase()) { b.textContent = "全端末で共有中"; b.style.background = "rgba(40,180,99,.35)"; }
+    else { b.textContent = "この端末のみ"; b.style.background = "rgba(243,156,18,.35)"; }
+  }
+
+  function showTab(id) {
+    document.querySelectorAll(".tabs button").forEach(function (b) {
+      b.classList.toggle("on", b.getAttribute("data-tab") === id);
+    });
+    document.querySelectorAll(".panel").forEach(function (p) {
+      p.classList.toggle("on", p.id === "panel-" + id);
+    });
+    if (id === "company") refreshCoDesign();
+    if (id === "dept") { fillDeptPanel(); refreshDeptDesign(true); }
+    if (id === "preview") initPreviewPanel();
+    if (id === "records") {
+      renderRecTable();
+      refreshRecFormIfOpen();
+    }
+  }
+
+  function showSyncStatus(msg) {
+    var el = document.getElementById("recSyncStatus");
+    if (!el) return;
+    el.textContent = msg || "";
+    if (msg) {
+      clearTimeout(showSyncStatus._t);
+      showSyncStatus._t = setTimeout(function () { el.textContent = ""; }, 4000);
+    }
+  }
+
+  function initPreviewPanel() {
+    if (!userPrint) {
+      userPrint = MeishiUserPrint.create({
+        ids: PREVIEW_IDS,
+        isActive: function () {
+          var p = document.getElementById("panel-preview");
+          return p && p.classList.contains("on");
+        },
+        getPersonalImages: function () { return []; },
+        onBeforePrint: function () {
+          if (userPrint) userPrint.renderCard();
+          refreshPreviewPersonal();
+        },
+      });
+      userPrint.init();
+      initPreviewPersonal();
+    } else {
+      userPrint.rebuild();
+      loadPreviewPersonalImages();
+    }
+  }
+
+  function newPersonalLayout() {
+    var layout = MeishiLayout.defLayout();
+    MeishiLayout.ELS.forEach(function (e) {
+      if (layout.el[e.id]) layout.el[e.id].hidden = true;
+    });
+    layout.images = [];
+    return layout;
+  }
+
+  function previewField(id) {
+    var el = document.getElementById(id);
+    return el ? String(el.value || "").trim() : "";
+  }
+
+  function findPreviewRecordIndex() {
+    var name = previewField("pvSelName");
+    if (!name) return -1;
+    var company = previewField("pvSelCompany");
+    var aff1 = previewField("pvSelAff1");
+    var aff2 = previewField("pvSelAff2");
+    var aff3 = previewField("pvSelAff3");
+    var title = previewField("pvSelTitle");
+    var recs = MeishiStore.getRecords();
+    var best = -1;
+    var bestScore = -1;
+    recs.forEach(function (r, i) {
+      if (MeishiFields.norm(r.name) !== MeishiFields.norm(name)) return;
+      var score = 1;
+      if (company && MeishiFields.norm(r.company) === MeishiFields.norm(company)) score += 2;
+      if (aff1 && MeishiFields.norm(r.aff1) === MeishiFields.norm(aff1)) score += 2;
+      if (aff2 && MeishiFields.norm(r.aff2) === MeishiFields.norm(aff2)) score += 2;
+      if (aff3 && MeishiFields.norm(r.aff3) === MeishiFields.norm(aff3)) score += 1;
+      if (title && MeishiFields.norm(r.title) === MeishiFields.norm(title)) score += 1;
+      if (score > bestScore) { bestScore = score; best = i; }
+    });
+    return best;
+  }
+
+  function loadPreviewPersonalImages() {
+    var idx = findPreviewRecordIndex();
+    var hint = document.getElementById("pvPersonalHint");
+    if (idx < 0) {
+      pvPersonalLayout = newPersonalLayout();
+      if (hint) hint.textContent = "氏名を選ぶと、その人専用の画像を設定できます。";
+    } else {
+      var rec = MeishiStore.getRecords()[idx];
+      pvPersonalLayout = newPersonalLayout();
+      pvPersonalLayout.images = MeishiStore.getPreviewPersonalImages(rec.no);
+      if (window.MeishiImageLib) {
+        pvPersonalLayout.images = MeishiImageLib.resolveImages(pvPersonalLayout.images);
+      }
+      if (hint) hint.textContent = "編集中: #" + rec.no + " " + rec.name + " の個人画像";
+    }
+    if (pvPersonalUI) pvPersonalUI.invalidate();
+    refreshPreviewPersonal();
+    renderPvImgList();
+  }
+
+  function refreshPreviewPersonal() {
+    if (!pvPersonalUI) return;
+    pvPersonalUI.renderCard();
+  }
+
+  function renderPvImgList() {
+    /* サムネイル一覧は表示しない（プレビュー上の名刺のみ） */
+  }
+
+  function savePreviewPersonalImages() {
+    var idx = findPreviewRecordIndex();
+    if (idx < 0) return alert("氏名を選んでから保存してください");
+    var rec = MeishiStore.getRecords()[idx];
+    var imgs = MeishiLayout.clone((pvPersonalLayout && pvPersonalLayout.images) || []);
+    MeishiStore.savePreviewPersonalImages(rec.no, imgs).then(function (ok) {
+      if (!ok) {
+        alert("個人画像の保存に失敗しました。画像サイズが大きすぎる可能性があります。");
+        return;
+      }
+      showSyncStatus("個人画像を保存しました");
+    });
+  }
+
+  function initPreviewPersonal() {
+    if (!pvPersonalLayout) pvPersonalLayout = newPersonalLayout();
+    if (!pvPersonalUI) {
+      pvPersonalUI = MeishiCardUI.createCardUI({
+        cardEl: document.getElementById("pvCardPersonal"),
+        getLayout: function () { return pvPersonalLayout; },
+        getElText: function () { return ""; },
+        getImages: function () { return pvPersonalLayout.images || []; },
+        hideElements: true,
+        onLayoutChange: function () { renderPvImgList(); },
+        onSelect: function () {},
+      });
+    }
+    if (!pvPersonalHooked) {
+      pvPersonalHooked = true;
+      ["pvSelName", "pvSelCompany", "pvSelAff1", "pvSelAff2", "pvSelAff3", "pvSelTitle"].forEach(function (id) {
+        var node = document.getElementById(id);
+        if (node) node.addEventListener("change", loadPreviewPersonalImages);
+      });
+      var btnImg = document.getElementById("pvBtnImages");
+      if (btnImg) btnImg.onclick = function () {
+        if (findPreviewRecordIndex() < 0) return alert("先に氏名を選んでください");
+        pickImagesIntoLayout(pvPersonalLayout, "pv", function () {
+          if (pvPersonalUI) pvPersonalUI.invalidate();
+          refreshPreviewPersonal();
+          renderPvImgList();
+        });
+      };
+      var btnSave = document.getElementById("pvBtnSavePersonal");
+      if (btnSave) btnSave.onclick = savePreviewPersonalImages;
+    }
+    loadPreviewPersonalImages();
+  }
+
+  function pickImagesIntoLayout(layout, prefix, done) {
+    MeishiImageLib.pick(function (items) {
+      layout.images = layout.images || [];
+      items.forEach(function (item, i) {
+        layout.images.push(MeishiImageLib.createDefaultImage(item, i, prefix));
+      });
+      if (typeof done === "function") done();
+    });
+  }
+
+  function fillBasic() {
+    var c = MeishiStore.getConfig();
+    document.getElementById("title").value = c.title || "";
+    document.getElementById("ownerId").value = c.ownerId || "";
+    document.getElementById("ownerPass").value = c.ownerPass || "";
+    refreshUserUrlFields();
+    renderImgLibBox();
+  }
+
+  function renderImgLibBox() {
+    var box = document.getElementById("imgLibBox");
+    if (!box) return;
+    var lib = MeishiStore.getImageLibrary();
+    box.innerHTML = "";
+    if (!lib.length) {
+      box.className = "img-lib-box empty";
+      box.textContent = "（未登録）「＋ 追加」からエクスプローラーで画像を選んで登録してください。";
+      return;
+    }
+    box.className = "img-lib-box";
+    lib.forEach(function (item) {
+      var wrap = document.createElement("div");
+      wrap.className = "img-lib-item";
+      var del = document.createElement("button");
+      del.type = "button";
+      del.className = "linkbtn";
+      del.title = "削除";
+      del.textContent = "×";
+      var img = document.createElement("img");
+      img.alt = "";
+      img.src = window.MeishiImageLib ? MeishiImageLib.itemUrl(item) : (item.src || "");
+      var span = document.createElement("span");
+      span.textContent = item.label || item.file || item.id;
+      del.onclick = function () {
+        if (!confirm("画像保存ボックスから削除しますか？\n（名刺に設定済みの画像は表示されなくなる場合があります）")) return;
+        MeishiStore.removeFromImageLibrary(item.id).then(function () {
+          renderImgLibBox();
+        });
+      };
+      wrap.appendChild(del);
+      wrap.appendChild(img);
+      wrap.appendChild(span);
+      box.appendChild(wrap);
+    });
+  }
+
+  function addImagesToLibrary() {
+    var inp = document.getElementById("imgLibFileInput");
+    if (inp) inp.click();
+  }
+
+  function onImgLibFilesSelected(e) {
+    var files = e.target.files;
+    if (!files || !files.length) return;
+    var pending = 0;
+    var batch = [];
+    Array.prototype.forEach.call(files, function (f, i) {
+      if (!f.type || f.type.indexOf("image/") !== 0) return;
+      pending++;
+      var fr = new FileReader();
+      fr.onload = function () {
+        var base = f.name.replace(/\.[^.]+$/, "") || "画像";
+        batch.push({
+          id: "lib-" + Date.now() + "-" + i + "-" + Math.random().toString(36).slice(2, 6),
+          file: f.name,
+          label: base,
+          src: fr.result,
+        });
+        pending--;
+        if (pending === 0) finishImgLibBatch(batch);
+      };
+      fr.onerror = function () {
+        pending--;
+        if (pending === 0) finishImgLibBatch(batch);
+      };
+      fr.readAsDataURL(f);
+    });
+    e.target.value = "";
+    if (pending === 0) alert("画像ファイル（PNG/JPG/SVG 等）を選んでください");
+  }
+
+  function finishImgLibBatch(batch) {
+    if (!batch.length) {
+      alert("読み込める画像がありませんでした");
+      return;
+    }
+    MeishiStore.addToImageLibrary(batch).then(function (n) {
+      renderImgLibBox();
+      if (n > 0) alert(n + " 件を画像保存ボックスに追加しました");
+      else alert("選択した画像は既に登録済みです");
+      if (n > 0 && !MeishiStore.getImageLibrary().length) {
+        alert("画像の保存に失敗した可能性があります。ファイルサイズを小さくして再度お試しください。");
+      }
+    });
+  }
+
+  function defaultUserPageUrl() {
+    return MeishiStore.userUrl();
+  }
+
+  function refreshUserUrlFields() {
+    var url = defaultUserPageUrl();
+    document.getElementById("userUrl").value = url;
+  }
+
+  function openUserPage() {
+    var url = document.getElementById("userUrl").value || defaultUserPageUrl();
+    try {
+      url = new URL(url, window.location.href).href;
+    } catch (e) {
+      url = defaultUserPageUrl();
+    }
+    var a = document.createElement("a");
+    a.href = url;
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+    a.style.display = "none";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+
+  function showUserQr() {
+    var url = document.getElementById("userUrl").value || defaultUserPageUrl();
+    var modal = document.getElementById("qrModal");
+    var img = document.getElementById("qrImg");
+    var label = document.getElementById("qrUrl");
+    if (!modal || !img) return;
+    img.src = "https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=" + encodeURIComponent(url);
+    if (label) label.textContent = url;
+    modal.hidden = false;
+  }
+
+  function hideUserQr() {
+    var modal = document.getElementById("qrModal");
+    if (modal) modal.hidden = true;
+  }
+
+  function fillCoPick() {
+    refreshCoPickOptions();
+    fillCoPanel();
+  }
+
+  function refreshCoPickOptions() {
+    var list = MeishiStore.getCompanyList();
+    var sel = document.getElementById("coPick");
+    var cur = sel.value || currentCo;
+    sel.innerHTML = list.length
+      ? list.map(function (v) { return "<option>" + esc(v) + "</option>"; }).join("")
+      : '<option value="">（会社なし）</option>';
+    if (cur && list.indexOf(cur) >= 0) sel.value = cur;
+    else if (list.length) sel.value = list[0];
+    currentCo = sel.value;
+  }
+
+  function companyDefaults(co) {
+    var cat;
+    if (window._coEditingCatalog && MeishiFields.norm(co || currentCo) === MeishiFields.norm(currentCo)) {
+      cat = window._coEditingCatalog;
+    } else {
+      cat = MeishiStore.getCompanyProfileForEdit(co || currentCo).catalog;
+    }
+    cat = cat || MeishiCatalog.emptyCatalog();
+    var loc = (cat.locations && cat.locations[0]) || {};
+    return {
+      url: (cat.urls && cat.urls[0]) || "",
+      postal: loc.postal || "",
+      address: loc.address || "",
+      tel: loc.tel || "",
+      fax: loc.fax || "",
+    };
+  }
+
+  function cloneCat(v) {
+    try { return JSON.parse(JSON.stringify(v)); } catch (e) { return null; }
+  }
+
+  function fillCoPanel() {
+    var prevCo = currentCo;
+    currentCo = document.getElementById("coPick").value;
+    if (!currentCo) return;
+    window._coCatalogMutations = [];
+    var p = MeishiStore.getCompanyProfileForEdit(currentCo);
+    window._coSavedCatalogSnapshot = cloneCat(p.catalog);
+    window._coEditingCatalog = cloneCat(p.catalog);
+    window._coSyncBaseline = cloneCat(p.catalog);
+    if (!window._catCtx || prevCo !== currentCo) {
+      window._catCtx = { field: "aff1" };
+    }
+    renderCatalogEditor(window._coEditingCatalog);
+    coLayout = p.layout ? MeishiCatalog.normalizeLayout(MeishiLayout.clone(p.layout)) : MeishiLayout.defLayout();
+    if (coUI && prevCo && prevCo !== currentCo) {
+      coUI.invalidate();
+      if (coPanel && coPanel.clearSelection) coPanel.clearSelection();
+    }
+    refreshCoDesign();
+  }
+
+  function renderCatalogEditor(cat) {
+    if (!window._coCatalogMutations) window._coCatalogMutations = [];
+    MeishiCatalogEditor.render(document.getElementById("coCatalogBody"), cat, function () {
+      renderCatalogEditor(cat);
+    }, function (op) {
+      syncCoCatalogToRecords(op);
+    });
+  }
+
+  function syncCoCatalogToRecords(explicitOp) {
+    if (!window.MeishiCatalogSync || !currentCo || !window._coEditingCatalog) return;
+    if (!window._coSyncBaseline) window._coSyncBaseline = cloneCat(window._coEditingCatalog);
+    window._coCatalogSyncing = true;
+    try {
+      var result = MeishiStore.syncRecordsFromCatalogDiff(
+        currentCo,
+        window._coSyncBaseline,
+        window._coEditingCatalog,
+        explicitOp || null,
+        { skipFireRec: true, skipFireCfg: true }
+      );
+      if (result.changed) {
+        window._coSyncBaseline = cloneCat(window._coEditingCatalog);
+        renderRecTable();
+        refreshRecFormIfOpen();
+        fillDeptPanel();
+        if (result.recCount > 0) {
+          showSyncStatus("名刺データ " + result.recCount + " 件を更新しました");
+        }
+      }
+    } finally {
+      window._coCatalogSyncing = false;
+    }
+  }
+
+  function collectCoSaveMutations() {
+    if (window.MeishiCatalogSync && window._coSyncBaseline && window._coEditingCatalog) {
+      return MeishiCatalogSync.inferMutations(window._coSyncBaseline, window._coEditingCatalog);
+    }
+    return window._coCatalogMutations || [];
+  }
+
+  function reloadCoLayoutFromStore() {
+    if (!currentCo) return;
+    var p = MeishiStore.getCompanyProfileForEdit(currentCo);
+    coLayout = p.layout ? MeishiCatalog.normalizeLayout(MeishiLayout.clone(p.layout)) : MeishiLayout.defLayout();
+    if (coUI) coUI.invalidate();
+  }
+
+  function afterCoSaveRefresh() {
+    window._coCatalogMutations = [];
+    reloadCoLayoutFromStore();
+    window._coSavedCatalogSnapshot = cloneCat(MeishiStore.getCompanyProfileForEdit(currentCo).catalog);
+    window._coEditingCatalog = cloneCat(window._coSavedCatalogSnapshot);
+    window._coSyncBaseline = cloneCat(window._coSavedCatalogSnapshot);
+    renderCatalogEditor(window._coEditingCatalog);
+    refreshRecFormIfOpen();
+    renderRecTable();
+    fillDeptPanel();
+    refreshCoDesign();
+    if (userPrint) userPrint.rebuild();
+  }
+
+  function collectCoProfile() {
+    return {
+      company: currentCo,
+      catalog: cloneCat(window._coEditingCatalog) || MeishiCatalog.emptyCatalog(),
+      layout: MeishiCatalog.normalizeLayout(MeishiLayout.clone(coLayout)),
+    };
+  }
+
+  function sampleText(id) {
+    var d = companyDefaults(currentCo);
+    var m = {
+      company: currentCo || "会社名", aff: "所属1　所属2　役職", name: "山田 太郎",
+      qual: "資格", koji: "工事件名",
+      address: (d.postal ? "〒" + d.postal + " " : "") + (d.address || ""),
+      telfax: [d.tel ? "TEL " + d.tel : "", d.fax ? "FAX " + d.fax : ""].filter(Boolean).join("　"),
+      mobile: "携帯 090-0000-0000", email: "mail@example.co.jp", url: d.url || "",
+    };
+    return m[id] || "";
+  }
+
+  function deptSampleText(id) {
+    var coEl = document.getElementById("deCoPick");
+    var co = coEl ? coEl.value : currentCo;
+    var d = companyDefaults(co);
+    var m = {
+      company: co || "会社名", aff: "所属1　所属2　役職", name: "山田 太郎",
+      qual: "資格", koji: "工事件名",
+      address: (d.postal ? "〒" + d.postal + " " : "") + (d.address || ""),
+      telfax: [d.tel ? "TEL " + d.tel : "", d.fax ? "FAX " + d.fax : ""].filter(Boolean).join("　"),
+      mobile: "携帯 090-0000-0000", email: "mail@example.co.jp", url: d.url || "",
+    };
+    return m[id] || "";
+  }
+
+  function refreshCoDesign() {
+    if (!coLayout) return;
+    if (!coUI) {
+      coUI = MeishiCardUI.createCardUI({
+        cardEl: document.getElementById("coDesCard"),
+        getLayout: function () { return coLayout; },
+        getElText: sampleText,
+        getImages: function () {
+          var imgs = coLayout.images || [];
+          return window.MeishiImageLib ? MeishiImageLib.resolveImages(imgs) : imgs;
+        },
+        onLayoutChange: function () {},
+        onSelect: function () { if (coPanel) coPanel.showDesign(); },
+      });
+      coPanel = coUI.bindDesignPanel(document.getElementById("coDesignPanel"));
+    }
+    coUI.renderCard();
+    if (coPanel) coPanel.showDesign();
+    renderCoImgList();
+  }
+
+  function renderCoImgList() {
+    var list = document.getElementById("coImgList");
+    if (!list) return;
+    list.innerHTML = (coLayout.images || []).map(function (im, i) {
+      var src = window.MeishiImageLib ? MeishiImageLib.itemUrl(im) : (im.src || "");
+      return "<div class='img-item'><img src='" + esc(src) + "' /><button type='button' data-i='" + i + "' class='linkbtn'>削除</button></div>";
+    }).join("");
+    list.querySelectorAll("[data-i]").forEach(function (btn) {
+      btn.onclick = function () {
+        coLayout.images.splice(+btn.getAttribute("data-i"), 1);
+        refreshCoDesign();
+      };
+    });
+  }
+
+  function getDeptPickers() {
+    return {
+      co: document.getElementById("deCoPick").value,
+      aff1: document.getElementById("deAff1Pick").value,
+      aff2: document.getElementById("deAff2Pick").value,
+    };
+  }
+
+  function fillDeptPanel() {
+    var list = MeishiStore.getCompanyList();
+    var coSel = document.getElementById("deCoPick");
+    var curCo = coSel.value;
+    coSel.innerHTML = list.map(function (v) { return "<option>" + esc(v) + "</option>"; }).join("");
+    if (curCo && list.indexOf(curCo) >= 0) coSel.value = curCo;
+    fillDeptAff1();
+  }
+
+  function fillDeptAff1() {
+    var pk = getDeptPickers();
+    var curA1 = pk.aff1;
+    var affs = MeishiStore.getAff1List(pk.co);
+    var sel = document.getElementById("deAff1Pick");
+    sel.innerHTML = affs.length
+      ? affs.map(function (v) { return "<option>" + esc(v) + "</option>"; }).join("")
+      : '<option value="">（なし）</option>';
+    if (curA1 && affs.indexOf(curA1) >= 0) sel.value = curA1;
+    fillDeptAff2();
+  }
+
+  function fillDeptAff2() {
+    var pk = getDeptPickers();
+    pk.aff1 = document.getElementById("deAff1Pick").value;
+    var sel = document.getElementById("deAff2Pick");
+    var curA2 = sel.value;
+    var affs = pk.aff1 ? MeishiStore.getAff2List(pk.co, pk.aff1) : [];
+    var html = '<option value="">（所属1共通）</option>';
+    html += affs.map(function (v) { return "<option>" + esc(v) + "</option>"; }).join("");
+    sel.innerHTML = html;
+    if (!pk.aff1) {
+      sel.disabled = true;
+      sel.value = "";
+    } else {
+      sel.disabled = false;
+      if (curA2 === "" || affs.indexOf(curA2) >= 0) sel.value = curA2;
+      else sel.value = "";
+    }
+    fillDeptReadonly();
+    currentDeptKey = "";
+    loadDeptLayout();
+    refreshDeptDesign(false);
+  }
+
+  function fillDeptReadonly() {
+    var pk = getDeptPickers();
+    pk.aff1 = document.getElementById("deAff1Pick").value;
+    pk.aff2 = document.getElementById("deAff2Pick").value;
+    var d = companyDefaults(pk.co);
+    var p = MeishiStore.getCompanyProfile(pk.co);
+    var cat = p.catalog || {};
+    var summary = document.getElementById("deRoSummary");
+    var aff2Label = pk.aff2 ? pk.aff2 : "（所属1共通）";
+    summary.innerHTML =
+      "<div><strong>選択:</strong> " + esc(pk.co) + " / " + esc(pk.aff1 || "—") + " / " + esc(aff2Label) + "</div>";
+    if (!pk.aff2 && pk.aff1) {
+      var aff2list = MeishiCatalog.getAff2List(cat, pk.aff1);
+      summary.innerHTML += "<div class='hint'>この設定は「" + esc(pk.aff1) + "」配下の所属2";
+      if (aff2list.length) summary.innerHTML += "（" + esc(aff2list.join("、")) + "）";
+      summary.innerHTML += "すべてに適用されます。</div>";
+    }
+    summary.innerHTML +=
+      "<div><strong>URL:</strong> " + esc(d.url || "—") + "</div>" +
+      "<div><strong>郵便番号:</strong> " + esc(d.postal || "—") + " / <strong>住所:</strong> " + esc(d.address || "—") + "</div>" +
+      "<div><strong>TEL:</strong> " + esc(d.tel || "—") + " / <strong>FAX:</strong> " + esc(d.fax || "—") + "</div>";
+
+    var catHtml = "<div><strong>所属1:</strong> " + esc((cat.aff1 || []).join("、")) + "</div>";
+    if (pk.aff1) {
+      catHtml += "<div><strong>所属2（" + esc(pk.aff1) + "）:</strong> " + esc(MeishiCatalog.getAff2List(cat, pk.aff1).join("、")) + "</div>";
+    }
+    if (pk.aff1 && pk.aff2) {
+      catHtml += "<div><strong>所属3:</strong> " + esc(MeishiCatalog.getAff3List(cat, pk.aff1, pk.aff2).join("、")) + "</div>";
+    }
+    document.getElementById("deRoCatalog").innerHTML = catHtml;
+  }
+
+  function newDeptLayout() {
+    var layout = MeishiLayout.defLayout();
+    MeishiLayout.ELS.forEach(function (e) {
+      if (layout.el[e.id]) layout.el[e.id].hidden = true;
+    });
+    layout.images = [];
+    return layout;
+  }
+
+  function loadDeptLayout() {
+    var pk = getDeptPickers();
+    pk.aff1 = document.getElementById("deAff1Pick").value;
+    pk.aff2 = document.getElementById("deAff2Pick").value;
+    var key = MeishiFields.deptKey(pk.co, pk.aff1, pk.aff2);
+    if (key === currentDeptKey && deLayout) return;
+    currentDeptKey = key;
+    deCoLayout = MeishiCatalog.normalizeLayout(MeishiLayout.clone(MeishiStore.getCompanyLayout(pk.co)));
+    var dept = MeishiStore.getDeptSettingsForEdit(pk.co, pk.aff1, pk.aff2);
+    if (dept.layout && MeishiLayout.isValidLayout(dept.layout)) {
+      deLayout = MeishiCatalog.normalizeLayout(MeishiLayout.clone(dept.layout));
+      if (!(deLayout.images && deLayout.images.length) && dept.images && dept.images.length) {
+        deLayout.images = MeishiLayout.clone(dept.images);
+      }
+    } else if (dept.images && dept.images.length) {
+      deLayout = newDeptLayout();
+      deLayout.images = MeishiLayout.clone(dept.images);
+    } else {
+      deLayout = newDeptLayout();
+    }
+    if (deCoUI) deCoUI.invalidate();
+    if (deUI) deUI.invalidate();
+  }
+
+  function reloadDeptLayoutFromStore() {
+    currentDeptKey = "";
+    loadDeptLayout();
+  }
+
+  function afterDeptSaveRefresh() {
+    reloadDeptLayoutFromStore();
+    if (deCoUI) deCoUI.invalidate();
+    refreshDeptDesign();
+  }
+
+  function saveCurrentDeptLayout() {
+    var pk = getDeptPickers();
+    pk.aff1 = document.getElementById("deAff1Pick").value;
+    pk.aff2 = document.getElementById("deAff2Pick").value;
+    if (!pk.co || !pk.aff1) {
+      alert("会社と所属1を選択してください");
+      return false;
+    }
+    if (!deLayout) loadDeptLayout();
+    if (!deLayout) deLayout = newDeptLayout();
+    var layout = MeishiCatalog.normalizeLayout(MeishiLayout.clone(deLayout));
+    if (!layout.images || !layout.images.length) {
+      alert("部署画像がありません。「＋部署画像」から追加してください。");
+      return false;
+    }
+    window._deptSaving = true;
+    try {
+      return MeishiStore.saveDeptSettings(pk.co, pk.aff1, pk.aff2, {
+        layout: layout,
+        images: layout.images.slice(),
+      });
+    } finally {
+      window._deptSaving = false;
+    }
+  }
+
+  function refreshDeptDesign(forceReload) {
+    if (forceReload) reloadDeptLayoutFromStore();
+    else if (!deLayout) loadDeptLayout();
+    var pk = getDeptPickers();
+    pk.co = document.getElementById("deCoPick").value;
+    pk.aff1 = document.getElementById("deAff1Pick").value;
+    pk.aff2 = document.getElementById("deAff2Pick").value;
+    if (!pk.co) return;
+    deCoLayout = MeishiCatalog.normalizeLayout(MeishiLayout.clone(MeishiStore.getCompanyLayout(pk.co)));
+
+    if (!deCoUI) {
+      deCoUI = MeishiCardUI.createCardUI({
+        cardEl: document.getElementById("deCoBaseCard"),
+        getLayout: function () { return deCoLayout; },
+        getElText: deptSampleText,
+        getImages: function () {
+          var imgs = deCoLayout.images || [];
+          return window.MeishiImageLib ? MeishiImageLib.resolveImages(imgs) : imgs;
+        },
+        readOnly: true,
+        onLayoutChange: function () {},
+        onSelect: function () {},
+      });
+    }
+    if (!deUI) {
+      deUI = MeishiCardUI.createCardUI({
+        cardEl: document.getElementById("deDesCard"),
+        getLayout: function () { return deLayout; },
+        getElText: deptSampleText,
+        getImages: function () {
+          var imgs = deLayout.images || [];
+          return window.MeishiImageLib ? MeishiImageLib.resolveImages(imgs) : imgs;
+        },
+        hideElements: true,
+        onLayoutChange: function () { renderDeImgList(); },
+        onSelect: function () {
+          var none = document.getElementById("deDesignNone");
+          var ctl = document.getElementById("deDesignCtl");
+          if (none) none.style.display = "none";
+          if (ctl) ctl.style.display = "";
+          var tgt = document.getElementById("deDesTarget");
+          if (tgt) tgt.textContent = "部署画像（ドラッグで移動・右下でサイズ変更）";
+        },
+      });
+    }
+    deCoUI.renderCard();
+    deUI.renderCard();
+    renderDeImgList();
+  }
+
+  function renderDeImgList() {
+    var list = document.getElementById("deImgList");
+    if (!list || !deLayout) return;
+    var imgs = deLayout.images || [];
+    if (window.MeishiImageLib) imgs = MeishiImageLib.resolveImages(imgs);
+    list.innerHTML = imgs.map(function (im, i) {
+      return "<div class='img-item'><img src='" + esc(im.src || "") + "' /><button type='button' data-i='" + i + "' class='linkbtn'>削除</button></div>";
+    }).join("");
+    list.querySelectorAll("[data-i]").forEach(function (btn) {
+      btn.onclick = function () {
+        deLayout.images.splice(+btn.getAttribute("data-i"), 1);
+        if (deUI) deUI.invalidate();
+        refreshDeptDesign();
+      };
+    });
+  }
+
+  function renderRecTable() {
+    var recs = MeishiStore.getRecords();
+    document.getElementById("recCount").textContent = recs.length + " 件";
+    document.querySelector("#recTbl thead").innerHTML =
+      "<tr>" + MeishiFields.COLUMNS.map(function (c) { return "<th>" + c.label + "</th>"; }).join("") + "</tr>";
+    var q = recFilter.toLowerCase();
+    document.querySelector("#recTbl tbody").innerHTML = recs.map(function (r, i) {
+      var txt = MeishiFields.COLUMNS.map(function (c) { return r[c.key] || ""; }).join(" ");
+      if (q && txt.toLowerCase().indexOf(q) < 0) return "";
+      return "<tr data-i='" + i + "' class='" + (i === editRecIdx ? "sel" : "") + "'>" +
+        MeishiFields.COLUMNS.map(function (c) { return "<td>" + esc(r[c.key] || "") + "</td>"; }).join("") + "</tr>";
+    }).join("");
+  }
+
+  function fieldOptions(company, key, ctx) {
+    var cat;
+    if (window._coEditingCatalog && MeishiFields.norm(company) === MeishiFields.norm(currentCo)) {
+      cat = window._coEditingCatalog;
+    } else {
+      cat = MeishiStore.getCompanyProfileForEdit(company).catalog || MeishiCatalog.emptyCatalog();
+    }
+    var qualCtx = { aff1: ctx.aff1, aff2: ctx.aff2, aff3: ctx.aff3, title: ctx.title };
+    if (key === "company") return MeishiStore.getCompanyList();
+    if (key === "name") {
+      return MeishiFields.uniq((cat.names || []).concat(
+        MeishiStore.getRecords().filter(function (r) {
+          return MeishiFields.norm(r.company) === MeishiFields.norm(company);
+        }).map(function (r) { return r.name; })
+      ));
+    }
+    if (key === "aff1") return cat.aff1 || [];
+    if (key === "aff2") return MeishiCatalog.getAff2List(cat, ctx.aff1);
+    if (key === "aff3") return MeishiCatalog.getAff3List(cat, ctx.aff1, ctx.aff2);
+    if (key === "title") return MeishiCatalog.getTitleList(cat, ctx.aff1, ctx.aff2, ctx.aff3);
+    if (key === "qual") return MeishiCatalog.getQualList(cat, qualCtx);
+    if (key === "mobile") return MeishiCatalog.getMobileList(cat, qualCtx);
+    if (key === "email") return MeishiCatalog.getEmailList(cat, qualCtx);
+    if (key === "postal") return MeishiFields.uniq((cat.locations || []).map(function (l) { return l.postal; }).concat(cat.postal || []));
+    if (key === "address") return MeishiFields.uniq((cat.locations || []).map(function (l) { return l.address; }).filter(Boolean));
+    if (key === "tel") return MeishiFields.uniq((cat.locations || []).map(function (l) { return l.tel; }).filter(Boolean));
+    if (key === "fax") return MeishiFields.uniq((cat.locations || []).map(function (l) { return l.fax; }).filter(Boolean));
+    if (key === "url") return cat.urls || [];
+    if (key === "category") return cat.categories || [];
+    if (key === "note") return cat.notes || [];
+    return [];
+  }
+
+  function selectFieldHtml(c, rec, ctx) {
+    var opts = fieldOptions(ctx.company || rec.company, c.key, ctx);
+    var cur = rec[c.key] || "";
+    var html = "<option value=''>（選択）</option>";
+    if (cur && c.key !== "name") {
+      var inOpts = opts.some(function (v) { return MeishiFields.norm(v) === MeishiFields.norm(cur); });
+      if (!inOpts) html += "<option selected>" + esc(cur) + "</option>";
+    }
+    if (cur && c.key === "name" && opts.indexOf(cur) < 0) html += "<option selected>" + esc(cur) + "</option>";
+    opts.forEach(function (v) {
+      html += "<option" + (MeishiFields.norm(v) === MeishiFields.norm(cur) ? " selected" : "") + ">" + esc(v) + "</option>";
+    });
+    return "<div class='field'><label>" + c.label + "</label><select data-k='" + c.key + "'>" + html + "</select></div>";
+  }
+
+  function refreshRecFormIfOpen() {
+    var card = document.getElementById("recFormCard");
+    if (!card || card.style.display === "none") return;
+    var rec;
+    if (editRecIdx >= 0 && !copySourceRec) {
+      var rows = MeishiStore.getRecords();
+      rec = editRecIdx < rows.length
+        ? Object.assign({}, MeishiFields.emptyRecord(), rows[editRecIdx])
+        : readRecFromForm();
+    } else {
+      rec = readRecFromForm();
+    }
+    rebuildRecFormFields(rec);
+  }
+
+  function readRecFormCtx() {
+    var g = function (k) {
+      var el = document.querySelector("#recFormFields [data-k='" + k + "']");
+      return el ? (el.tagName === "SELECT" || el.tagName === "INPUT" ? el.value.trim() : "") : "";
+    };
+    return { company: g("company"), aff1: g("aff1"), aff2: g("aff2"), aff3: g("aff3"), title: g("title"), postal: g("postal") };
+  }
+
+  function rebuildRecFormFields(rec) {
+    rec = rec || MeishiFields.emptyRecord();
+    var ctx = {
+      company: rec.company, aff1: rec.aff1, aff2: rec.aff2, aff3: rec.aff3, title: rec.title, postal: rec.postal,
+    };
+    var html = "";
+    MeishiFields.COLUMNS.forEach(function (c) {
+      if (c.key === "no") {
+        html += "<div class='field'><label>" + c.label + "</label><input data-k='no' value='" + esc(rec.no || "") + "' readonly /></div>";
+        return;
+      }
+      html += selectFieldHtml(c, rec, ctx);
+    });
+    document.getElementById("recFormFields").innerHTML = html;
+    document.querySelectorAll("#recFormFields select[data-k]").forEach(function (sel) {
+      sel.addEventListener("change", onRecFieldChange);
+    });
+    applyLocAuto();
+  }
+
+  function onRecFieldChange(ev) {
+    var rec = readRecFromForm();
+    var k = ev.target.getAttribute("data-k");
+    if (k === "company") { rec.aff1 = rec.aff2 = rec.aff3 = rec.title = ""; }
+    if (k === "aff1") { rec.aff2 = rec.aff3 = rec.title = ""; }
+    if (k === "aff2") { rec.aff3 = rec.title = ""; }
+    if (k === "aff3") rec.title = "";
+    rebuildRecFormFields(rec);
+  }
+
+  function applyLocAuto() {
+    var co = (document.querySelector("[data-k='company']") || {}).value;
+    var po = (document.querySelector("[data-k='postal']") || {}).value;
+    if (!co || !po) return;
+    var p = MeishiStore.getCompanyProfileForEdit(co);
+    var loc = (p.catalog.locations || []).find(function (l) { return l.postal === po; });
+    if (!loc) return;
+    function setSel(k, v) {
+      if (!v) return;
+      var el = document.querySelector("#recFormFields [data-k='" + k + "']");
+      if (!el || el.tagName !== "SELECT") return;
+      var hit = false;
+      Array.prototype.forEach.call(el.options, function (opt) {
+        if (MeishiFields.norm(opt.value) === MeishiFields.norm(v)) { opt.selected = true; hit = true; }
+      });
+      if (!hit) {
+        var o = document.createElement("option");
+        o.value = v;
+        o.textContent = v;
+        o.selected = true;
+        el.appendChild(o);
+      }
+    }
+    setSel("address", loc.address);
+    setSel("tel", loc.tel);
+    setSel("fax", loc.fax);
+  }
+
+  function readRecFromForm() {
+    var rec = MeishiFields.emptyRecord();
+    document.querySelectorAll("#recFormFields [data-k]").forEach(function (el) {
+      rec[el.getAttribute("data-k")] = el.value.trim();
+    });
+    return rec;
+  }
+
+  function openRecForm(idx, copyFrom) {
+    editRecIdx = idx;
+    copySourceRec = copyFrom || null;
+    var rec;
+    if (copyFrom) {
+      rec = JSON.parse(JSON.stringify(copyFrom));
+      rec.no = MeishiStore.nextRecordNo();
+      document.getElementById("recFormTitle").textContent = "データコピー（新規番号 " + rec.no + "）";
+    } else if (idx >= 0) {
+      rec = Object.assign({}, MeishiFields.emptyRecord(), MeishiStore.getRecords()[idx]);
+      document.getElementById("recFormTitle").textContent = "行 #" + rec.no + " を編集";
+    } else {
+      rec = MeishiFields.emptyRecord();
+      rec.no = MeishiStore.nextRecordNo();
+      document.getElementById("recFormTitle").textContent = "新規行（番号 " + rec.no + "）";
+    }
+    rebuildRecFormFields(rec);
+    document.getElementById("recFormCard").style.display = "";
+    renderRecTable();
+  }
+
+  function bindEvents() {
+    document.getElementById("tabs").addEventListener("click", function (e) {
+      var b = e.target.closest("button[data-tab]");
+      if (b) showTab(b.getAttribute("data-tab"));
+    });
+    document.getElementById("btnSaveBasic").onclick = function () {
+      MeishiStore.saveConfig({
+        title: document.getElementById("title").value.trim() || "名刺印刷システム",
+        ownerId: document.getElementById("ownerId").value.trim(),
+        ownerPass: document.getElementById("ownerPass").value,
+      });
+      alert("保存しました");
+    };
+    document.getElementById("btnCopy").onclick = function () {
+      var url = document.getElementById("userUrl").value || defaultUserPageUrl();
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(url).then(function () { alert("URLをコピーしました"); }).catch(function () {});
+      } else {
+        var inp = document.getElementById("userUrl");
+        inp.focus();
+        inp.select();
+        try { document.execCommand("copy"); alert("URLをコピーしました"); } catch (e) {}
+      }
+    };
+    document.getElementById("btnQr").onclick = showUserQr;
+    document.getElementById("btnQrClose").onclick = hideUserQr;
+    document.getElementById("qrModal").onclick = function (e) {
+      if (e.target === document.getElementById("qrModal")) hideUserQr();
+    };
+    document.getElementById("btnOpen").onclick = openUserPage;
+    document.getElementById("btnImgLibAdd").onclick = addImagesToLibrary;
+    document.getElementById("imgLibFileInput").onchange = onImgLibFilesSelected;
+    document.getElementById("coPick").onchange = fillCoPanel;
+    document.getElementById("btnCoAdd").onclick = function () {
+      var n = document.getElementById("coNewName").value.trim();
+      if (!n) return alert("会社名を入力してください");
+      MeishiStore.addCompany(n);
+      document.getElementById("coNewName").value = "";
+      fillCoPick();
+      document.getElementById("coPick").value = n;
+      fillCoPanel();
+    };
+    document.getElementById("btnCoRename").onclick = function () {
+      var n = document.getElementById("coRename").value.trim();
+      if (!n) return;
+      try {
+        MeishiStore.renameCompany(currentCo, n);
+        fillCoPick();
+        document.getElementById("coPick").value = n;
+        fillCoPanel();
+        alert("会社名を変更しました");
+      } catch (e) { alert(e.message || e); }
+    };
+    document.getElementById("btnCoDel").onclick = function () {
+      if (!confirm("会社共通設定「" + currentCo + "」を削除しますか？\n（名刺データ行は残ります）")) return;
+      MeishiStore.deleteCompany(currentCo);
+      fillCoPick();
+    };
+    document.getElementById("btnCoSyncCat").onclick = function () {
+      window._coEditingCatalog = MeishiCatalog.mergeCatalog(
+        MeishiCatalog.buildCatalogFromRecords(MeishiStore.getRecords(), currentCo),
+        window._coEditingCatalog || MeishiCatalog.emptyCatalog()
+      );
+      MeishiStore.saveCompanyProfile(currentCo, collectCoProfile(), collectCoSaveMutations());
+      afterCoSaveRefresh();
+      alert("名刺データからマスタを取り込み、関連データを更新しました");
+    };
+    document.getElementById("btnSaveCo").onclick = function () {
+      syncCoCatalogToRecords(null);
+      var pending = collectCoSaveMutations();
+      MeishiStore.saveCompanyProfile(currentCo, collectCoProfile(), pending);
+      afterCoSaveRefresh();
+      alert("会社共通を保存し、関連データを更新しました");
+    };
+    document.getElementById("btnCoImgPick").onclick = function () {
+      pickImagesIntoLayout(coLayout, "co", function () { refreshCoDesign(); });
+    };
+    document.getElementById("btnCoDesReset").onclick = function () {
+      if (!confirm("デザインを初期化しますか？")) return;
+      coLayout = MeishiLayout.defLayout();
+      if (coUI) coUI.invalidate();
+      refreshCoDesign();
+    };
+    document.getElementById("deCoPick").onchange = function () { currentDeptKey = ""; fillDeptAff1(); };
+    document.getElementById("deAff1Pick").onchange = function () { currentDeptKey = ""; fillDeptAff2(); };
+    document.getElementById("deAff2Pick").onchange = function () { currentDeptKey = ""; fillDeptAff2(); };
+    document.getElementById("btnSaveDept").onclick = function () {
+      var ok = saveCurrentDeptLayout();
+      if (ok === false) return;
+      if (!ok) return alert("保存に失敗しました。ストレージ容量などをご確認ください。");
+      afterDeptSaveRefresh();
+      alert("部署共通を保存しました");
+    };
+    document.getElementById("btnDeDesReset").onclick = function () {
+      if (!confirm("この部署の追加画像をすべて削除しますか？")) return;
+      deLayout = newDeptLayout();
+      if (deUI) deUI.invalidate();
+      refreshDeptDesign();
+    };
+    document.getElementById("btnDeImgPick").onclick = function () {
+      var pk = getDeptPickers();
+      pk.aff1 = document.getElementById("deAff1Pick").value;
+      if (!pk.co || !pk.aff1) return alert("会社と所属1を選択してください");
+      if (!deLayout) loadDeptLayout();
+      pickImagesIntoLayout(deLayout, "dept", function () {
+        if (deUI) deUI.invalidate();
+        refreshDeptDesign();
+      });
+    };
+    document.getElementById("recSearch").oninput = function () { recFilter = this.value; renderRecTable(); };
+    document.querySelector("#recTbl tbody").addEventListener("click", function (e) {
+      var tr = e.target.closest("tr[data-i]");
+      if (tr) openRecForm(+tr.getAttribute("data-i"));
+    });
+    document.getElementById("btnRecNew").onclick = function () { copySourceRec = null; openRecForm(-1); };
+    document.getElementById("btnRecCopy").onclick = function () {
+      if (editRecIdx < 0) return alert("コピー元の行を一覧から選んでください");
+      openRecForm(-1, MeishiStore.getRecords()[editRecIdx]);
+    };
+    document.getElementById("btnRecCancel").onclick = function () {
+      editRecIdx = -1; copySourceRec = null;
+      document.getElementById("recFormCard").style.display = "none";
+      renderRecTable();
+    };
+    document.getElementById("btnRecSave").onclick = function () {
+      var rec = readRecFromForm();
+      if (!rec.name) return alert("氏名を入力してください");
+      if (!rec.company) return alert("会社を選択してください");
+      if (copySourceRec && MeishiCatalog.recordsEqual(rec, copySourceRec, true)) {
+        return alert("コピー元と内容が同一のため登録できません。変更してから保存してください。");
+      }
+      if (editRecIdx >= 0 && !copySourceRec) MeishiStore.updateRecord(editRecIdx, rec);
+      else MeishiStore.addRecord(rec);
+      editRecIdx = -1; copySourceRec = null;
+      document.getElementById("recFormCard").style.display = "none";
+      fillCoPick();
+      renderRecTable();
+      alert("保存しました");
+    };
+    document.getElementById("btnRecDel").onclick = function () {
+      if (editRecIdx < 0 || copySourceRec) return;
+      if (!confirm("削除しますか？")) return;
+      MeishiStore.deleteRecord(editRecIdx);
+      editRecIdx = -1;
+      document.getElementById("recFormCard").style.display = "none";
+      fillCoPick();
+      renderRecTable();
+    };
+    document.getElementById("selRecNo").onchange = function () {
+      var idx = MeishiStore.findRecordByNo(this.value);
+      if (idx >= 0) openRecForm(idx);
+    };
+  }
+
+  window.OwnerAdmin = {
+    init: async function () {
+      bindEvents();
+      refreshUserUrlFields();
+      try { await MeishiStore.init(); } catch (e) {
+        alert(e.message || e);
+        refreshUserUrlFields();
+        return;
+      }
+      setBadge();
+      fillBasic();
+      fillCoPick();
+      fillDeptPanel();
+      renderRecTable();
+      var nos = MeishiStore.getRecords().map(function (r) { return r.no; }).filter(Boolean);
+      document.getElementById("selRecNo").innerHTML =
+        "<option value=''>行番号で選択</option>" + nos.map(function (n) { return "<option>" + esc(n) + "</option>"; }).join("");
+      MeishiStore.onConfigChange(function () {
+        if (window._coCatalogSyncing || window._deptSaving) return;
+        fillBasic();
+        refreshCoPickOptions();
+        var deptOn = document.getElementById("panel-dept") && document.getElementById("panel-dept").classList.contains("on");
+        if (!deptOn) fillDeptPanel();
+        refreshRecFormIfOpen();
+      });
+      MeishiStore.onRecordsChange(function () {
+        refreshCoPickOptions();
+        renderRecTable();
+        refreshRecFormIfOpen();
+        var nos2 = MeishiStore.getRecords().map(function (r) { return r.no; }).filter(Boolean);
+        document.getElementById("selRecNo").innerHTML =
+          "<option value=''>行番号で選択</option>" + nos2.map(function (n) { return "<option>" + esc(n) + "</option>"; }).join("");
+      });
+    },
+  };
+})();

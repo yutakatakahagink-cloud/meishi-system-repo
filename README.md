@@ -56,8 +56,8 @@ scripts/
 ### 初回セットアップ（GitHub リポジトリ未作成の場合）
 1. GitHub にログイン → **New repository**
 2. Repository name: **`meishi-system-repo`** / Public / **README は追加しない**
-3. 作成後 → **Settings → Pages → Build and deployment → Source: GitHub Actions**
-4. 下記デプロイコマンドを実行（`git push` 成功後、Actions が自動公開）
+3. 作成後 → **Settings → Pages → Build and deployment → Source: Deploy from a branch → Branch: `main` / Folder: `/docs`**
+4. 下記デプロイコマンドを実行（`git push` 成功後、1〜2分で公開）
 
 ### デプロイ手順
 ```powershell
