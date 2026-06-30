@@ -99,19 +99,9 @@
         </div>
       </section>
 
-      <!-- ホーム -->
-      <section id="view-home" class="view">
-        <div class="home-tile" id="tilePrint">
-          <div class="ico">🖨️</div>
-          <div class="ttl">名刺印刷</div>
-          <div class="small" style="margin-top:6px">氏名・会社などを選んでプレビュー・印刷</div>
-        </div>
-      </section>
-
-      <!-- エディタ -->
+      <!-- プレビュー・印刷 -->
       <section id="view-editor" class="view">
         <div class="toolbar">
-          <button class="btn ghost sm" id="btnHome">← ホーム</button>
           <strong>名刺印刷</strong>
           <span class="spacer" style="flex:1"></span>
           <button class="btn sm" id="btnPrint">🖨️ 印刷（A4・10面）</button>
@@ -157,13 +147,9 @@
         document.getElementById("view-" + v).classList.add("active");
       }
 
-      function isPreviewDeepLink() {
-        var h = (location.hash || "").replace(/^#/, "").toLowerCase();
-        return h === "preview" || h === "print" || h === "editor";
-      }
-
-      function afterLoginView() {
-        return isPreviewDeepLink() ? "editor" : "home";
+      function openEditor() {
+        show("editor");
+        userPrint.rebuild();
       }
 
       var userPrint = MeishiUserPrint.create({
@@ -181,12 +167,7 @@
         if (id === (c.ownerId || "") && pw === (c.ownerPass || "")) {
           sessionStorage.setItem(SK, "1");
           document.getElementById("btnLogout").style.display = "";
-          show(afterLoginView());
-          if (isPreviewDeepLink()) {
-            userPrint.rebuild();
-            var btnHome = document.getElementById("btnHome");
-            if (btnHome) btnHome.style.display = "none";
-          }
+          openEditor();
         } else alert("IDまたはパスワードが違います。");
       }
       document.getElementById("btnLogin").addEventListener("click", doLogin);
@@ -196,11 +177,6 @@
         this.style.display = "none";
         show("login");
       });
-      document.getElementById("tilePrint").addEventListener("click", function () {
-        show("editor");
-        userPrint.rebuild();
-      });
-      document.getElementById("btnHome").addEventListener("click", function () { show("home"); });
 
       function setBadge() {
         var b = document.getElementById("syncBadge");
@@ -225,12 +201,7 @@
         });
         if (sessionStorage.getItem(SK) === "1") {
           document.getElementById("btnLogout").style.display = "";
-          show(afterLoginView());
-          if (isPreviewDeepLink()) {
-            userPrint.rebuild();
-            var btnHome = document.getElementById("btnHome");
-            if (btnHome) btnHome.style.display = "none";
-          }
+          openEditor();
         } else show("login");
       })();
     </script>
