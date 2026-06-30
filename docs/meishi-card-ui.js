@@ -5,6 +5,13 @@
  */
 (function () {
   var SNAP_THRESH = 6;
+  var FLOW_GAP = 3;
+  var FLOW_PAD = 6;
+  /** 縦方向に重なりを解消するテキスト列（上→下） */
+  var FLOW_COLUMNS = [
+    ["company", "aff", "name", "qual", "koji"],
+    ["address", "telfax", "mobile", "email", "url"],
+  ];
 
   function pxFromEvent(e) { return e.touches ? e.touches[0] : e; }
 
@@ -130,12 +137,17 @@
       });
     }
 
+    function textMaxWidth(st) {
+      return Math.max(32, cardEl.clientWidth - st.x - FLOW_PAD);
+    }
+
     function applyElStyle(node, st, txt, label) {
       if (st.hidden) node.style.display = "none";
       else node.style.display = "";
       if (!txt) {
         node.classList.add("empty");
         node.textContent = "〔" + label + "〕";
+        if (readOnly) node.style.display = "none";
       } else {
         node.classList.remove("empty");
         node.textContent = txt;
@@ -146,12 +158,54 @@
       node.style.color = st.color;
       node.style.fontWeight = st.bold ? "700" : "400";
       node.style.textAlign = st.align;
+      if (readOnly) {
+        var mw = textMaxWidth(st);
+        node.style.whiteSpace = "pre-wrap";
+        node.style.wordBreak = "break-word";
+        node.style.overflowWrap = "anywhere";
+        node.style.maxWidth = mw + "px";
+        node.style.width = mw + "px";
+      } else {
+        node.style.whiteSpace = "pre";
+        node.style.wordBreak = "";
+        node.style.overflowWrap = "";
+        node.style.maxWidth = "";
+        node.style.width = "";
+      }
+    }
+
+    function reflowTextElements(layout) {
+      if (!readOnly || hideElements) return;
+      var cardH = cardEl.clientHeight;
+      FLOW_COLUMNS.forEach(function (colIds) {
+        var items = [];
+        colIds.forEach(function (id) {
+          var node = elNodes[id];
+          var st = layout.el[id];
+          if (!node || !st || st.hidden || node.style.display === "none") return;
+          var txt = getElText(id);
+          if (!txt) return;
+          items.push({ node: node, st: st, baseY: st.y });
+        });
+        if (!items.length) return;
+        var cursorBottom = -Infinity;
+        items.forEach(function (item) {
+          var top = Math.max(item.baseY, cursorBottom + (cursorBottom > -Infinity ? FLOW_GAP : 0));
+          if (top + item.node.offsetHeight > cardH) {
+            top = Math.max(0, cardH - item.node.offsetHeight);
+          }
+          item.node.style.top = top + "px";
+          cursorBottom = top + item.node.offsetHeight;
+        });
+      });
     }
 
     function ensureBuilt() {
       if (built) return;
       cardEl.innerHTML = "";
       elNodes = {};
+      if (readOnly) cardEl.classList.add("print-readonly");
+      else cardEl.classList.remove("print-readonly");
       if (!hideElements) {
         MeishiLayout.ELS.forEach(function (e) {
           var st = getLayout().el[e.id];
@@ -242,6 +296,7 @@
           if (!node || !st) return;
           applyElStyle(node, st, getElText(e.id), e.label);
         });
+        reflowTextElements(layout);
       }
       syncImageNodes();
       updateSelectionHighlight();
