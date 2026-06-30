@@ -3,23 +3,43 @@
   --preview-scale: 2;
   --card-w: 91mm;
   --card-h: 55mm;
-  width: calc(var(--card-w) * var(--preview-scale) + 52px);
-  height: calc(var(--card-h) * var(--preview-scale) + 52px);
+  --stage-pad: 26px;
+  --stage-pad-x: calc(var(--stage-pad) * 2);
+  width: calc(var(--card-w) * var(--preview-scale) + var(--stage-pad-x));
+  height: calc(var(--card-h) * var(--preview-scale) + var(--stage-pad-x));
   max-width: 100%;
   margin: 0 auto;
   position: relative;
+  overflow: hidden;
 }
 
 .preview-scale-box--stack {
-  height: calc((var(--card-h) + 32px) * var(--preview-scale) + 52px);
+  --stage-pad: 16px;
+  height: calc((var(--card-h) + 32px) * var(--preview-scale) + var(--stage-pad-x));
+}
+
+#printArea,
+#pvPrintArea {
+  width: fit-content;
+  max-width: 100%;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .preview-scale-box > .stage {
   position: absolute;
   left: 50%;
-  top: 26px;
+  top: var(--stage-pad);
+  width: calc(var(--card-w) + var(--stage-pad-x));
+  box-sizing: border-box;
+  padding: var(--stage-pad);
   transform: translateX(-50%) scale(var(--preview-scale));
   transform-origin: top center;
+}
+
+.preview-scale-box > .stage.stack {
+  position: absolute;
+  width: calc(var(--card-w) + var(--stage-pad-x));
 }
 
 /* 画面では印刷シートを非表示（印刷時のみ表示） */
