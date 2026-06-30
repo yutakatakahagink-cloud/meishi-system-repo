@@ -424,14 +424,14 @@
       return !!(txt && /[\r\n]/.test(txt));
     }
 
-    /** プレビュー：資格が空で所属に改行がなければ所属を一段下げる */
+    /** プレビュー：資格が空なら所属・役職を一段下げる（改行ありは除く） */
     function flowBaseY(id, st, layout) {
-      if (textFlow && readOnly && id === "aff") {
-        if (!getElText("qual") && !hasLineBreak(getElText("aff"))) {
-          var qualSt = layout.el.qual;
-          if (qualSt) return st.y + singleLineHeight(qualSt);
-        }
-      }
+      if (!textFlow || !readOnly) return st.y;
+      if (id !== "aff" && id !== "title") return st.y;
+      if (getElText("qual")) return st.y;
+      if (hasLineBreak(getElText(id))) return st.y;
+      var qualSt = layout.el.qual;
+      if (qualSt) return st.y + singleLineHeight(qualSt);
       return st.y;
     }
 
