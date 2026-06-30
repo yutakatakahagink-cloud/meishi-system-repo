@@ -17,8 +17,9 @@
     <script src="meishi-card-ui.js?v=20250617h"></script>
     <script src="meishi-print-sheet.js"></script>
     <script src="meishi-user-print.js?v=20250617g"></script>
+    <script src="meishi-preview-init.js?v=20250617i"></script>
     <link rel="stylesheet" href="meishi-print-sheet.css" />
-    <link rel="stylesheet" href="owner.css?v=20250616z" />
+    <link rel="stylesheet" href="owner.css?v=20250617i" />
   </head>
   <body>
     <header>
@@ -162,7 +163,7 @@
             <button type="button" class="btn sm" id="pvBtnPrint">🖨️ 印刷（A4・10面）</button>
           </div>
           <p id="pvPersonalHint" class="hint" style="margin-top:0"></p>
-          <p class="hint">使用者画面と同じ操作です。A4用紙に名刺10枚（91×55mm・ラベル屋さん51003相当）。印刷は倍率100%・余白なし・背景グラフィックONにしてください。</p>
+          <p class="hint">A4用紙に名刺10枚（91×55mm・ラベル屋さん51003相当）。印刷は倍率100%・余白なし・背景グラフィックONにしてください。</p>
           <div class="print-editor">
             <div class="print-panel card inner">
               <h3>項目を選択</h3>
@@ -185,7 +186,7 @@
               <div class="field"><label>工事件名（任意）</label><input id="pvInKoji" placeholder="例: 令和○年度 ○○工事" /></div>
             </div>
             <div class="print-stagewrap">
-              <div class="hint">個人画像はこのプレビューでのみ表示・印刷されます（使用者画面には出ません）</div>
+              <div class="hint">個人画像は氏名を選ぶと表示・印刷されます</div>
               <div id="pvPrintArea">
                 <div class="preview-scale-box preview-scale-box--stack">
                   <div class="stage stack">
@@ -233,7 +234,7 @@
         <button type="button" class="btn sm" id="btnQrClose">閉じる</button>
       </div>
     </div>
-    <script src="owner-admin.js?v=20250617g"></script>
+    <script src="owner-admin.js?v=20250617i"></script>
     <script>OwnerAdmin.init();</script>
   </body>
 </html>

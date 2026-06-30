@@ -28,6 +28,7 @@ meishi-app/public/meishi-card-ui.js
 meishi-app/public/meishi-print-sheet.js
 meishi-app/public/meishi-print-sheet.css
 meishi-app/public/meishi-user-print.js
+meishi-app/public/meishi-preview-init.js
 meishi-app/public/meishi-file-guard.js
 meishi-app/public/meishi-layout.js
 meishi-app/public/meishi-image-lib.js
