@@ -1,7 +1,7 @@
 /**
  * 名刺プレビュー・デザイン編集 UI（使用者・所有者で共有）
  * ドラッグ中は DOM 再生成せず style のみ更新して軽量化。
- * 編集時は他要素・カード端／中心へスナップ（縦横軸合わせ）。
+ * 編集時は他要素・カード端／中心への水平垂直ガイドを表示（吸着・位置制限なし）。
  */
 (function () {
   var SNAP_THRESH = 6;
@@ -77,14 +77,12 @@
   function snapDragPosition(cardEl, node, nx, ny, zoneEdges, extraCardEls) {
     var w = node.offsetWidth;
     var h = node.offsetHeight;
-    var left = nx;
-    var top = ny;
     var targets = collectSnapTargets(cardEl, node, zoneEdges, extraCardEls);
-    var sx = bestSnap([left, left + w / 2, left + w], targets.tx, SNAP_THRESH);
-    var sy = bestSnap([top, top + h / 2, top + h], targets.ty, SNAP_THRESH);
+    var sx = bestSnap([nx, nx + w / 2, nx + w], targets.tx, SNAP_THRESH);
+    var sy = bestSnap([ny, ny + h / 2, ny + h], targets.ty, SNAP_THRESH);
     return {
-      nx: nx + (sx ? sx.delta : 0),
-      ny: ny + (sy ? sy.delta : 0),
+      nx: nx,
+      ny: ny,
       guideX: sx ? sx.line : null,
       guideY: sy ? sy.line : null,
     };
@@ -95,8 +93,8 @@
     var sr = bestSnap([x + nw], targets.tx, SNAP_THRESH);
     var sb = bestSnap([y + nh], targets.ty, SNAP_THRESH);
     return {
-      w: Math.max(16, nw + (sr ? sr.delta : 0)),
-      h: Math.max(12, nh + (sb ? sb.delta : 0)),
+      w: Math.max(16, nw),
+      h: Math.max(12, nh),
       guideX: sr ? sr.line : null,
       guideY: sb ? sb.line : null,
     };
@@ -657,12 +655,12 @@
           var q = pxFromEvent(e2);
           var rawNx = Math.round(ox + (q.clientX - sx));
           var rawNy = Math.round(oy + (q.clientY - sy));
-          var snapped = snapDragPosition(cardEl, node, rawNx, rawNy, zoneSnapEdges(), snapExtraCardEls);
           var pointerX = q.clientX - cardEl.getBoundingClientRect().left;
-          nx = isTextDrag ? clampTextDragX(node, snapped.nx, pointerX) : snapped.nx;
-          ny = snapped.ny;
-          if (isImageDrag) showDragGuides(snapped, nx, ny, node.offsetWidth, node.offsetHeight, "center");
-          else showGuides(snapped.guideX, snapped.guideY);
+          nx = isTextDrag ? clampTextDragX(node, rawNx, pointerX) : rawNx;
+          ny = rawNy;
+          var guides = snapDragPosition(cardEl, node, nx, ny, zoneSnapEdges(), snapExtraCardEls);
+          if (isImageDrag) showDragGuides(guides, nx, ny, node.offsetWidth, node.offsetHeight, "center");
+          else showGuides(guides.guideX, guides.guideY);
           if (!raf) raf = requestAnimationFrame(applyPos);
         }
         function up(e2) {
@@ -708,10 +706,10 @@
           var q = pxFromEvent(e2);
           var rawW = Math.max(16, Math.round(ow + (q.clientX - sx)));
           var rawH = Math.max(12, Math.round(oh + (q.clientY - sy)));
-          var snapped = snapResizeBox(cardEl, wrap, im.x, im.y, rawW, rawH, zoneSnapEdges(), snapExtraCardEls);
-          nw = snapped.w;
-          nh = snapped.h;
-          showDragGuides(snapped, im.x, im.y, nw, nh, "br");
+          nw = rawW;
+          nh = rawH;
+          var guides = snapResizeBox(cardEl, wrap, im.x, im.y, nw, nh, zoneSnapEdges(), snapExtraCardEls);
+          showDragGuides(guides, im.x, im.y, nw, nh, "br");
           if (!raf) raf = requestAnimationFrame(applySize);
         }
         function up(e2) {
