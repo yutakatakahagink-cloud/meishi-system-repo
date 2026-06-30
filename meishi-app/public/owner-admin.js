@@ -623,6 +623,7 @@
           return window.MeishiImageLib ? MeishiImageLib.resolveImages(imgs) : imgs;
         },
         hideElements: true,
+        snapExtraCardEl: document.getElementById("deCoBaseCard"),
         onLayoutChange: function () { renderDeImgList(); },
         onSelect: function () {
           var none = document.getElementById("deDesignNone");

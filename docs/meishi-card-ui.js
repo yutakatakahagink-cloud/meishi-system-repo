@@ -51,30 +51,35 @@
     return best;
   }
 
-  function collectSnapTargets(cardEl, excludeNode, zoneEdges) {
+  function collectSnapTargets(cardEl, excludeNode, zoneEdges, extraCardEls) {
     var cr = cardEl.getBoundingClientRect();
     var tx = [0, cr.width / 2, cr.width];
     var ty = [0, cr.height / 2, cr.height];
     if (zoneEdges) {
       tx.push(zoneEdges.leftEnd, zoneEdges.centerStart, zoneEdges.centerEnd, zoneEdges.rightStart);
     }
-    cardEl.querySelectorAll(".el, .imgel").forEach(function (n) {
-      if (n === excludeNode) return;
-      var r = n.getBoundingClientRect();
-      var l = r.left - cr.left;
-      var t = r.top - cr.top;
-      tx.push(l, l + r.width / 2, l + r.width);
-      ty.push(t, t + r.height / 2, t + r.height);
-    });
+    function addNodesFrom(root) {
+      if (!root) return;
+      root.querySelectorAll(".el, .imgel").forEach(function (n) {
+        if (n === excludeNode) return;
+        var r = n.getBoundingClientRect();
+        var l = r.left - cr.left;
+        var t = r.top - cr.top;
+        tx.push(l, l + r.width / 2, l + r.width);
+        ty.push(t, t + r.height / 2, t + r.height);
+      });
+    }
+    addNodesFrom(cardEl);
+    (extraCardEls || []).forEach(addNodesFrom);
     return { tx: tx, ty: ty };
   }
 
-  function snapDragPosition(cardEl, node, nx, ny, zoneEdges) {
+  function snapDragPosition(cardEl, node, nx, ny, zoneEdges, extraCardEls) {
     var w = node.offsetWidth;
     var h = node.offsetHeight;
     var left = nx;
     var top = ny;
-    var targets = collectSnapTargets(cardEl, node, zoneEdges);
+    var targets = collectSnapTargets(cardEl, node, zoneEdges, extraCardEls);
     var sx = bestSnap([left, left + w / 2, left + w], targets.tx, SNAP_THRESH);
     var sy = bestSnap([top, top + h / 2, top + h], targets.ty, SNAP_THRESH);
     return {
@@ -85,8 +90,8 @@
     };
   }
 
-  function snapResizeBox(cardEl, node, x, y, nw, nh, zoneEdges) {
-    var targets = collectSnapTargets(cardEl, node, zoneEdges);
+  function snapResizeBox(cardEl, node, x, y, nw, nh, zoneEdges, extraCardEls) {
+    var targets = collectSnapTargets(cardEl, node, zoneEdges, extraCardEls);
     var sr = bestSnap([x + nw], targets.tx, SNAP_THRESH);
     var sb = bestSnap([y + nh], targets.ty, SNAP_THRESH);
     return {
@@ -111,6 +116,10 @@
     };
     var onSelect = opts.onSelect || function () {};
     var onCenterShiftChange = opts.onCenterShiftChange || function () {};
+    var snapExtraCardEls = [];
+    if (opts.snapExtraCardEl) {
+      snapExtraCardEls = Array.isArray(opts.snapExtraCardEl) ? opts.snapExtraCardEl.slice() : [opts.snapExtraCardEl];
+    }
     var sel = null;
     var built = false;
     var elNodes = {};
@@ -308,6 +317,19 @@
 
     function hideGuides() {
       showGuides(null, null);
+    }
+
+    function showDragGuides(snapped, boxX, boxY, boxW, boxH, anchor) {
+      var gx;
+      var gy;
+      if (anchor === "br") {
+        gx = snapped.guideX != null ? snapped.guideX : (boxX + boxW);
+        gy = snapped.guideY != null ? snapped.guideY : (boxY + boxH);
+      } else {
+        gx = snapped.guideX != null ? snapped.guideX : (boxX + boxW / 2);
+        gy = snapped.guideY != null ? snapped.guideY : (boxY + boxH / 2);
+      }
+      showGuides(gx, gy);
     }
 
     function saveLayout() {
@@ -622,6 +644,7 @@
         var p = pxFromEvent(ev);
         var sx = p.clientX, sy = p.clientY, ox = st.x, oy = st.y;
         var isTextDrag = useZoneTextLayout() && node.classList.contains("el");
+        var isImageDrag = node.classList.contains("imgel");
         var raf = 0, nx = ox, ny = oy;
         function applyPos() {
           raf = 0;
@@ -634,11 +657,12 @@
           var q = pxFromEvent(e2);
           var rawNx = Math.round(ox + (q.clientX - sx));
           var rawNy = Math.round(oy + (q.clientY - sy));
-          var snapped = snapDragPosition(cardEl, node, rawNx, rawNy, zoneSnapEdges());
+          var snapped = snapDragPosition(cardEl, node, rawNx, rawNy, zoneSnapEdges(), snapExtraCardEls);
           var pointerX = q.clientX - cardEl.getBoundingClientRect().left;
           nx = isTextDrag ? clampTextDragX(node, snapped.nx, pointerX) : snapped.nx;
           ny = snapped.ny;
-          showGuides(snapped.guideX, snapped.guideY);
+          if (isImageDrag) showDragGuides(snapped, nx, ny, node.offsetWidth, node.offsetHeight, "center");
+          else showGuides(snapped.guideX, snapped.guideY);
           if (!raf) raf = requestAnimationFrame(applyPos);
         }
         function up(e2) {
@@ -684,10 +708,10 @@
           var q = pxFromEvent(e2);
           var rawW = Math.max(16, Math.round(ow + (q.clientX - sx)));
           var rawH = Math.max(12, Math.round(oh + (q.clientY - sy)));
-          var snapped = snapResizeBox(cardEl, wrap, im.x, im.y, rawW, rawH, zoneSnapEdges());
+          var snapped = snapResizeBox(cardEl, wrap, im.x, im.y, rawW, rawH, zoneSnapEdges(), snapExtraCardEls);
           nw = snapped.w;
           nh = snapped.h;
-          showGuides(snapped.guideX, snapped.guideY);
+          showDragGuides(snapped, im.x, im.y, nw, nh, "br");
           if (!raf) raf = requestAnimationFrame(applySize);
         }
         function up(e2) {
