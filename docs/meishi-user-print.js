@@ -78,7 +78,7 @@
       return "";
     }
 
-    function fillSelect(selEl, values, placeholder, stateKey) {
+    function fillSelect(selEl, values, placeholder, stateKey, skipAutoPick) {
       var arr = uniq(values);
       var field = selEl.closest(".field");
       var changed = false;
@@ -94,6 +94,11 @@
       if (field) field.classList.remove("field-disabled");
       selEl.innerHTML = "<option value=\"\">" + esc(placeholder || "（選択）") + "</option>" +
         arr.map(function (v) { return "<option>" + esc(v) + "</option>"; }).join("");
+      if (skipAutoPick) {
+        selEl.value = "";
+        if (S[stateKey] !== "") { S[stateKey] = ""; changed = true; }
+        return changed;
+      }
       if (arr.length === 1) {
         if (S[stateKey] !== arr[0]) changed = true;
         S[stateKey] = arr[0];
@@ -289,10 +294,25 @@
 
     function clear() {
       S = { name: "", company: "", aff1: "", aff2: "", aff3: "", title: "", postal: "" };
-      var koji = el("inKoji");
-      if (koji) koji.value = "";
-      initLayout();
-      rebuild();
+      ["inQual", "inAddress", "inTel", "inFax", "inMobile", "inEmail", "inUrl", "inKoji"].forEach(function (k) {
+        var inp = el(k);
+        if (inp) inp.value = "";
+      });
+      layout = MeishiCatalog.normalizeLayout(MeishiLayout.defLayout());
+      if (cardUI) cardUI.invalidate();
+      var guard = 0;
+      var changed = true;
+      while (changed && guard++ < 20) {
+        changed = false;
+        changed = fillSelect(el("selName"), filteredExcept("name").map(function (r) { return r.name; }).sort(), "氏名を選択", "name", true) || changed;
+        changed = fillSelect(el("selCompany"), filteredExcept("company").map(function (r) { return r.company; }), "会社・団体名", "company", true) || changed;
+        changed = fillSelect(el("selAff1"), filteredExcept("aff1").map(function (r) { return r.aff1; }), "所属1", "aff1", true) || changed;
+        changed = fillSelect(el("selAff2"), filteredExcept("aff2").map(function (r) { return r.aff2; }), "所属2", "aff2", true) || changed;
+        changed = fillSelect(el("selAff3"), filteredExcept("aff3").map(function (r) { return r.aff3; }), "所属3", "aff3", true) || changed;
+        changed = fillSelect(el("selTitle"), filteredExcept("title").map(function (r) { return r.title; }), "役職", "title", true) || changed;
+        changed = fillSelect(el("selPostal"), filteredExcept("postal").map(function (r) { return r.postal; }), "郵便番号", "postal", true) || changed;
+      }
+      renderCard();
       if (typeof cfg.onClear === "function") cfg.onClear();
     }
 
