@@ -25,12 +25,12 @@
   }
   /** プレビュー時の縦位置調整の並び（左右はゾーン別に処理） */
   var FLOW_STACK_ORDER = [
-    "company", "aff", "name", "qual", "koji",
+    "company", "aff", "title", "name", "qual", "koji",
     "address", "telfax", "mobile", "email", "url",
   ];
   /** 長いときに改行してよい項目 */
   var WRAP_ELIGIBLE_IDS = {
-    company: true, aff: true, name: true, qual: true, koji: true,
+    company: true, aff: true, title: true, name: true, qual: true, koji: true,
     address: true, mobile: true, email: true, url: true,
   };
   /** 改行しない項目（TEL/FAX など1行表示） */

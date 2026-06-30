@@ -516,7 +516,7 @@
   function sampleText(id) {
     var d = companyDefaults(currentCo);
     var m = {
-      company: currentCo || "会社名", aff: "所属1　所属2　役職", name: "山田 太郎",
+      company: currentCo || "会社名", aff: "所属1　所属2", title: "役職", name: "山田 太郎",
       qual: "資格", koji: "工事件名",
       address: (d.postal ? "〒" + d.postal + " " : "") + (d.address || ""),
       telfax: [d.tel ? "TEL " + d.tel : "", d.fax ? "FAX " + d.fax : ""].filter(Boolean).join("　"),
@@ -530,7 +530,7 @@
     var co = coEl ? coEl.value : currentCo;
     var d = companyDefaults(co);
     var m = {
-      company: co || "会社名", aff: "所属1　所属2　役職", name: "山田 太郎",
+      company: co || "会社名", aff: "所属1　所属2", title: "役職", name: "山田 太郎",
       qual: "資格", koji: "工事件名",
       address: (d.postal ? "〒" + d.postal + " " : "") + (d.address || ""),
       telfax: [d.tel ? "TEL " + d.tel : "", d.fax ? "FAX " + d.fax : ""].filter(Boolean).join("　"),

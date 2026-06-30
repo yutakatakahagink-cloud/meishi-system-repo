@@ -179,6 +179,17 @@
     if (typeof layout.centerShiftMm !== "number" || isNaN(layout.centerShiftMm)) {
       layout.centerShiftMm = 5;
     }
+    var def = MeishiLayout.defLayout();
+    MeishiLayout.ELS.forEach(function (e) {
+      if (!layout.el[e.id]) {
+        if (e.id === "title" && layout.el.aff) {
+          layout.el.title = MeishiLayout.clone(layout.el.aff);
+          layout.el.title.y = layout.el.aff.y + Math.max(11, Math.round((layout.el.aff.size || 9) * 1.25));
+        } else {
+          layout.el[e.id] = MeishiLayout.clone(def.el[e.id]);
+        }
+      }
+    });
     return layout;
   }
 

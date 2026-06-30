@@ -126,9 +126,10 @@
     function elText(id) {
       if (id === "company") return el("selCompany").value;
       if (id === "aff") {
-        return [el("selAff1").value, el("selAff2").value, el("selAff3").value, el("selTitle").value]
+        return [el("selAff1").value, el("selAff2").value, el("selAff3").value]
           .filter(Boolean).join("　");
       }
+      if (id === "title") return el("selTitle").value;
       if (id === "name") return el("selName").value;
       if (id === "qual") return el("inQual").value;
       if (id === "koji") return el("inKoji").value;

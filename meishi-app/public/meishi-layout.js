@@ -4,7 +4,8 @@
 (function () {
   var ELS = [
     { id: "company", label: "会社・団体名", def: { x: 48, y: 8, size: 13, color: "#1f3a6e", bold: 1, align: "left" } },
-    { id: "aff", label: "所属・役職", def: { x: 48, y: 30, size: 9, color: "#222", bold: 0, align: "left" } },
+    { id: "aff", label: "所属", def: { x: 48, y: 30, size: 9, color: "#222", bold: 0, align: "left" } },
+    { id: "title", label: "役職", def: { x: 48, y: 42, size: 9, color: "#222", bold: 0, align: "left" } },
     { id: "name", label: "氏名", def: { x: 48, y: 48, size: 22, color: "#000", bold: 0, align: "left" } },
     { id: "qual", label: "資格", def: { x: 48, y: 86, size: 8, color: "#555", bold: 0, align: "left" } },
     { id: "koji", label: "工事件名", def: { x: 14, y: 100, size: 8, color: "#b3261e", bold: 0, align: "left" } },
