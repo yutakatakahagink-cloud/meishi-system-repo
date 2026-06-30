@@ -128,11 +128,9 @@
       return zoneSplit && !hideElements;
     }
 
-    function textElementSide(st, node) {
+    function textElementSide(st) {
       var zones = getCardZones();
-      var w = node && node.offsetWidth ? node.offsetWidth : 0;
-      var mid = zones.leftEnd + (zones.rightStart - zones.leftEnd) / 2;
-      return (st.x + w / 2) >= mid ? "right" : "left";
+      return st.x >= zones.rightStart ? "right" : "left";
     }
 
     function enforceZoneBounds(node, st) {
@@ -140,11 +138,11 @@
       var zones = getCardZones();
       var w = node.offsetWidth;
       if (w <= 0) return;
-      var side = textElementSide(st, node);
+      var side = textElementSide(st);
       if (side === "left") {
-        if (st.x + w > zones.leftEnd) st.x = Math.max(0, zones.leftEnd - w);
-      } else if (st.x < zones.rightStart) {
-        st.x = zones.rightStart;
+        if (st.x + w > zones.rightStart) st.x = Math.max(0, zones.rightStart - w);
+      } else if (st.x < zones.centerStart) {
+        st.x = zones.centerStart;
       }
       node.style.left = st.x + "px";
     }
@@ -153,8 +151,8 @@
       if (!dragSide) return nx;
       var zones = getCardZones();
       var w = node.offsetWidth || 1;
-      if (dragSide === "left") return Math.max(0, Math.min(nx, zones.leftEnd - w));
-      return Math.max(zones.rightStart, Math.min(nx, zones.cardW - w));
+      if (dragSide === "left") return Math.max(0, Math.min(nx, zones.rightStart - w));
+      return Math.max(zones.centerStart, Math.min(nx, zones.cardW - w));
     }
 
     function ensureZoneLayer() {
@@ -220,8 +218,8 @@
       var zones = getCardZones();
       var x = st.x;
       var pad = FLOW_PAD;
-      if (x >= zones.rightStart) return Math.max(16, zones.cardW - x - pad);
-      return Math.max(16, zones.leftEnd - x - pad);
+      if (textElementSide(st) === "right") return Math.max(16, zones.cardW - x - pad);
+      return Math.max(16, zones.rightStart - x - pad);
     }
 
     function singleLineHeight(st) {
@@ -289,7 +287,6 @@
         } else {
           clearTextWrapStyle(node);
           node.style.maxWidth = mw + "px";
-          node.style.overflow = "hidden";
         }
         enforceZoneBounds(node, st);
       } else if (NO_WRAP_IDS[elId] && useAutoWrap()) {
@@ -460,7 +457,7 @@
         var sx = p.clientX, sy = p.clientY, ox = st.x, oy = st.y;
         var textDragSide = null;
         if (useZoneTextLayout() && node.classList.contains("el")) {
-          textDragSide = textElementSide({ x: ox }, node);
+          textDragSide = textElementSide({ x: ox });
         }
         var raf = 0, nx = ox, ny = oy;
         function applyPos() {
