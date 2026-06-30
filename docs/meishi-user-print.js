@@ -21,6 +21,8 @@
     inKoji: "inKoji",
     card: "card",
     btnPrint: "btnPrint",
+    btnPreview: "btnPreview",
+    btnClear: "btnClear",
   };
 
   function uniq(arr) {
@@ -249,6 +251,30 @@
           }
         });
       }
+      var btnPv = el("btnPreview");
+      if (btnPv && !btnPv._mpBound) {
+        btnPv._mpBound = true;
+        btnPv.addEventListener("click", function () {
+          rebuild();
+          var card = el("card");
+          if (card && card.scrollIntoView) {
+            card.scrollIntoView({ behavior: "smooth", block: "nearest" });
+          }
+        });
+      }
+      var btnClr = el("btnClear");
+      if (btnClr && !btnClr._mpBound) {
+        btnClr._mpBound = true;
+        btnClr.addEventListener("click", clear);
+      }
+    }
+
+    function clear() {
+      S = { name: "", company: "", aff1: "", aff2: "", aff3: "", title: "", postal: "" };
+      var koji = el("inKoji");
+      if (koji) koji.value = "";
+      initLayout();
+      rebuild();
     }
 
     function hookStore() {
@@ -278,6 +304,7 @@
       init: init,
       rebuild: rebuild,
       renderCard: renderCard,
+      clear: clear,
     };
   }
 

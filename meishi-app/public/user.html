@@ -14,7 +14,7 @@
     <script src="meishi-image-lib.js"></script>
     <script src="meishi-card-ui.js?v=20250617a"></script>
     <script src="meishi-print-sheet.js"></script>
-    <script src="meishi-user-print.js?v=20250617c"></script>
+    <script src="meishi-user-print.js?v=20250617d"></script>
     <link rel="stylesheet" href="meishi-print-sheet.css" />
     <style>
       :root { --brand:#2f5597; --brand-d:#21406f; --bg:#eef2f7; --line:#d6dde8; }
@@ -48,6 +48,9 @@
       .panel .field{margin-bottom:10px}
       .panel label{font-size:.78rem}
       .stagewrap{display:flex;flex-direction:column;align-items:center;gap:10px}
+      .preview-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;width:100%;max-width:calc(91mm + 52px)}
+      .preview-head .small{flex:1;text-align:left;margin:0}
+      .preview-head .btn{flex-shrink:0;margin-top:0}
       .stage{background:#cfd6e0;border-radius:12px;padding:26px;display:flex;justify-content:center}
       /* 名刺 91x55mm */
       .meishi{width:91mm;height:55mm;background:#fff;position:relative;box-shadow:0 3px 12px rgba(0,0,0,.25);overflow:hidden}
@@ -104,7 +107,8 @@
         <div class="toolbar">
           <strong>名刺印刷</strong>
           <span class="spacer" style="flex:1"></span>
-          <button class="btn sm" id="btnPrint">🖨️ 印刷（A4・10面）</button>
+          <button class="btn sm ghost" type="button" id="btnClear">クリア</button>
+          <button class="btn sm" type="button" id="btnPrint">🖨️ 印刷（A4・10面）</button>
           <p class="meishi-print-hint" id="printHint">A4用紙に名刺10枚（91×55mm・ラベル屋さん51003相当）。印刷ダイアログは「倍率100%」「余白なし」「背景グラフィックON」にしてください。</p>
         </div>
         <div class="editor">
@@ -132,7 +136,10 @@
 
           <!-- 中央: プレビュー -->
           <div class="stagewrap">
-            <div class="small">デザインは所有者設定の内容が反映されます。項目を選んでプレビュー確認後、印刷してください。（実寸 91×55mm）</div>
+            <div class="preview-head">
+              <div class="small">デザインは所有者設定の内容が反映されます。項目を選んでプレビュー確認後、印刷してください。（実寸 91×55mm）</div>
+              <button class="btn sm secondary" type="button" id="btnPreview">👁 プレビュー</button>
+            </div>
             <div id="printArea">
               <div class="stage"><div class="meishi" id="card"></div></div>
             </div>
