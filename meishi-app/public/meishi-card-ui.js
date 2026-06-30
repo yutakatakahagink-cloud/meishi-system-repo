@@ -128,9 +128,17 @@
       return zoneSplit && !hideElements;
     }
 
+    /** 左欄 or 右欄（中央5mm帯には文字を置かない） */
     function textElementSide(st) {
       var zones = getCardZones();
-      return st.x >= zones.rightStart ? "right" : "left";
+      if (st.x >= zones.rightStart) return "right";
+      if (st.x < zones.leftEnd) return "left";
+      return st.x >= (zones.leftEnd + zones.rightStart) / 2 ? "right" : "left";
+    }
+
+    function textBoxInCenterGap(x, w) {
+      var zones = getCardZones();
+      return x < zones.rightStart && x + w > zones.leftEnd;
     }
 
     function enforceZoneBounds(node, st) {
@@ -140,9 +148,13 @@
       if (w <= 0) return;
       var side = textElementSide(st);
       if (side === "left") {
-        if (st.x + w > zones.rightStart) st.x = Math.max(0, zones.rightStart - w);
-      } else if (st.x < zones.centerStart) {
-        st.x = zones.centerStart;
+        st.x = Math.max(0, Math.min(st.x, zones.leftEnd - w));
+      } else {
+        st.x = Math.max(zones.rightStart, Math.min(st.x, zones.cardW - w));
+      }
+      if (textBoxInCenterGap(st.x, w)) {
+        if (side === "left") st.x = Math.max(0, zones.leftEnd - w);
+        else st.x = zones.rightStart;
       }
       node.style.left = st.x + "px";
     }
@@ -151,8 +163,8 @@
       if (!dragSide) return nx;
       var zones = getCardZones();
       var w = node.offsetWidth || 1;
-      if (dragSide === "left") return Math.max(0, Math.min(nx, zones.rightStart - w));
-      return Math.max(zones.centerStart, Math.min(nx, zones.cardW - w));
+      if (dragSide === "left") return Math.max(0, Math.min(nx, zones.leftEnd - w));
+      return Math.max(zones.rightStart, Math.min(nx, zones.cardW - w));
     }
 
     function ensureZoneLayer() {
@@ -219,7 +231,7 @@
       var x = st.x;
       var pad = FLOW_PAD;
       if (textElementSide(st) === "right") return Math.max(16, zones.cardW - x - pad);
-      return Math.max(16, zones.rightStart - x - pad);
+      return Math.max(16, zones.leftEnd - x - pad);
     }
 
     function singleLineHeight(st) {
