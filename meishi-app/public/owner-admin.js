@@ -5,6 +5,8 @@
   var editRecIdx = -1;
   var copySourceRec = null;
   var recFilter = "";
+
+  var REC_TEXT_INPUT_KEYS = { name: 1, qual: 1, mobile: 1, email: 1 };
   var coUI = null;
   var coPanel = null;
   var coLayout = null;
@@ -677,41 +679,32 @@
     } else {
       cat = MeishiStore.getCompanyProfileForEdit(company).catalog || MeishiCatalog.emptyCatalog();
     }
-    var qualCtx = { aff1: ctx.aff1, aff2: ctx.aff2, aff3: ctx.aff3, title: ctx.title };
     if (key === "company") return MeishiStore.getCompanyList();
-    if (key === "name") {
-      return MeishiFields.uniq((cat.names || []).concat(
-        MeishiStore.getRecords().filter(function (r) {
-          return MeishiFields.norm(r.company) === MeishiFields.norm(company);
-        }).map(function (r) { return r.name; })
-      ));
-    }
     if (key === "aff1") return cat.aff1 || [];
     if (key === "aff2") return MeishiCatalog.getAff2List(cat, ctx.aff1);
     if (key === "aff3") return MeishiCatalog.getAff3List(cat, ctx.aff1, ctx.aff2);
     if (key === "title") return MeishiCatalog.getTitleList(cat, ctx.aff1, ctx.aff2, ctx.aff3);
-    if (key === "qual") return MeishiCatalog.getQualList(cat, qualCtx);
-    if (key === "mobile") return MeishiCatalog.getMobileList(cat, qualCtx);
-    if (key === "email") return MeishiCatalog.getEmailList(cat, qualCtx);
     if (key === "postal") return MeishiFields.uniq((cat.locations || []).map(function (l) { return l.postal; }).concat(cat.postal || []));
     if (key === "address") return MeishiFields.uniq((cat.locations || []).map(function (l) { return l.address; }).filter(Boolean));
     if (key === "tel") return MeishiFields.uniq((cat.locations || []).map(function (l) { return l.tel; }).filter(Boolean));
     if (key === "fax") return MeishiFields.uniq((cat.locations || []).map(function (l) { return l.fax; }).filter(Boolean));
     if (key === "url") return cat.urls || [];
     if (key === "category") return cat.categories || [];
-    if (key === "note") return cat.notes || [];
     return [];
+  }
+
+  function textFieldHtml(c, rec) {
+    return "<div class='field'><label>" + c.label + "</label><input type='text' data-k='" + c.key + "' value='" + esc(rec[c.key] || "") + "' /></div>";
   }
 
   function selectFieldHtml(c, rec, ctx) {
     var opts = fieldOptions(ctx.company || rec.company, c.key, ctx);
     var cur = rec[c.key] || "";
     var html = "<option value=''>（選択）</option>";
-    if (cur && c.key !== "name") {
+    if (cur) {
       var inOpts = opts.some(function (v) { return MeishiFields.norm(v) === MeishiFields.norm(cur); });
       if (!inOpts) html += "<option selected>" + esc(cur) + "</option>";
     }
-    if (cur && c.key === "name" && opts.indexOf(cur) < 0) html += "<option selected>" + esc(cur) + "</option>";
     opts.forEach(function (v) {
       html += "<option" + (MeishiFields.norm(v) === MeishiFields.norm(cur) ? " selected" : "") + ">" + esc(v) + "</option>";
     });
@@ -750,6 +743,10 @@
     MeishiFields.COLUMNS.forEach(function (c) {
       if (c.key === "no") {
         html += "<div class='field'><label>" + c.label + "</label><input data-k='no' value='" + esc(rec.no || "") + "' readonly /></div>";
+        return;
+      }
+      if (REC_TEXT_INPUT_KEYS[c.key]) {
+        html += textFieldHtml(c, rec);
         return;
       }
       html += selectFieldHtml(c, rec, ctx);

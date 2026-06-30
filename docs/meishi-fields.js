@@ -18,7 +18,6 @@
     { key: "tel", label: "TEL" },
     { key: "fax", label: "FAX" },
     { key: "url", label: "URL" },
-    { key: "note", label: "備考" },
     { key: "category", label: "区分" },
   ];
   var SHARED_KEYS = ["company", "url", "postal", "address", "tel", "fax"];
