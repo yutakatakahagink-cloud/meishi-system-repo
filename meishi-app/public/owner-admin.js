@@ -536,9 +536,31 @@
       });
       coPanel = coUI.bindDesignPanel(document.getElementById("coDesignPanel"));
     }
+    updateCoCenterShiftUI();
     coUI.renderCard();
     if (coPanel) coPanel.showDesign();
     renderCoImgList();
+  }
+
+  function coCenterShiftValue() {
+    if (!coLayout) return 5;
+    return MeishiCardUI.clampCenterShiftMm(coLayout.centerShiftMm != null ? coLayout.centerShiftMm : 5);
+  }
+
+  function updateCoCenterShiftUI() {
+    var v = coCenterShiftValue();
+    if (coLayout) coLayout.centerShiftMm = v;
+    var slider = document.getElementById("coCenterShift");
+    var label = document.getElementById("coCenterShiftV");
+    if (slider) slider.value = String(v);
+    if (label) label.textContent = MeishiCardUI.formatCenterShiftLabel(v);
+  }
+
+  function setCoCenterShiftMm(mm) {
+    if (!coLayout) return;
+    coLayout.centerShiftMm = MeishiCardUI.clampCenterShiftMm(mm);
+    updateCoCenterShiftUI();
+    if (coUI) coUI.renderCard();
   }
 
   function renderCoImgList() {
@@ -1035,6 +1057,18 @@
       if (coUI) coUI.invalidate();
       refreshCoDesign();
     };
+    var coCenterShift = document.getElementById("coCenterShift");
+    if (coCenterShift) {
+      coCenterShift.oninput = function () { setCoCenterShiftMm(+this.value); };
+    }
+    var coCenterLeft = document.getElementById("coCenterLeft");
+    if (coCenterLeft) {
+      coCenterLeft.onclick = function () { setCoCenterShiftMm(coCenterShiftValue() + 1); };
+    }
+    var coCenterRight = document.getElementById("coCenterRight");
+    if (coCenterRight) {
+      coCenterRight.onclick = function () { setCoCenterShiftMm(coCenterShiftValue() - 1); };
+    }
     document.getElementById("deCoPick").onchange = function () { currentDeptKey = ""; fillDeptAff1(); };
     document.getElementById("deAff1Pick").onchange = function () { currentDeptKey = ""; fillDeptAff2(); };
     document.getElementById("deAff2Pick").onchange = function () { currentDeptKey = ""; fillDeptAff2(); };

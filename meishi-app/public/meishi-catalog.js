@@ -176,6 +176,9 @@
         });
       }
     }
+    if (typeof layout.centerShiftMm !== "number" || isNaN(layout.centerShiftMm)) {
+      layout.centerShiftMm = 5;
+    }
     return layout;
   }
 

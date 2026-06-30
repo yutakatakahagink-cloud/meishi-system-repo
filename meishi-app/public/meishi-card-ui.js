@@ -8,8 +8,21 @@
   var FLOW_PAD = 6;
   var CARD_W_MM = 91;
   var CENTER_GAP_MM = 5;
-  /** 中央帯の中心をカード中央から左へずらす量（mm） */
-  var CENTER_SHIFT_LEFT_MM = 5;
+
+  function maxCenterShiftMm() {
+    return (CARD_W_MM - CENTER_GAP_MM) / 2;
+  }
+
+  function clampCenterShiftMm(mm) {
+    var max = maxCenterShiftMm();
+    return Math.max(-max, Math.min(max, Math.round(mm)));
+  }
+
+  function formatCenterShiftLabel(mm) {
+    if (!mm) return "中央";
+    if (mm > 0) return "左へ " + mm + "mm";
+    return "右へ " + (-mm) + "mm";
+  }
   /** 改行・縦位置自動調整の対象列（textFlow 有効時のみ） */
   var FLOW_COLUMNS = [
     ["company", "aff", "name", "qual", "koji"],
@@ -104,10 +117,18 @@
     var guideLayer = null;
     var zoneLayer = null;
 
+    function getCenterShiftMm() {
+      var layout = getLayout();
+      if (layout && typeof layout.centerShiftMm === "number" && !isNaN(layout.centerShiftMm)) {
+        return clampCenterShiftMm(layout.centerShiftMm);
+      }
+      return 5;
+    }
+
     function getCardZones() {
       var w = cardEl.clientWidth || 1;
       var centerPx = w * (CENTER_GAP_MM / CARD_W_MM);
-      var shiftPx = w * (CENTER_SHIFT_LEFT_MM / CARD_W_MM);
+      var shiftPx = w * (getCenterShiftMm() / CARD_W_MM);
       var centerStart = Math.max(0, Math.min((w - centerPx) / 2 - shiftPx, w - centerPx));
       return {
         cardW: w,
@@ -116,6 +137,14 @@
         leftEnd: centerStart,
         rightStart: centerStart + centerPx,
       };
+    }
+
+    function updateZoneLayerVisual() {
+      if (!zoneLayer) return;
+      var z = getCardZones();
+      var leftMm = (z.centerStart / z.cardW) * CARD_W_MM;
+      var rightMm = (z.centerEnd / z.cardW) * CARD_W_MM;
+      zoneLayer.style.background = "linear-gradient(90deg,transparent 0,transparent " + leftMm + "mm,rgba(47,85,151,.05) " + leftMm + "mm,rgba(47,85,151,.05) " + rightMm + "mm,transparent " + rightMm + "mm)";
     }
 
     function zoneSnapEdges() {
@@ -453,6 +482,7 @@
         reflowTextElements(layout);
       }
       syncImageNodes();
+      updateZoneLayerVisual();
       updateSelectionHighlight();
     }
 
@@ -676,5 +706,10 @@
     };
   }
 
-  window.MeishiCardUI = { createCardUI: createCardUI };
+  window.MeishiCardUI = {
+    createCardUI: createCardUI,
+    clampCenterShiftMm: clampCenterShiftMm,
+    maxCenterShiftMm: maxCenterShiftMm,
+    formatCenterShiftLabel: formatCenterShiftLabel,
+  };
 })();
