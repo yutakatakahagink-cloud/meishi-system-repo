@@ -396,9 +396,22 @@
     void applyLocalImageLibrary();
   }
 
-  function findLibraryPathForImage(im) {
+  function isDataLibraryItem(item) {
+    return !!(item && item.src && String(item.src).indexOf("data:") === 0);
+  }
+
+  /** ファイル配置の画像のみパスを返す（data URL 登録画像は空文字） */
+  function libraryItemStoragePath(item) {
+    if (!item || isDataLibraryItem(item)) return "";
+    var xp = String(item.path || "").replace(/^\//, "");
+    var xf = String(item.file || "").replace(/^images\//, "").replace(/^\//, "");
+    if (!xp && xf) xp = "images/" + xf;
+    return xp;
+  }
+
+  function findLibraryItemForImage(im) {
     var lib = getImageLibrary();
-    if (!im || !lib.length) return "";
+    if (!im || !lib.length) return null;
     var src = String(im.src || "");
     var path = String(im.path || "").replace(/^\//, "");
     var file = String(im.file || "").replace(/^images\//, "").replace(/^\//, "");
@@ -406,23 +419,40 @@
     for (var i = 0; i < lib.length; i++) {
       var x = lib[i];
       if (!x) continue;
-      var xp = String(x.path || "").replace(/^\//, "");
-      var xf = String(x.file || "").replace(/^images\//, "").replace(/^\//, "");
-      if (!xp && xf) xp = "images/" + xf;
-      if (libId && x.id === libId) return xp;
-      if (path && (xp === path || ("images/" + xf) === path)) return xp;
-      if (file && xf === file) return xp;
-      if (src && x.src && src === x.src) return xp;
-      if (src && xp && src.indexOf(xp) >= 0) return xp;
+      if (libId && x.id === libId) return x;
+      var xp = libraryItemStoragePath(x);
+      if (path && xp && (xp === path || ("images/" + file) === path)) return x;
+      if (file && x.file && String(x.file).replace(/^images\//, "").replace(/^\//, "") === file) return x;
+      if (src && x.src && src === x.src) return x;
+      if (xp && src && src.indexOf(xp) >= 0) return x;
     }
-    return "";
+    return null;
+  }
+
+  function findLibraryPathForImage(im) {
+    var item = findLibraryItemForImage(im);
+    return item ? libraryItemStoragePath(item) : "";
   }
 
   function normalizeLayoutImageForStore(im) {
     if (!im) return null;
     var o = clone(im);
-    var libPath = findLibraryPathForImage(o);
-    if (libPath) o.path = libPath.replace(/^\//, "");
+    var libItem = findLibraryItemForImage(o);
+    if (libItem) {
+      if (!o.libId) o.libId = libItem.id;
+      var libPath = libraryItemStoragePath(libItem);
+      if (libPath) {
+        o.path = String(libPath).replace(/^\//, "");
+        if (o.path.indexOf("images/") !== 0) o.path = "images/" + o.path.replace(/^images\//, "");
+        delete o.src;
+        delete o.file;
+        return o;
+      }
+      delete o.src;
+      delete o.file;
+      delete o.path;
+      return o;
+    }
     if (!o.path && o.file) {
       o.path = "images/" + String(o.file).replace(/^\//, "").replace(/^images\//, "");
     }
@@ -452,6 +482,7 @@
       delete o.file;
       return o;
     }
+    if (o.libId) return o;
     if (!o.src) return null;
     return o;
   }

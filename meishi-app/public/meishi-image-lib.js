@@ -20,8 +20,21 @@
     });
   }
 
+  function libraryItemById(libId) {
+    if (!libId || !window.MeishiStore) return null;
+    var lib = MeishiStore.getImageLibrary();
+    for (var i = 0; i < lib.length; i++) {
+      if (lib[i] && lib[i].id === libId) return lib[i];
+    }
+    return null;
+  }
+
   function itemUrl(item) {
     if (!item) return "";
+    if (item.libId) {
+      var linked = libraryItemById(item.libId);
+      if (linked) return itemUrl(linked);
+    }
     var src = String(item.src || "");
     if (src.indexOf("data:") === 0 || src.indexOf("http") === 0 || src.indexOf("blob:") === 0) return src;
     if (item.path) return assetUrl(item.path);
@@ -56,6 +69,13 @@
     return (images || []).map(function (im) {
       if (!im) return null;
       var o = Object.assign({}, im);
+      if (o.libId) {
+        var linked = libraryItemById(o.libId);
+        if (linked) {
+          o.src = itemUrl(linked);
+          if (o.src) return o;
+        }
+      }
       if (o.src && o.src.indexOf("data:") === 0) return o;
       if (o.path) o.src = assetUrl(o.path);
       else if (o.src && o.src.indexOf("images/") === 0) o.src = assetUrl(o.src);
