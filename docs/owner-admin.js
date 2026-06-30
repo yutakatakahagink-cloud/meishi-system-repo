@@ -532,36 +532,21 @@
           return window.MeishiImageLib ? MeishiImageLib.resolveImages(imgs) : imgs;
         },
         onLayoutChange: function () {},
-        onCenterShiftChange: function () { updateCoCenterShiftUI(); },
         onSelect: function () { if (coPanel) coPanel.showDesign(); },
       });
       coPanel = coUI.bindDesignPanel(document.getElementById("coDesignPanel"));
     }
-    updateCoCenterShiftUI();
+    ensureCoCenterShift();
     coUI.renderCard();
     if (coPanel) coPanel.showDesign();
     renderCoImgList();
   }
 
-  function coCenterShiftValue() {
-    if (!coLayout) return 5;
-    return MeishiCardUI.clampCenterShiftMm(coLayout.centerShiftMm != null ? coLayout.centerShiftMm : 5);
-  }
-
-  function updateCoCenterShiftUI() {
-    var v = coCenterShiftValue();
-    if (coLayout) coLayout.centerShiftMm = v;
-    var slider = document.getElementById("coCenterShift");
-    var label = document.getElementById("coCenterShiftV");
-    if (slider) slider.value = String(v);
-    if (label) label.textContent = MeishiCardUI.formatCenterShiftLabel(v);
-  }
-
-  function setCoCenterShiftMm(mm) {
+  function ensureCoCenterShift() {
     if (!coLayout) return;
-    coLayout.centerShiftMm = MeishiCardUI.clampCenterShiftMm(mm);
-    updateCoCenterShiftUI();
-    if (coUI) coUI.renderCard();
+    coLayout.centerShiftMm = MeishiCardUI.clampCenterShiftMm(
+      coLayout.centerShiftMm != null ? coLayout.centerShiftMm : 5
+    );
   }
 
   function renderCoImgList() {
