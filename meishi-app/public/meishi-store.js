@@ -4,8 +4,12 @@
 (function () {
   const CFG_KEY = "meishi_config_v1";
   const REC_KEY = "meishi_records_v1";
+  const IMG_LIB_KEY = "meishi_image_library_v1";
+  const PREVIEW_PERSONAL_KEY = "meishi_preview_personal_v1";
   const FB_CFG_PATH = "meishi_config";
   const FB_REC_PATH = "meishi_records";
+  const FB_IMG_LIB_PATH = "meishi_image_library";
+  const FB_PREVIEW_PERSONAL_PATH = "meishi_preview_personal";
 
   let _records = [];
   let _config = {
@@ -14,6 +18,7 @@
     title: "名刺印刷システム",
     companySettings: {},
     deptSettings: {},
+    imageLibrary: [],
   };
   let _ready = false;
   let _fbDb = null;
@@ -21,8 +26,17 @@
   let _suppress = false;
   let _suppressRecRemote = false;
   let _suppressRecRemoteTimer = null;
+  let _suppressCfgRemote = false;
+  let _suppressCfgRemoteTimer = null;
   let _cfgListeners = [];
   let _recListeners = [];
+  let _previewPersonal = {};
+  let _suppressImgLibRemote = false;
+  let _suppressImgLibRemoteTimer = null;
+  const IDB_NAME = "meishi_app_v1";
+  const IDB_STORE = "kv";
+  const IDB_IMG_LIB = "imageLibrary";
+  const IDB_PREVIEW_PERSONAL = "previewPersonal";
 
   function fireCfg() { _cfgListeners.forEach(function (cb) { try { cb(getConfig()); } catch (e) {} }); }
   function fireRec() { _recListeners.forEach(function (cb) { try { cb(getRecords()); } catch (e) {} }); }
@@ -82,11 +96,342 @@
     });
   }
   function clone(v) { try { return JSON.parse(JSON.stringify(v)); } catch (e) { return null; } }
-  function loadLocalCfg() { try { var s = localStorage.getItem(CFG_KEY); if (s) return JSON.parse(s); } catch (e) {} return null; }
+
+  function normalizeLibraryItem(item) {
+    if (!item) return null;
+    var src = String(item.src || "").trim();
+    if (src.indexOf("data:") === 0) {
+      var label = item.label || item.file || "画像";
+      return {
+        id: item.id || ("lib-" + Date.now() + "-" + Math.random().toString(36).slice(2, 7)),
+        src: src,
+        label: label,
+        file: item.file || label,
+      };
+    }
+    var file = String(item.file || "").replace(/^images\//, "").replace(/^\//, "");
+    if (!file && item.path) file = String(item.path).replace(/^images\//, "").replace(/^\//, "");
+    if (!file) return null;
+    var base = file.replace(/\.[^.]+$/, "");
+    return {
+      id: item.id || base,
+      file: file,
+      path: "images/" + file,
+      label: item.label || base || file,
+    };
+  }
+
+  function loadLocalCfg() {
+    try {
+      var s = localStorage.getItem(CFG_KEY);
+      if (s) {
+        var c = JSON.parse(s);
+        if (c && typeof c === "object") {
+          delete c.imageLibrary;
+          return c;
+        }
+      }
+    } catch (e) {}
+    return null;
+  }
   function loadLocalRec() { try { var s = localStorage.getItem(REC_KEY); if (s) return JSON.parse(s); } catch (e) {} return null; }
+
+  function idbOpen() {
+    return new Promise(function (resolve, reject) {
+      if (!window.indexedDB) { reject(new Error("indexedDB unavailable")); return; }
+      var req = indexedDB.open(IDB_NAME, 1);
+      req.onerror = function () { reject(req.error); };
+      req.onupgradeneeded = function (e) {
+        e.target.result.createObjectStore(IDB_STORE);
+      };
+      req.onsuccess = function () { resolve(req.result); };
+    });
+  }
+
+  function idbGet(key) {
+    return idbOpen().then(function (db) {
+      return new Promise(function (resolve, reject) {
+        var tx = db.transaction(IDB_STORE, "readonly");
+        var req = tx.objectStore(IDB_STORE).get(key);
+        req.onsuccess = function () { resolve(req.result); };
+        req.onerror = function () { reject(req.error); };
+      });
+    });
+  }
+
+  function idbSet(key, value) {
+    return idbOpen().then(function (db) {
+      return new Promise(function (resolve, reject) {
+        var tx = db.transaction(IDB_STORE, "readwrite");
+        tx.objectStore(IDB_STORE).put(value, key);
+        tx.oncomplete = function () { resolve(true); };
+        tx.onerror = function () { reject(tx.error); };
+      });
+    });
+  }
+
+  function stripLegacyImageLibraryFromLocalConfig() {
+    try {
+      var s = localStorage.getItem(CFG_KEY);
+      if (!s) return;
+      var c = JSON.parse(s);
+      if (c && c.imageLibrary) {
+        delete c.imageLibrary;
+        localStorage.setItem(CFG_KEY, JSON.stringify(c));
+      }
+    } catch (e) {}
+  }
+
+  /** undefined = 未保存 / [] = 空で保存済み */
+  function loadLocalImageLibrarySync() {
+    try {
+      var s = localStorage.getItem(IMG_LIB_KEY);
+      if (s === null) return undefined;
+      var parsed = JSON.parse(s);
+      if (parsed && parsed.__idb === 1) return "__idb__";
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {}
+    return undefined;
+  }
+
+  function hasLocalImageLibrarySaved() {
+    try { return localStorage.getItem(IMG_LIB_KEY) !== null; } catch (e) {}
+    return false;
+  }
+
+  async function loadImageLibraryFromStorage() {
+    var sync = loadLocalImageLibrarySync();
+    if (sync === "__idb__") {
+      try {
+        var idbVal = await idbGet(IDB_IMG_LIB);
+        return Array.isArray(idbVal) ? idbVal : [];
+      } catch (e) {
+        return [];
+      }
+    }
+    if (sync !== undefined) return sync;
+    return undefined;
+  }
+
+  async function saveImageLibraryToStorage(arr) {
+    var data = (arr || []).map(normalizeLibraryItem).filter(Boolean);
+    var json = JSON.stringify(data);
+    try {
+      localStorage.setItem(IMG_LIB_KEY, json);
+      try { await idbSet(IDB_IMG_LIB, data); } catch (e2) {}
+      return true;
+    } catch (e) {
+      try {
+        await idbSet(IDB_IMG_LIB, data);
+        localStorage.setItem(IMG_LIB_KEY, JSON.stringify({ __idb: 1 }));
+        return true;
+      } catch (e2) {
+        console.warn("[Meishi] imageLibrary save failed (localStorage + IndexedDB)", e2);
+        return false;
+      }
+    }
+  }
+
+  function loadLocalPreviewPersonalSync() {
+    try {
+      var s = localStorage.getItem(PREVIEW_PERSONAL_KEY);
+      if (s === null) return undefined;
+      var parsed = JSON.parse(s);
+      if (parsed && parsed.__idb === 1) return "__idb__";
+      return parsed && typeof parsed === "object" ? parsed : {};
+    } catch (e) {}
+    return undefined;
+  }
+
+  function hasLocalPreviewPersonalSaved() {
+    try { return localStorage.getItem(PREVIEW_PERSONAL_KEY) !== null; } catch (e) {}
+    return false;
+  }
+
+  async function loadPreviewPersonalFromStorage() {
+    var sync = loadLocalPreviewPersonalSync();
+    if (sync === "__idb__") {
+      try {
+        var idbVal = await idbGet(IDB_PREVIEW_PERSONAL);
+        return idbVal && typeof idbVal === "object" ? idbVal : {};
+      } catch (e) {
+        return {};
+      }
+    }
+    if (sync !== undefined) return sync;
+    return undefined;
+  }
+
+  async function savePreviewPersonalToStorage(obj) {
+    var data = obj && typeof obj === "object" ? obj : {};
+    var json = JSON.stringify(data);
+    try {
+      localStorage.setItem(PREVIEW_PERSONAL_KEY, json);
+      try { await idbSet(IDB_PREVIEW_PERSONAL, data); } catch (e2) {}
+      return true;
+    } catch (e) {
+      try {
+        await idbSet(IDB_PREVIEW_PERSONAL, data);
+        localStorage.setItem(PREVIEW_PERSONAL_KEY, JSON.stringify({ __idb: 1 }));
+        return true;
+      } catch (e2) {
+        console.warn("[Meishi] previewPersonal save failed", e2);
+        return false;
+      }
+    }
+  }
+
+  function imageLibraryForRemote(arr) {
+    return (arr || []).filter(function (x) {
+      var src = String(x && x.src || "");
+      return src.indexOf("data:") !== 0;
+    }).map(normalizeLibraryItem).filter(Boolean);
+  }
+
+  function configForMainStorage() {
+    var c = clone(_config);
+    if (c && typeof c === "object") delete c.imageLibrary;
+    return c;
+  }
+
+  async function persistImageLibraryStore(lib) {
+    var arr = (lib || []).map(normalizeLibraryItem).filter(Boolean);
+    _config.imageLibrary = arr;
+    var ok = await saveImageLibraryToStorage(arr);
+    if (_useFirebase && _fbDb) {
+      _suppressImgLibRemote = true;
+      if (_suppressImgLibRemoteTimer) clearTimeout(_suppressImgLibRemoteTimer);
+      _suppressImgLibRemoteTimer = setTimeout(function () { _suppressImgLibRemote = false; }, 10000);
+      try { _fbDb.ref(FB_IMG_LIB_PATH).set(imageLibraryForRemote(arr)); } catch (e) {}
+    }
+    return ok;
+  }
+
+  async function persistPreviewPersonalStore() {
+    var ok = await savePreviewPersonalToStorage(_previewPersonal);
+    if (_useFirebase && _fbDb) {
+      try { _fbDb.ref(FB_PREVIEW_PERSONAL_PATH).set(_previewPersonal); } catch (e) {}
+    }
+    return ok;
+  }
+
+  async function applyLocalImageLibrary() {
+    var lib = await loadImageLibraryFromStorage();
+    if (lib !== undefined) {
+      _config.imageLibrary = lib.map(normalizeLibraryItem).filter(Boolean);
+      return;
+    }
+    _config.imageLibrary = [];
+    await saveImageLibraryToStorage([]);
+  }
+
+  async function applyLocalPreviewPersonal() {
+    var m = await loadPreviewPersonalFromStorage();
+    if (m !== undefined) {
+      _previewPersonal = m;
+      return;
+    }
+    _previewPersonal = {};
+    await savePreviewPersonalToStorage({});
+  }
+
+  async function syncImageLibraryFromRemoteOnce(remoteLib) {
+    if (hasLocalImageLibrarySaved()) return;
+    var arr = Array.isArray(remoteLib) ? remoteLib.map(normalizeLibraryItem).filter(Boolean) : [];
+    _config.imageLibrary = arr;
+    await persistImageLibraryStore(arr);
+  }
+
+  function mergeDeptSettingsEntry(lv, rv) {
+    if (!lv || typeof lv !== "object") {
+      return normalizeDeptProfile(clone(rv), rv.company, rv.aff1, rv.aff2);
+    }
+    // 端末で編集・保存した部署設定を優先（リモートの空 layout で上書きしない）
+    return normalizeDeptProfile(clone(lv), lv.company || rv.company, lv.aff1 || rv.aff1, lv.aff2 != null ? lv.aff2 : (rv.aff2 || ""));
+  }
+
+  function mergeSettingsMaps(localMap, remoteMap) {
+    localMap = localMap && typeof localMap === "object" ? localMap : {};
+    remoteMap = remoteMap && typeof remoteMap === "object" ? remoteMap : {};
+    var out = clone(localMap) || {};
+    Object.keys(remoteMap).forEach(function (k) {
+      var rv = remoteMap[k];
+      var lv = out[k];
+      if (rv && typeof rv === "object" && lv && typeof lv === "object") {
+        if (k.indexOf("|") >= 0) out[k] = mergeDeptSettingsEntry(lv, rv);
+        else {
+          out[k] = Object.assign({}, lv, rv);
+          if (lv.layout && MeishiLayout.isValidLayout(lv.layout) && !(rv.layout && MeishiLayout.isValidLayout(rv.layout))) {
+            out[k].layout = clone(lv.layout);
+          }
+        }
+      } else {
+        out[k] = clone(rv);
+      }
+    });
+    return out;
+  }
+
+  function mergeConfigFromRemote(v) {
+    if (!v || typeof v !== "object") return;
+    var localCo = _config.companySettings || {};
+    var localDept = _config.deptSettings || {};
+    _config = Object.assign({}, _config, v);
+    if (!_config.companySettings) _config.companySettings = {};
+    if (!_config.deptSettings) _config.deptSettings = {};
+    if (v.companySettings && typeof v.companySettings === "object") {
+      _config.companySettings = mergeSettingsMaps(localCo, v.companySettings);
+    }
+    if (v.deptSettings && typeof v.deptSettings === "object") {
+      _config.deptSettings = mergeSettingsMaps(localDept, v.deptSettings);
+    }
+    delete _config.imageLibrary;
+    void applyLocalImageLibrary();
+  }
+
+  function compactLayoutForStore(layout) {
+    var l = MeishiCatalog.normalizeLayout(clone(layout));
+    if (!l || !l.el) return l;
+    l.images = (l.images || []).map(function (im) {
+      if (!im) return null;
+      var o = clone(im);
+      if (o.path) {
+        delete o.src;
+      } else if (o.src && String(o.src).indexOf("images/") === 0) {
+        o.path = String(o.src);
+        delete o.src;
+      } else if (o.src && /^https?:\/\//i.test(String(o.src))) {
+        var idx = String(o.src).indexOf("/images/");
+        if (idx >= 0) {
+          o.path = String(o.src).slice(idx + 1);
+          delete o.src;
+        }
+      }
+      return o;
+    }).filter(Boolean);
+    return l;
+  }
+
   function persistCfg() {
-    try { localStorage.setItem(CFG_KEY, JSON.stringify(_config)); } catch (e) {}
-    if (_useFirebase && _fbDb && !_suppress) try { _fbDb.ref(FB_CFG_PATH).set(_config); } catch (e) {}
+    var payload = configForMainStorage();
+    if (!payload || typeof payload !== "object") {
+      console.warn("[Meishi] config save skipped (invalid payload)");
+      return false;
+    }
+    var ok = true;
+    try {
+      localStorage.setItem(CFG_KEY, JSON.stringify(payload));
+    } catch (e) {
+      ok = false;
+      console.warn("[Meishi] config localStorage failed", e);
+    }
+    if (_useFirebase && _fbDb && !_suppress) {
+      _suppressCfgRemote = true;
+      if (_suppressCfgRemoteTimer) clearTimeout(_suppressCfgRemoteTimer);
+      _suppressCfgRemoteTimer = setTimeout(function () { _suppressCfgRemote = false; }, 10000);
+      try { _fbDb.ref(FB_CFG_PATH).set(payload); } catch (e) {}
+    }
+    return ok;
   }
   function persistRec() {
     try { localStorage.setItem(REC_KEY, JSON.stringify(_records)); } catch (e) {}
@@ -275,31 +620,44 @@
       catalog: clone(profile.catalog) || MeishiCatalog.emptyCatalog(),
     };
     if (profile.layout && MeishiLayout.isValidLayout(profile.layout)) {
-      out.layout = MeishiCatalog.normalizeLayout(clone(profile.layout));
-    }
-
-    if (window.MeishiCatalogSync) {
-      applyCatalogMutations(key, mutations || [], out.catalog);
+      out.layout = compactLayoutForStore(profile.layout);
     }
 
     _config.companySettings[key] = out;
+
+    if (window.MeishiCatalogSync && mutations && mutations.length) {
+      applyCatalogMutations(key, mutations, out.catalog, { skipFireCfg: true });
+    }
+
     persistCfg();
     fireCfg();
   }
 
   function normalizeDeptProfile(raw, company, aff1, aff2) {
+    var imgs = [];
+    if (raw && raw.layout && raw.layout.images && raw.layout.images.length) imgs = raw.layout.images;
+    else if (raw && raw.images && raw.images.length) imgs = raw.images;
+    var baseLayout = null;
+    if (raw && raw.layout && MeishiLayout.isValidLayout(raw.layout)) baseLayout = clone(raw.layout);
+    else if (imgs.length) {
+      baseLayout = MeishiLayout.defLayout();
+      MeishiLayout.ELS.forEach(function (e) {
+        if (baseLayout.el[e.id]) baseLayout.el[e.id].hidden = true;
+      });
+    }
     var layout = null;
-    if (raw && raw.layout) layout = MeishiCatalog.normalizeLayout(clone(raw.layout));
-    else if (raw && raw.images && raw.images.length) {
-      layout = MeishiLayout.defLayout();
-      layout.images = clone(raw.images);
+    var compactImgs = [];
+    if (baseLayout) {
+      if (imgs.length) baseLayout.images = imgs;
+      layout = compactLayoutForStore(baseLayout);
+      compactImgs = layout.images || [];
     }
     return {
       company: MeishiFields.norm(company),
       aff1: MeishiFields.norm(aff1),
       aff2: MeishiFields.norm(aff2 || ""),
       layout: layout,
-      images: (raw && raw.images) ? clone(raw.images) : [],
+      images: clone(compactImgs),
     };
   }
 
@@ -318,10 +676,26 @@
     if (changed) _config.deptSettings = nds;
   }
 
+  var PREFERRED_COMPANY_ORDER = ["日新興業株式会社", "日新三井住建綜合プラント"];
+
+  function sortCompaniesPreferred(list) {
+    var head = [];
+    var used = {};
+    PREFERRED_COMPANY_ORDER.forEach(function (pref) {
+      list.forEach(function (c) {
+        if (!used[c] && MeishiFields.norm(c) === MeishiFields.norm(pref)) {
+          head.push(c);
+          used[c] = true;
+        }
+      });
+    });
+    return head.concat(list.filter(function (c) { return !used[c]; }).sort());
+  }
+
   function getCompanyList() {
     var fromRec = MeishiFields.uniq(_records.map(function (r) { return r.company; }));
     var fromCfg = Object.keys(_config.companySettings || {});
-    return MeishiFields.uniq(fromRec.concat(fromCfg)).sort();
+    return sortCompaniesPreferred(MeishiFields.uniq(fromRec.concat(fromCfg)));
   }
 
   function getAff1List(company) {
@@ -447,10 +821,13 @@
   function saveDeptSettings(company, aff1, aff2, data) {
     var k = MeishiFields.deptKey(company, aff1, aff2);
     _config.deptSettings = _config.deptSettings || {};
-    _config.deptSettings[k] = normalizeDeptProfile(data, company, aff1, aff2);
-    persistCfg();
+    var profile = normalizeDeptProfile(data, company, aff1, aff2);
+    _config.deptSettings[k] = profile;
+    var ok = persistCfg();
+    if (!ok) return false;
     fireCfg();
     fireRec();
+    return true;
   }
 
   function getDeptLayout(company, aff1, aff2) {
@@ -470,13 +847,19 @@
     return std && MeishiLayout.isValidLayout(std) ? MeishiCatalog.normalizeLayout(clone(std)) : MeishiLayout.defLayout();
   }
 
-  function getPrintImages(company, aff1, aff2) {
+  function getPrintImages(company, aff1, aff2, personalImages) {
     var layout = getCompanyLayout(company);
     var imgs = (layout.images || []).slice();
     var dept = getDeptSettings(company, aff1, aff2);
     var dLayout = dept.layout;
     if (dLayout && dLayout.images) imgs = imgs.concat(dLayout.images);
     else if (dept.images) imgs = imgs.concat(dept.images);
+    if (personalImages && personalImages.length && window.MeishiImageLib) {
+      imgs = imgs.concat(MeishiImageLib.resolveImages(personalImages));
+    } else if (personalImages && personalImages.length) {
+      imgs = imgs.concat(clone(personalImages));
+    }
+    if (window.MeishiImageLib) imgs = MeishiImageLib.resolveImages(imgs);
     return imgs.filter(function (im) { return im && im.src; });
   }
 
@@ -525,23 +908,43 @@
       var snap = await _fbDb.ref(FB_CFG_PATH).once("value");
       var v = snap.val();
       if (v && typeof v === "object") {
-        _config = Object.assign({}, _config, v);
-        if (!_config.companySettings) _config.companySettings = {};
-        if (!_config.deptSettings) _config.deptSettings = {};
-        try { localStorage.setItem(CFG_KEY, JSON.stringify(_config)); } catch (e) {}
+        mergeConfigFromRemote(v);
+        try { localStorage.setItem(CFG_KEY, JSON.stringify(configForMainStorage())); } catch (e) {}
       } else {
         _suppress = true;
-        try { await _fbDb.ref(FB_CFG_PATH).set(_config); } catch (e) {}
+        try { await _fbDb.ref(FB_CFG_PATH).set(configForMainStorage()); } catch (e) {}
         _suppress = false;
       }
     } catch (e) {}
 
     try {
+      var snapImg = await _fbDb.ref(FB_IMG_LIB_PATH).once("value");
+      await syncImageLibraryFromRemoteOnce(snapImg.val());
+    } catch (e) {}
+
+    try {
+      if (!hasLocalPreviewPersonalSaved()) {
+        var snapPv = await _fbDb.ref(FB_PREVIEW_PERSONAL_PATH).once("value");
+        var remotePv = snapPv.val();
+        if (remotePv && typeof remotePv === "object") {
+          _previewPersonal = remotePv;
+          await persistPreviewPersonalStore();
+        }
+      }
+    } catch (e) {}
+
+    await applyLocalImageLibrary();
+    await applyLocalPreviewPersonal();
+
+    try { _fbDb.ref(FB_CFG_PATH + "/imageLibrary").remove(); } catch (e) {}
+
+    try {
       _fbDb.ref(FB_CFG_PATH).on("value", function (snap) {
-        var v = snap.val();
-        if (v && typeof v === "object") {
-          _config = Object.assign({}, _config, v);
-          try { localStorage.setItem(CFG_KEY, JSON.stringify(_config)); } catch (e) {}
+        if (_suppressCfgRemote) return;
+        var val = snap.val();
+        if (val && typeof val === "object") {
+          mergeConfigFromRemote(val);
+          try { localStorage.setItem(CFG_KEY, JSON.stringify(configForMainStorage())); } catch (e) {}
           fireCfg();
         }
       });
@@ -561,10 +964,13 @@
 
   async function init() {
     _ready = false;
+    stripLegacyImageLibraryFromLocalConfig();
     var local = loadLocalCfg();
     if (local) _config = Object.assign({}, _config, local);
     if (!_config.companySettings) _config.companySettings = {};
     if (!_config.deptSettings) _config.deptSettings = {};
+    delete _config.imageLibrary;
+    _config.imageLibrary = [];
     try { await loadRecords(); }
     catch (e) {
       var msg = (e && e.message) || String(e);
@@ -578,11 +984,71 @@
       throw new Error("名刺データを読み込めませんでした。\n" + msg);
     }
     await initFirebase();
+    await applyLocalImageLibrary();
+    await applyLocalPreviewPersonal();
     migrateDeptKeys();
     _ready = true;
   }
 
   function isValidLayout(v) { return MeishiLayout.isValidLayout(v); }
+
+  function getImageLibrary() {
+    var raw = _config.imageLibrary;
+    if (!Array.isArray(raw)) return [];
+    return raw.map(normalizeLibraryItem).filter(Boolean);
+  }
+
+  async function setImageLibrary(arr) {
+    var ok = await persistImageLibraryStore(arr || []);
+    fireCfg();
+    return ok;
+  }
+
+  function previewPersonalKey(recordNo) {
+    return String(recordNo == null ? "" : recordNo).trim();
+  }
+
+  function getPreviewPersonalImages(recordNo) {
+    var k = previewPersonalKey(recordNo);
+    if (!k || !_previewPersonal[k]) return [];
+    return clone(_previewPersonal[k]) || [];
+  }
+
+  async function savePreviewPersonalImages(recordNo, images) {
+    var k = previewPersonalKey(recordNo);
+    if (!k) return false;
+    _previewPersonal[k] = clone(images) || [];
+    return persistPreviewPersonalStore();
+  }
+
+  async function addToImageLibrary(items) {
+    var lib = getImageLibrary();
+    var seenPath = {};
+    var seenId = {};
+    lib.forEach(function (x) {
+      if (x.path) seenPath[x.path] = true;
+      seenId[x.id] = true;
+    });
+    var added = 0;
+    (items || []).forEach(function (item) {
+      var n = normalizeLibraryItem(item);
+      if (!n || seenId[n.id]) return;
+      if (n.path && seenPath[n.path]) return;
+      lib.push(n);
+      seenId[n.id] = true;
+      if (n.path) seenPath[n.path] = true;
+      added++;
+    });
+    if (added) await setImageLibrary(lib);
+    return added;
+  }
+
+  async function removeFromImageLibrary(idOrPath) {
+    var key = String(idOrPath || "");
+    await setImageLibrary(getImageLibrary().filter(function (x) {
+      return x.id !== key && x.path !== key && x.file !== key;
+    }));
+  }
 
   window.MeishiStore = {
     init: init,
@@ -601,6 +1067,12 @@
     nextRecordNo: nextRecordNo,
     getConfig: function () { return clone(_config); },
     saveConfig: function (obj) { _config = Object.assign({}, _config, obj || {}); persistCfg(); fireCfg(); },
+    getImageLibrary: getImageLibrary,
+    setImageLibrary: setImageLibrary,
+    addToImageLibrary: addToImageLibrary,
+    removeFromImageLibrary: removeFromImageLibrary,
+    getPreviewPersonalImages: getPreviewPersonalImages,
+    savePreviewPersonalImages: savePreviewPersonalImages,
     getCompanyProfile: getCompanyProfile,
     getCompanyProfileForEdit: getCompanyProfileForEdit,
     saveCompanyProfile: saveCompanyProfile,

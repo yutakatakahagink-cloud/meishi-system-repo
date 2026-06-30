@@ -26,9 +26,15 @@ meishi-app/public/meishi-catalog-sync.js
 meishi-app/public/owner-admin.js
 meishi-app/public/owner.css
 meishi-app/public/meishi-card-ui.js
+meishi-app/public/meishi-print-sheet.js
+meishi-app/public/meishi-print-sheet.css
 meishi-app/public/meishi-user-print.js
 meishi-app/public/meishi-file-guard.js
 meishi-app/public/meishi-layout.js
+meishi-app/public/meishi-image-lib.js
+meishi-app/public/images/manifest.json
+meishi-app/public/images/sample-logo.svg
+scripts/Update-ImageManifest.ps1
 meishi-app/public/config.example.js
 meishi-app/public/data/meishi-records.json
 meishi-app/public/data/meishi-records.js

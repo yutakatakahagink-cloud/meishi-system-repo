@@ -172,16 +172,33 @@
     function syncImageNodes() {
       var layout = MeishiCatalog.normalizeLayout(getLayout());
       if (!layout.images) layout.images = [];
-      var imgs = getImages();
+      var pairs = [];
+      if (readOnly) {
+        getImages().forEach(function (im) {
+          if (im && (im.src || im.path)) pairs.push({ raw: im, display: im });
+        });
+      } else {
+        layout.images.forEach(function (raw) {
+          if (!raw || (!raw.src && !raw.path)) return;
+          var display = raw;
+          if (window.MeishiImageLib) {
+            var rs = MeishiImageLib.resolveImages([raw]);
+            if (rs[0]) display = rs[0];
+          }
+          pairs.push({ raw: raw, display: display });
+        });
+      }
       var ids = {};
-      imgs.forEach(function (im) {
-        if (!im.id) im.id = "img" + (layout.images.length + 1);
-        ids[im.id] = im;
-        var node = imgNodes[im.id];
+      pairs.forEach(function (pair) {
+        var raw = pair.raw;
+        var display = pair.display;
+        if (!raw.id) raw.id = "img" + (layout.images.length + 1);
+        ids[raw.id] = raw;
+        var node = imgNodes[raw.id];
         if (!node) {
           var wrap = document.createElement("div");
           wrap.className = "imgel";
-          wrap.dataset.id = imgSelId(im.id);
+          wrap.dataset.id = imgSelId(raw.id);
           var img = document.createElement("img");
           img.draggable = false;
           wrap.appendChild(img);
@@ -189,23 +206,23 @@
           rs.className = "rs";
           wrap.appendChild(rs);
           if (!readOnly) {
-            attachDrag(wrap, im);
-            attachResize(rs, im, wrap);
+            attachDrag(wrap, raw);
+            attachResize(rs, raw, wrap);
           } else {
             wrap.style.cursor = "default";
             if (rs) rs.style.display = "none";
           }
           cardEl.appendChild(wrap);
-          imgNodes[im.id] = { wrap: wrap, img: img, rs: rs, st: im };
+          imgNodes[raw.id] = { wrap: wrap, img: img, rs: rs, st: raw };
         } else {
-          node.st = im;
+          node.st = raw;
         }
-        var n = imgNodes[im.id];
-        n.img.src = im.src;
-        n.wrap.style.left = im.x + "px";
-        n.wrap.style.top = im.y + "px";
-        n.wrap.style.width = im.w + "px";
-        n.wrap.style.height = im.h + "px";
+        var n = imgNodes[raw.id];
+        n.img.src = display.src || "";
+        n.wrap.style.left = raw.x + "px";
+        n.wrap.style.top = raw.y + "px";
+        n.wrap.style.width = raw.w + "px";
+        n.wrap.style.height = raw.h + "px";
       });
       Object.keys(imgNodes).forEach(function (id) {
         if (!ids[id]) {

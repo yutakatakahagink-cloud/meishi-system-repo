@@ -41,7 +41,9 @@
       ├─ meishi-layout.js  … レイアウト共通定義
       ├─ config.js         … Firebase設定（.gitignore）
       └─ data/meishi-records.json … xlsxから生成した名刺データ
+      └─ images/               … 名刺用画像フォルダ（manifest.json で管理）
 scripts/
+   Update-ImageManifest.ps1 … images フォルダから manifest.json を再生成
    Deploy-GitHubPages.ps1  … 14 → meishi-system-repo へデプロイ
    deploy-paths.txt
 ```
@@ -70,6 +72,22 @@ Set-Location -LiteralPath "<作業box>\14_名刺印刷ソフト\scripts"
 ### 携帯への共有
 1. 所有者ページ → **使用者URL** → **QR表示** で QR を社員に見せる
 2. または URL をコピーして LINE 等で送付
+
+## 画像保存ボックス（基本・URL タブ）
+1. PC の `meishi-app/public/images/` フォルダに画像ファイル（PNG/JPG/SVG）を置く
+2. `scripts\Update-ImageManifest.ps1` を実行（または `manifest.json` を手動更新）
+3. 所有者画面 **基本・URL** → **画像保存ボックス** → **＋ 追加** でフォルダから選んで登録
+4. 登録済みの画像**のみ**、会社共通・部署共通・プレビューで名刺に設定できます
+
+## 画像フォルダ（元ファイル置き場）
+- 配置場所: `meishi-app/public/images/`
+- PNG/JPG/SVG 等を置き、`manifest.json` に登録（または下記スクリプトで自動生成）
+```powershell
+Set-Location -LiteralPath "<作業box>\14_名刺印刷ソフト\scripts"
+.\Update-ImageManifest.ps1
+```
+- **会社共通・部署共通・プレビュー（個人）** の「＋画像」ボタンから **画像保存ボックス** の画像を選択
+- 個人画像はプレビュー画面で氏名を選び「＋画像」→「個人画像を保存」。使用者画面の印刷にも反映されます
 
 ## 全社標準レイアウト
 1. 所有者が使用者ページでデザインを調整（または JSON を用意）。

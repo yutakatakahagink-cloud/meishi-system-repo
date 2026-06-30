@@ -152,7 +152,8 @@
         getLayout: function () { return layout; },
         getElText: elText,
         getImages: function () {
-          return S.company ? MeishiStore.getPrintImages(S.company, S.aff1, S.aff2) : [];
+          if (!S.company) return [];
+          return MeishiStore.getPrintImages(S.company, S.aff1, S.aff2);
         },
         onLayoutChange: function () {},
         onSelect: function () {},
@@ -236,9 +237,17 @@
         btn._mpBound = true;
         btn.addEventListener("click", function () {
           if (cardUI) cardUI.clearSelection();
+          if (typeof cfg.onBeforePrint === "function") cfg.onBeforePrint();
           renderCard();
-          window.print();
-          renderCard();
+          var printArea = document.getElementById("printArea") || document.getElementById("pvPrintArea");
+          if (window.MeishiPrintSheet && typeof window.MeishiPrintSheet.printFromArea === "function") {
+            window.MeishiPrintSheet.printFromArea(printArea, {
+              afterPrint: function () { renderCard(); },
+            });
+          } else {
+            window.print();
+            renderCard();
+          }
         });
       }
     }

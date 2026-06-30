@@ -11,8 +11,11 @@
     <script src="meishi-catalog.js"></script>
     <script src="meishi-store.js?v=20250615d"></script>
     <script src="meishi-layout.js"></script>
+    <script src="meishi-image-lib.js"></script>
     <script src="meishi-card-ui.js"></script>
+    <script src="meishi-print-sheet.js"></script>
     <script src="meishi-user-print.js"></script>
+    <link rel="stylesheet" href="meishi-print-sheet.css" />
     <style>
       :root { --brand:#2f5597; --brand-d:#21406f; --bg:#eef2f7; --line:#d6dde8; }
       *{box-sizing:border-box} body{margin:0;font-family:"Hiragino Kaku Gothic ProN","Meiryo",system-ui,sans-serif;background:var(--bg);color:#1c2533}
@@ -65,8 +68,9 @@
       @media print{
         body *{visibility:hidden}
         #printArea,#printArea *{visibility:visible}
-        #printArea{position:absolute;left:0;top:0}
-        .stage{background:#fff!important;padding:0!important}
+        #printArea{position:absolute;left:0;top:0;width:210mm;height:297mm;margin:0;padding:0}
+        #printArea .stage[data-meishi-print-hidden]{display:none!important;visibility:hidden}
+        #printArea .meishi-a4-print-overlay{display:grid!important;visibility:visible}
         .meishi{box-shadow:none!important}
         .el{border-color:transparent!important;background:transparent!important}
         .el.empty{display:none}
@@ -108,7 +112,8 @@
           <button class="btn ghost sm" id="btnHome">← ホーム</button>
           <strong>名刺印刷</strong>
           <span class="spacer" style="flex:1"></span>
-          <button class="btn sm" id="btnPrint">🖨️ 印刷</button>
+          <button class="btn sm" id="btnPrint">🖨️ 印刷（A4・10面）</button>
+          <p class="meishi-print-hint" id="printHint">A4用紙に名刺10枚（91×55mm・ラベル屋さん51003相当）。印刷ダイアログは「倍率100%」「余白なし」「背景グラフィックON」にしてください。</p>
         </div>
         <div class="editor">
           <!-- 左: 選択 -->
