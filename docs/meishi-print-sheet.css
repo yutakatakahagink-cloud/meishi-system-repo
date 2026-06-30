@@ -1,6 +1,6 @@
-/* 画面プレビュー：名刺を4倍表示（印刷は実寸） */
+/* 画面プレビュー：名刺を3倍表示（印刷は実寸） */
 .preview-scale-box {
-  --preview-scale: 4;
+  --preview-scale: 3;
   --card-w: 91mm;
   --card-h: 55mm;
   width: calc(var(--card-w) * var(--preview-scale) + 52px);
