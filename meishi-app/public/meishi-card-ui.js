@@ -7,7 +7,7 @@
   var SNAP_THRESH = 6;
   var FLOW_PAD = 6;
   var CARD_W_MM = 91;
-  var CENTER_GAP_MM = 5;
+  var CENTER_GAP_MM = 2;
 
   function maxCenterShiftMm() {
     return (CARD_W_MM - CENTER_GAP_MM) / 2;
@@ -220,7 +220,7 @@
       return zoneSplit && !hideElements;
     }
 
-    /** 左欄 or 右欄（中央5mm帯には文字を置かない） */
+    /** 左欄 or 右欄（中央2mm帯には文字を置かない） */
     function textElementSide(st) {
       var zones = getCardZones();
       if (st.x >= zones.rightStart) return "right";
