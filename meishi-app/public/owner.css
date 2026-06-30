@@ -15,9 +15,39 @@ h2{color:var(--brand-d);font-size:1.05rem;margin:0 0 12px}
 .field.field-disabled select{background:#eef1f6;color:#9aa3b5;cursor:not-allowed;border-color:#e2e7ef}
 input,select,textarea{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;font-size:.92rem}
 .field-ro input{background:#f3f6fb;color:#6b7280}
-.btn{border:none;border-radius:10px;cursor:pointer;font-size:.95rem;padding:10px 16px;font-weight:600;background:var(--brand);color:#fff}
+.btn{border:none;border-radius:10px;cursor:pointer;font-size:.95rem;padding:10px 16px;font-weight:600;background:var(--brand);color:#fff;box-shadow:0 1px 2px rgba(0,0,0,.08)}
 .btn.sm{padding:7px 12px;font-size:.82rem}.btn.ghost{background:#fff;color:var(--brand);border:1px solid var(--line)}
 .btn.danger{background:#b3261e}.hint{font-size:.82rem;color:#7b8698;margin:0 0 10px}.bold{font-weight:700}
+/* ボタン押下・ホバーの視覚フィードバック */
+button:not(:disabled){
+  transition:background-color .12s ease,border-color .12s ease,color .12s ease,transform .1s ease,box-shadow .12s ease,opacity .12s ease;
+  -webkit-tap-highlight-color:transparent;
+}
+button:disabled{opacity:.55;cursor:not-allowed}
+button:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+.btn:hover:not(:disabled){background:var(--brand-d)}
+.btn:active:not(:disabled){background:#1a3560;box-shadow:inset 0 2px 5px rgba(0,0,0,.22);transform:scale(.96)}
+.btn.ghost:hover:not(:disabled){background:#eef2f8;border-color:var(--brand)}
+.btn.ghost:active:not(:disabled){background:#dce4ef;color:var(--brand-d);box-shadow:inset 0 2px 4px rgba(47,85,151,.14);transform:scale(.96)}
+.btn.danger:hover:not(:disabled){background:#991f18}
+.btn.danger:active:not(:disabled){background:#7a1812;box-shadow:inset 0 2px 5px rgba(0,0,0,.22);transform:scale(.96)}
+.tabs button:hover:not(.on):not(:disabled){background:#eef2f8;border-color:var(--brand);color:var(--brand)}
+.tabs button:active:not(:disabled){transform:scale(.96)}
+.tabs button.on:active:not(:disabled){background:#1a3560}
+.seg button:hover:not(.on):not(:disabled){background:#eef2f8;border-color:var(--brand);color:var(--brand)}
+.seg button:active:not(:disabled){background:#dce4ef;transform:scale(.96)}
+.seg button.on:active:not(:disabled){background:#1a3560}
+.cat-field-btn:hover:not(.on):not(:disabled){background:#eef2f8;border-color:var(--brand)}
+.cat-field-btn:active:not(:disabled){background:#dce4ef;transform:scale(.96)}
+.cat-field-btn.on:active:not(:disabled){background:#1a3560}
+.linkbtn{border-radius:4px}
+.linkbtn:hover:not(:disabled){text-decoration:underline;background:rgba(179,38,30,.06)}
+.linkbtn:active:not(:disabled){opacity:.7;background:rgba(179,38,30,.12);transform:scale(.96)}
+.img-picker-item{transition:background-color .12s ease,border-color .12s ease,transform .1s ease}
+.img-picker-item:active{background:#e8eef8;transform:scale(.98)}
+header .btn.ghost{background:rgba(255,255,255,.12);color:#fff;border-color:rgba(255,255,255,.35)}
+header .btn.ghost:hover:not(:disabled){background:rgba(255,255,255,.22);border-color:#fff}
+header .btn.ghost:active:not(:disabled){background:rgba(255,255,255,.32);box-shadow:inset 0 2px 4px rgba(0,0,0,.15)}
 .btn-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px}
 .url-box{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .url-box input{flex:1;min-width:180px;width:auto;font-size:.85rem;background:#f7f9fc}
