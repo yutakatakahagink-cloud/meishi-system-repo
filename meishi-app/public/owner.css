@@ -33,6 +33,7 @@ th{background:#f3f6fb;position:sticky;top:0}tr.sel{background:#e8eef8}tr:hover{b
 .stage{background:#cfd6e0;border-radius:12px;padding:16px;display:flex;justify-content:center}
 .el,.imgel{position:absolute;cursor:move;touch-action:none;border:1px dashed transparent;user-select:none}
 .el{white-space:pre;line-height:1.3;padding:1px 2px;box-sizing:border-box}
+.meishi.zone-split .el{overflow:hidden;box-sizing:border-box}
 .meishi.design-mode .el,.meishi.design-mode .imgel{border:none}
 .meishi.design-mode .el.sel,.meishi.design-mode .imgel.sel{border:none;background:rgba(47,85,151,.08)}
 .meishi.design-mode.zone-split .card-zone-layer{position:absolute;inset:0;pointer-events:none;z-index:0;background:linear-gradient(90deg,transparent 0,transparent calc(50% - 2.5mm),rgba(47,85,151,.05) calc(50% - 2.5mm),rgba(47,85,151,.05) calc(50% + 2.5mm),transparent calc(50% + 2.5mm))}
