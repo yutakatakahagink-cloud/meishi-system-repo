@@ -159,11 +159,13 @@
       node.style.left = st.x + "px";
     }
 
-    function clampTextDragX(node, nx, dragSide) {
-      if (!dragSide) return nx;
+    function clampTextDragX(node, nx, pointerXInCard) {
+      if (!useZoneTextLayout()) return nx;
       var zones = getCardZones();
       var w = node.offsetWidth || 1;
-      if (dragSide === "left") return Math.max(0, Math.min(nx, zones.leftEnd - w));
+      var gapMid = (zones.leftEnd + zones.rightStart) / 2;
+      var targetSide = pointerXInCard >= gapMid ? "right" : "left";
+      if (targetSide === "left") return Math.max(0, Math.min(nx, zones.leftEnd - w));
       return Math.max(zones.rightStart, Math.min(nx, zones.cardW - w));
     }
 
@@ -467,24 +469,22 @@
         cardEl.classList.add("is-dragging");
         var p = pxFromEvent(ev);
         var sx = p.clientX, sy = p.clientY, ox = st.x, oy = st.y;
-        var textDragSide = null;
-        if (useZoneTextLayout() && node.classList.contains("el")) {
-          textDragSide = textElementSide({ x: ox });
-        }
+        var isTextDrag = useZoneTextLayout() && node.classList.contains("el");
         var raf = 0, nx = ox, ny = oy;
         function applyPos() {
           raf = 0;
           st.x = nx; st.y = ny;
           node.style.left = nx + "px";
           node.style.top = ny + "px";
-          if (textDragSide) node.style.maxWidth = textMaxWidth(st) + "px";
+          if (isTextDrag) node.style.maxWidth = textMaxWidth(st) + "px";
         }
         function mv(e2) {
           var q = pxFromEvent(e2);
           var rawNx = Math.round(ox + (q.clientX - sx));
           var rawNy = Math.round(oy + (q.clientY - sy));
           var snapped = snapDragPosition(cardEl, node, rawNx, rawNy, zoneSnapEdges());
-          nx = clampTextDragX(node, snapped.nx, textDragSide);
+          var pointerX = q.clientX - cardEl.getBoundingClientRect().left;
+          nx = isTextDrag ? clampTextDragX(node, snapped.nx, pointerX) : snapped.nx;
           ny = snapped.ny;
           showGuides(snapped.guideX, snapped.guideY);
           if (!raf) raf = requestAnimationFrame(applyPos);
