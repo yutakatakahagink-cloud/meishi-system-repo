@@ -66,9 +66,15 @@ if ($copied -eq 0) {
 # GitHub Pages 公開ルート（branch: main /docs → URL は /user.html 等）
 $publicSrc = Join-Path $SourceRoot "meishi-app\public"
 $docsDest = Join-Path $RepoPath "docs"
-if (Test-Path -LiteralPath $publicSrc) {
-  if (Test-Path -LiteralPath $docsDest) { Remove-Item -LiteralPath $docsDest -Recurse -Force }
-  Copy-Item -LiteralPath $publicSrc -Destination $docsDest -Recurse -Force
+if (-not $RepoPath) { throw "RepoPath is empty." }
+if (-not (Test-Path -LiteralPath $publicSrc)) {
+  Write-Warning "Skip docs sync (missing): $publicSrc"
+} else {
+  if (Test-Path -LiteralPath $docsDest) {
+    Remove-Item -LiteralPath $docsDest -Recurse -Force -ErrorAction Stop
+  }
+  $null = New-Item -ItemType Directory -Path $docsDest -Force
+  Copy-Item -Path (Join-Path $publicSrc "*") -Destination $docsDest -Recurse -Force
   if ($IncludeConfigJs) {
     $cfgSrc = Join-Path $publicSrc "config.js"
     if (Test-Path -LiteralPath $cfgSrc) {

@@ -1287,8 +1287,13 @@
       throw new Error("名刺データを読み込めませんでした。\n" + msg);
     }
     await initFirebase();
-    if (!_fbAuthLoaded && localAuth) {
-      applyAuthFromRemote(localAuth);
+    if (localAuth && String(localAuth.ownerId || "").trim()) {
+      var localOid = String(localAuth.ownerId).trim();
+      var remoteOid = String(_config.ownerId || "").trim();
+      var preferLocal =
+        !_fbAuthLoaded ||
+        (window.MEISHI_OWNER_PAGE && localOid && localOid !== remoteOid);
+      if (preferLocal) applyAuthFromRemote(localAuth);
     }
     if (_useFirebase && String(_config.ownerId || "").trim()) {
       await persistAuthRemote();
