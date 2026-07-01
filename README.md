@@ -105,38 +105,21 @@ Set-Location -LiteralPath "<作業box>\14_名刺印刷ソフト\scripts"
 - `config.js` の Firebase があれば、ログインID/PW・システム名・**全社標準レイアウト**は **`/meishi_config`** に保存され全端末で共有。無ければ端末ごとの localStorage。
 - 名刺レコード本体は静的JSON（全端末共通）。プレビューの個人レイアウトは端末ごとに localStorage 保存。
 
-### Firebase Database ルール（携帯ログインに必須）
+### 携帯ログイン（Firebase ルール変更不要）
 
-名刺データ用パスが **read 拒否** だと、携帯・他PCはログインID/PWを取得できずログインできません。Firebase Console → **Authentication** で **匿名** を有効化し、**Realtime Database → ルール** に次を追加してください（`hh_data` 等の既存ルールは残したまま併記）。
+ログインID/PWは Firebase の **`hh_data/meishi_auth`** に保存されます（安全衛生システムと同じ `hh_data` 配下のため、**Console でルールを追加する必要はありません**）。
 
-```json
-{
-  "rules": {
-    "hh_data": {
-      ".read": true,
-      ".write": true
-    },
-    "meishi_config": {
-      ".read": "auth != null",
-      ".write": "auth != null"
-    },
-    "meishi_records": {
-      ".read": "auth != null",
-      ".write": "auth != null"
-    },
-    "meishi_image_library": {
-      ".read": "auth != null",
-      ".write": "auth != null"
-    },
-    "meishi_preview_personal": {
-      ".read": "auth != null",
-      ".write": "auth != null"
-    }
-  }
-}
+1. 所有者ページ（本番URL）→ **基本・URL** → ID/PW を入力 → **保存**
+2. 右上が **「全端末で共有中」** になれば、使用者URLから同じID/PWでログイン可能
+
+手動で書き込む場合（任意）:
+
+```powershell
+Set-Location -LiteralPath "<作業box>\14_名刺印刷ソフト\scripts"
+Copy-Item meishi-auth.local.json.example meishi-auth.local.json
+# meishi-auth.local.json を編集後:
+.\Publish-MeishiAuth.ps1
 ```
-
-ルール変更後は **公開** を押し、所有者ページで **基本・URL → 保存** を再実行してください。右上バッジが **「全端末で共有中」** になれば、使用者URLから同じID/PWでログインできます。
 
 ## 要検討
 - 「氏名→会社」で複数候補がある場合の URL/携帯/メールは先頭値を自動採用（必要なら手動編集可）。

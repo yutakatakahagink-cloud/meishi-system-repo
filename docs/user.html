@@ -10,7 +10,7 @@
     <script src="config.js" onerror="console.info('[Meishi] config.js なし → localStorage モード')"></script>
     <script src="meishi-fields.js"></script>
     <script src="meishi-catalog.js?v=20250617g"></script>
-    <script src="meishi-store.js?v=20250619c"></script>
+    <script src="meishi-store.js?v=20250619d"></script>
     <script src="meishi-layout.js?v=20250617x"></script>
     <script src="meishi-image-lib.js?v=20250617j"></script>
     <script src="meishi-card-ui.js?v=20250618c"></script>
@@ -154,8 +154,7 @@
           var hint = "";
           if (MeishiStore.useFirebase() && !MeishiStore.firebaseAuthLoaded()) {
             hint = "\n\n※ ログイン情報をサーバーから取得できていません。\n" +
-              "所有者が本番URL（owner.html）で「基本・URL」を保存し、\n" +
-              "Firebase の Database ルールに meishi_auth の read を追加してください。";
+              "所有者が本番URL（owner.html）を開き「基本・URL」で保存してください。";
           }
           alert("IDまたはパスワードが違います。" + hint);
         };

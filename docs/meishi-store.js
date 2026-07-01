@@ -7,7 +7,7 @@
   const IMG_LIB_KEY = "meishi_image_library_v1";
   const PREVIEW_PERSONAL_KEY = "meishi_preview_personal_v1";
   const FB_CFG_PATH = "meishi_config";
-  const FB_AUTH_PATH = "meishi_auth";
+  const FB_AUTH_PATH = "hh_data/meishi_auth";
   const FB_REC_PATH = "meishi_records";
   const FB_IMG_LIB_PATH = "meishi_image_library";
   const FB_PREVIEW_PERSONAL_PATH = "meishi_preview_personal";
@@ -439,7 +439,6 @@
 
   async function loadAuthFromFirebase() {
     if (!_useFirebase || !_fbDb) return false;
-    await ensureFirebaseAuth();
     try {
       var snap = await _fbDb.ref(FB_AUTH_PATH).once("value");
       if (applyAuthFromRemote(snap.val())) {
@@ -447,7 +446,7 @@
         return true;
       }
     } catch (e) {
-      console.warn("[Meishi] meishi_auth read failed（Database ルールに meishi_auth の read: true を追加してください）", e);
+      console.warn("[Meishi] auth read failed", e);
     }
     return false;
   }
@@ -456,14 +455,13 @@
     if (!_useFirebase || !_fbDb || _suppress) return false;
     var auth = authPayload();
     if (!auth.ownerId) return false;
-    await ensureFirebaseAuth();
     try {
       await _fbDb.ref(FB_AUTH_PATH).set(auth);
       _fbAuthLoaded = true;
       _fbCfgLoaded = true;
       return true;
     } catch (e) {
-      console.warn("[Meishi] meishi_auth save failed", e);
+      console.warn("[Meishi] auth save failed", e);
       return false;
     }
   }
@@ -1289,13 +1287,15 @@
       throw new Error("名刺データを読み込めませんでした。\n" + msg);
     }
     await initFirebase();
-    if (_useFirebase) {
-      if (!_fbAuthLoaded) {
-        _config.ownerId = "";
-        _config.ownerPass = "";
-      }
-    } else if (localAuth) {
+    if (!_fbAuthLoaded && localAuth) {
       applyAuthFromRemote(localAuth);
+    }
+    if (_useFirebase && String(_config.ownerId || "").trim()) {
+      await persistAuthRemote();
+    }
+    if (_useFirebase && !_fbAuthLoaded) {
+      _config.ownerId = "";
+      _config.ownerPass = "";
     }
     await applyLocalImageLibrary();
     await applyLocalPreviewPersonal();

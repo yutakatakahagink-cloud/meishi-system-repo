@@ -1061,10 +1061,7 @@
         setBadge();
         var msg = "保存しました";
         if (MeishiStore.useFirebase() && (!r || !r.authOk)) {
-          msg += "\n\n※ ログイン情報を Firebase に書き込めませんでした。\n" +
-            "Firebase Console → Authentication で「匿名」を有効化し、\n" +
-            "Realtime Database ルールに次を追加して「公開」してください:\n\n" +
-            '"meishi_auth": { ".read": true, ".write": "auth != null" }';
+          msg += "\n\n※ ログイン情報の共有に失敗しました。ネットワークを確認し、もう一度「保存」を押してください。";
         } else if (MeishiStore.useFirebase()) {
           msg += "\n\n携帯・他PCは「使用者ページ」の本番URLから、同じ ID / パスワードでログインできます。";
         }
