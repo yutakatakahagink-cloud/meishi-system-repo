@@ -23,6 +23,7 @@
   let _ready = false;
   let _fbDb = null;
   let _useFirebase = false;
+  let _fbCfgLoaded = false;
   let _suppress = false;
   let _suppressRecRemote = false;
   let _suppressRecRemoteTimer = null;
@@ -409,6 +410,15 @@
     var localCo = _config.companySettings || {};
     var localDept = _config.deptSettings || {};
     _config = Object.assign({}, _config, v);
+    if (v.ownerId != null && String(v.ownerId).trim() !== "") {
+      _config.ownerId = String(v.ownerId).trim();
+    }
+    if (v.ownerPass != null) {
+      _config.ownerPass = String(v.ownerPass);
+    }
+    if (v.title != null && String(v.title).trim() !== "") {
+      _config.title = String(v.title).trim();
+    }
     if (!_config.companySettings) _config.companySettings = {};
     if (!_config.deptSettings) _config.deptSettings = {};
     if (v.companySettings && typeof v.companySettings === "object") {
@@ -418,7 +428,37 @@
       _config.deptSettings = mergeSettingsMaps(localDept, v.deptSettings);
     }
     delete _config.imageLibrary;
+    _fbCfgLoaded = true;
     void applyLocalImageLibrary();
+  }
+
+  function verifyUserLogin(id, pw) {
+    var c = _config;
+    var eid = String(id == null ? "" : id).trim();
+    var epw = String(pw == null ? "" : pw);
+    var oid = String(c.ownerId == null ? "" : c.ownerId).trim();
+    var opw = String(c.ownerPass == null ? "" : c.ownerPass);
+    return eid === oid && epw === opw;
+  }
+
+  async function ensureFirebaseAuth() {
+    if (typeof window.firebase === "undefined") return false;
+    var auth = null;
+    try {
+      if (typeof window.firebase.auth === "function") auth = window.firebase.auth();
+    } catch (e) {}
+    if (!auth || typeof auth.signInAnonymously !== "function") {
+      console.warn("[Meishi] firebase-auth 未読込のため匿名ログインをスキップします");
+      return false;
+    }
+    try {
+      if (auth.currentUser) return true;
+      await auth.signInAnonymously();
+      return !!auth.currentUser;
+    } catch (e) {
+      console.warn("[Meishi] Firebase 匿名ログイン失敗（Authentication で「匿名」を有効にしてください）", e);
+      return false;
+    }
   }
 
   function isDataLibraryItem(item) {
@@ -543,7 +583,10 @@
       _suppressCfgRemote = true;
       if (_suppressCfgRemoteTimer) clearTimeout(_suppressCfgRemoteTimer);
       _suppressCfgRemoteTimer = setTimeout(function () { _suppressCfgRemote = false; }, 10000);
-      try { _fbDb.ref(FB_CFG_PATH).set(payload); } catch (e) {}
+      try {
+        _fbDb.ref(FB_CFG_PATH).set(payload);
+        _fbCfgLoaded = true;
+      } catch (e) {}
     }
     return ok;
   }
@@ -1072,11 +1115,15 @@
       _useFirebase = true;
     } catch (e) { return; }
 
+    await ensureFirebaseAuth();
+
     try {
       var snapRec = await _fbDb.ref(FB_REC_PATH).once("value");
       var rv = snapRec.val();
       if (rv && Array.isArray(rv) && rv.length) { _records = rv; try { localStorage.setItem(REC_KEY, JSON.stringify(_records)); } catch (e) {} }
-    } catch (e) {}
+    } catch (e) {
+      console.warn("[Meishi] Firebase records read failed", e);
+    }
 
     try {
       var snap = await _fbDb.ref(FB_CFG_PATH).once("value");
@@ -1084,12 +1131,10 @@
       if (v && typeof v === "object") {
         mergeConfigFromRemote(v);
         try { localStorage.setItem(CFG_KEY, JSON.stringify(configForMainStorage())); } catch (e) {}
-      } else {
-        _suppress = true;
-        try { await _fbDb.ref(FB_CFG_PATH).set(configForMainStorage()); } catch (e) {}
-        _suppress = false;
       }
-    } catch (e) {}
+    } catch (e) {
+      console.warn("[Meishi] Firebase config read failed（Database ルールに meishi_config の read を追加してください）", e);
+    }
 
     try {
       var snapImg = await _fbDb.ref(FB_IMG_LIB_PATH).once("value");
@@ -1291,9 +1336,11 @@
       fireCfg();
     },
     useFirebase: function () { return _useFirebase; },
+    firebaseConfigLoaded: function () { return _fbCfgLoaded; },
+    verifyUserLogin: verifyUserLogin,
     onConfigChange: function (cb) { if (typeof cb === "function") _cfgListeners.push(cb); },
     onRecordsChange: function (cb) { if (typeof cb === "function") _recListeners.push(cb); },
-    userUrl: function () { return sharePageUrl("user.html", { hash: "preview" }); },
+    userUrl: function () { return sharePageUrl("user.html"); },
     ownerUrl: function () { return sharePageUrl("owner.html"); },
     get ready() { return _ready; },
   };

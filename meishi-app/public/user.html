@@ -5,11 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>名刺印刷システム</title>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <script src="config.js" onerror="console.info('[Meishi] config.js なし → localStorage モード')"></script>
     <script src="meishi-fields.js"></script>
     <script src="meishi-catalog.js?v=20250617g"></script>
-    <script src="meishi-store.js?v=20250619a"></script>
+    <script src="meishi-store.js?v=20250619b"></script>
     <script src="meishi-layout.js?v=20250617x"></script>
     <script src="meishi-image-lib.js?v=20250617j"></script>
     <script src="meishi-card-ui.js?v=20250618c"></script>
@@ -39,9 +40,10 @@
       <section id="view-login" class="view active">
         <div class="login-card">
           <h2>ログイン</h2>
-          <div class="field"><label>ID</label><input id="loginId" type="text" /></div>
-          <div class="field"><label>パスワード</label><input id="loginPass" type="password" /></div>
-          <button class="btn" style="width:100%" id="btnLogin">ログイン</button>
+          <p id="loginStatus" class="hint" style="margin-top:0">設定を読み込み中…</p>
+          <div class="field"><label>ID</label><input id="loginId" type="text" autocomplete="username" disabled /></div>
+          <div class="field"><label>パスワード</label><input id="loginPass" type="password" autocomplete="current-password" disabled /></div>
+          <button class="btn" style="width:100%" id="btnLogin" disabled>ログイン</button>
         </div>
       </section>
 
@@ -122,15 +124,37 @@
       }
 
       var SK = "meishi_user_login";
+      var loginReady = false;
+
+      function setLoginEnabled(on) {
+        document.getElementById("loginId").disabled = !on;
+        document.getElementById("loginPass").disabled = !on;
+        document.getElementById("btnLogin").disabled = !on;
+      }
+
+      function setLoginStatus(msg) {
+        var el = document.getElementById("loginStatus");
+        if (el) el.textContent = msg || "";
+      }
+
       function doLogin() {
-        var c = MeishiStore.getConfig();
-        var id = document.getElementById("loginId").value.trim();
+        if (!loginReady || !MeishiStore.ready) {
+          alert("設定を読み込み中です。少し待ってから再度お試しください。");
+          return;
+        }
+        var id = document.getElementById("loginId").value;
         var pw = document.getElementById("loginPass").value;
-        if (id === (c.ownerId || "") && pw === (c.ownerPass || "")) {
+        if (MeishiStore.verifyUserLogin(id, pw)) {
           sessionStorage.setItem(SK, "1");
           document.getElementById("btnLogout").style.display = "";
           openEditor();
-        } else alert("IDまたはパスワードが違います。");
+          return;
+        }
+        var hint = "";
+        if (MeishiStore.useFirebase() && !MeishiStore.firebaseConfigLoaded()) {
+          hint = "\n\n※ ログイン情報がサーバーから取得できていません。所有者が本番URLで「基本・URL」を保存し、Firebase の Database ルールに meishi_config の read が許可されているか確認してください。";
+        }
+        alert("IDまたはパスワードが違います。" + hint);
       }
       document.getElementById("btnLogin").addEventListener("click", doLogin);
       document.getElementById("loginPass").addEventListener("keydown", function (e) { if (e.key === "Enter") doLogin(); });
@@ -142,9 +166,12 @@
 
       function setBadge() {
         var b = document.getElementById("syncBadge");
-        if (MeishiStore.useFirebase()) {
+        if (MeishiStore.useFirebase() && MeishiStore.firebaseConfigLoaded()) {
           b.textContent = "全端末で共有中";
           b.style.background = "rgba(40,180,99,.35)";
+        } else if (MeishiStore.useFirebase()) {
+          b.textContent = "同期未完了";
+          b.style.background = "rgba(243,156,18,.35)";
         } else {
           b.textContent = "この端末のみ";
           b.style.background = "rgba(243,156,18,.35)";
@@ -152,13 +179,24 @@
       }
 
       (async function () {
+        setLoginEnabled(false);
+        setLoginStatus("設定を読み込み中…");
         try { await MeishiStore.init(); } catch (e) { alert(e.message || e); }
+        loginReady = true;
+        setLoginEnabled(true);
+        setLoginStatus(MeishiStore.useFirebase() && !MeishiStore.firebaseConfigLoaded()
+          ? "ログイン情報をサーバーから取得できませんでした。所有者に設定の再保存を依頼してください。"
+          : "所有者が設定した ID / パスワードを入力してください。");
         var c = MeishiStore.getConfig();
         document.getElementById("appTitle").textContent = c.title || "名刺印刷システム";
         document.title = c.title || "名刺印刷システム";
         setBadge();
         MeishiStore.onConfigChange(function (cc) {
           document.getElementById("appTitle").textContent = cc.title || "名刺印刷システム";
+          setBadge();
+          if (MeishiStore.firebaseConfigLoaded()) {
+            setLoginStatus("所有者が設定した ID / パスワードを入力してください。");
+          }
         });
         if (sessionStorage.getItem(SK) === "1") {
           document.getElementById("btnLogout").style.display = "";

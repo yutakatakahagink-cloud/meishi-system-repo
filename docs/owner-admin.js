@@ -36,8 +36,16 @@
 
   function setBadge() {
     var b = document.getElementById("syncBadge");
-    if (MeishiStore.useFirebase()) { b.textContent = "全端末で共有中"; b.style.background = "rgba(40,180,99,.35)"; }
-    else { b.textContent = "この端末のみ"; b.style.background = "rgba(243,156,18,.35)"; }
+    if (MeishiStore.useFirebase() && MeishiStore.firebaseConfigLoaded()) {
+      b.textContent = "全端末で共有中";
+      b.style.background = "rgba(40,180,99,.35)";
+    } else if (MeishiStore.useFirebase()) {
+      b.textContent = "同期未完了";
+      b.style.background = "rgba(243,156,18,.35)";
+    } else {
+      b.textContent = "この端末のみ";
+      b.style.background = "rgba(243,156,18,.35)";
+    }
   }
 
   function isPreviewDeepLink() {
@@ -1036,12 +1044,24 @@
       if (b) showTab(b.getAttribute("data-tab"));
     });
     document.getElementById("btnSaveBasic").onclick = function () {
+      var ownerId = document.getElementById("ownerId").value.trim();
+      var ownerPass = document.getElementById("ownerPass").value;
+      if (!ownerId) return alert("ログインIDを入力してください");
+      if (!ownerPass) return alert("パスワードを入力してください");
       MeishiStore.saveConfig({
         title: document.getElementById("title").value.trim() || "名刺印刷システム",
-        ownerId: document.getElementById("ownerId").value.trim(),
-        ownerPass: document.getElementById("ownerPass").value,
+        ownerId: ownerId,
+        ownerPass: ownerPass,
       });
-      alert("保存しました");
+      refreshUserUrlFields();
+      setBadge();
+      var msg = "保存しました";
+      if (MeishiStore.useFirebase() && !MeishiStore.firebaseConfigLoaded()) {
+        msg += "\n\n※ Firebase へ設定を書き込めていない可能性があります。右上が「同期未完了」のときは、Firebase Console で Authentication「匿名」を有効化し、Database ルールに meishi_config の read/write を追加してください。";
+      } else if (MeishiStore.useFirebase()) {
+        msg += "\n\n携帯・他PCは「使用者ページ」の本番URLから、同じ ID / パスワードでログインできます。";
+      }
+      alert(msg);
     };
     document.getElementById("btnCopy").onclick = function () {
       var url = document.getElementById("userUrl").value || defaultUserPageUrl();
@@ -1267,6 +1287,8 @@
       MeishiStore.onConfigChange(function () {
         if (window._coCatalogSyncing || window._deptSaving) return;
         fillBasic();
+        setBadge();
+        refreshUserUrlFields();
         refreshCoPickOptions();
         var deptOn = document.getElementById("panel-dept") && document.getElementById("panel-dept").classList.contains("on");
         if (!deptOn) fillDeptPanel();
