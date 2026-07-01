@@ -318,10 +318,14 @@
           if (cardUI) cardUI.clearSelection();
           if (typeof cfg.onBeforePrint === "function") cfg.onBeforePrint();
           renderCard();
+          renderBackCard();
           var printArea = document.getElementById("printArea") || document.getElementById("pvPrintArea");
           if (window.MeishiPrintSheet && typeof window.MeishiPrintSheet.printFromArea === "function") {
             window.MeishiPrintSheet.printFromArea(printArea, {
-              afterPrint: function () { renderCard(); },
+              afterPrint: function () {
+                renderCard();
+                if (previewSide === "back") renderBackCard();
+              },
             });
           } else {
             window.print();

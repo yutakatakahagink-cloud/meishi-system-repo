@@ -51,13 +51,23 @@
   display: none;
 }
 
+.meishi-print-area--sheet .preview-scale-box[data-meishi-print-hidden],
+.meishi-print-area--sheet .stage[data-meishi-print-hidden] {
+  display: none;
+}
+
+.meishi-a4-print-bundle {
+  display: none;
+}
+
 @media print {
   html, body {
     width: 210mm;
-    height: 297mm;
+    height: auto;
+    min-height: 0;
     margin: 0 !important;
     padding: 0 !important;
-    overflow: hidden;
+    overflow: visible;
   }
 
   #printArea,
@@ -66,10 +76,11 @@
     left: 0 !important;
     top: 0 !important;
     width: 210mm !important;
-    height: 297mm !important;
+    height: auto !important;
+    min-height: 0 !important;
     margin: 0 !important;
     padding: 0 !important;
-    overflow: hidden !important;
+    overflow: visible !important;
   }
 
   .preview-scale-box {
@@ -78,6 +89,10 @@
     max-width: none !important;
     margin: 0 !important;
     position: static !important;
+  }
+
+  .preview-scale-box[data-meishi-print-hidden] {
+    display: none !important;
   }
 
   .preview-scale-box > .stage {
@@ -91,8 +106,10 @@
     display: none !important;
   }
 
-  .meishi-a4-print-overlay {
-    display: grid !important;
+  .meishi-a4-print-overlay,
+  .meishi-a4-print-bundle {
+    display: block !important;
+    visibility: visible !important;
   }
 
   .meishi-a4-sheet {
@@ -109,10 +126,18 @@
     align-content: start;
     justify-content: start;
     background: #fff;
-    page-break-after: avoid;
     page-break-inside: avoid;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+  }
+
+  .meishi-a4-sheet--front {
+    page-break-after: always;
+  }
+
+  .meishi-a4-sheet--duplex-back {
+    page-break-after: avoid;
+    transform: scaleX(-1);
   }
 
   .meishi-print-slot {
@@ -153,7 +178,8 @@
   }
 
   .meishi-print-card-wrap .el,
-  .meishi-print-card-wrap .imgel {
+  .meishi-print-card-wrap .imgel,
+  .meishi-print-card-wrap .btel {
     border-color: transparent !important;
     background: transparent !important;
   }

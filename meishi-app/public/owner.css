@@ -144,11 +144,11 @@ th{background:#f3f6fb;position:sticky;top:0}tr.sel{background:#e8eef8}tr:hover{b
 @media print{
   body *{visibility:hidden}
   #pvPrintArea,#pvPrintArea *{visibility:visible}
-  #pvPrintArea{position:absolute;left:0;top:0;width:210mm;height:297mm;margin:0;padding:0}
-  #pvPrintArea .stage[data-meishi-print-hidden]{display:none!important;visibility:hidden}
-  #pvPrintArea .meishi-a4-print-overlay{display:grid!important;visibility:visible}
+  #pvPrintArea{position:absolute;left:0;top:0;width:210mm;height:auto;min-height:0;margin:0;padding:0}
+  #pvPrintArea .preview-scale-box[data-meishi-print-hidden]{display:none!important;visibility:hidden}
+  #pvPrintArea .meishi-a4-print-overlay,#pvPrintArea .meishi-a4-print-bundle{display:block!important;visibility:visible}
   #pvPrintArea .meishi{box-shadow:none!important}
-  #pvPrintArea .el{border-color:transparent!important;background:transparent!important}
+  #pvPrintArea .el,#pvPrintArea .btel{border-color:transparent!important;background:transparent!important}
   #pvPrintArea .el.empty{display:none}
   #pvPrintArea .imgel{border-color:transparent!important}
 }
