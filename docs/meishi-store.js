@@ -7,6 +7,7 @@
   const IMG_LIB_KEY = "meishi_image_library_v1";
   const PREVIEW_PERSONAL_KEY = "meishi_preview_personal_v1";
   const FB_CFG_PATH = "meishi_config";
+  const FB_AUTH_PATH = "meishi_auth";
   const FB_REC_PATH = "meishi_records";
   const FB_IMG_LIB_PATH = "meishi_image_library";
   const FB_PREVIEW_PERSONAL_PATH = "meishi_preview_personal";
@@ -24,6 +25,7 @@
   let _fbDb = null;
   let _useFirebase = false;
   let _fbCfgLoaded = false;
+  let _fbAuthLoaded = false;
   let _suppress = false;
   let _suppressRecRemote = false;
   let _suppressRecRemoteTimer = null;
@@ -405,6 +407,67 @@
     return out;
   }
 
+  function authPayload() {
+    return {
+      ownerId: String(_config.ownerId == null ? "" : _config.ownerId).trim(),
+      ownerPass: String(_config.ownerPass == null ? "" : _config.ownerPass),
+      title: String(_config.title || "").trim() || "名刺印刷システム",
+    };
+  }
+
+  function applyAuthFromRemote(auth) {
+    if (!auth || typeof auth !== "object") return false;
+    var applied = false;
+    if (auth.ownerId != null && String(auth.ownerId).trim() !== "") {
+      _config.ownerId = String(auth.ownerId).trim();
+      applied = true;
+    }
+    if (auth.ownerPass != null) {
+      _config.ownerPass = String(auth.ownerPass);
+      applied = true;
+    }
+    if (auth.title != null && String(auth.title).trim() !== "") {
+      _config.title = String(auth.title).trim();
+      applied = true;
+    }
+    if (applied) {
+      _fbAuthLoaded = true;
+      _fbCfgLoaded = true;
+    }
+    return applied;
+  }
+
+  async function loadAuthFromFirebase() {
+    if (!_useFirebase || !_fbDb) return false;
+    await ensureFirebaseAuth();
+    try {
+      var snap = await _fbDb.ref(FB_AUTH_PATH).once("value");
+      if (applyAuthFromRemote(snap.val())) {
+        try { localStorage.setItem(CFG_KEY, JSON.stringify(configForMainStorage())); } catch (e) {}
+        return true;
+      }
+    } catch (e) {
+      console.warn("[Meishi] meishi_auth read failed（Database ルールに meishi_auth の read: true を追加してください）", e);
+    }
+    return false;
+  }
+
+  async function persistAuthRemote() {
+    if (!_useFirebase || !_fbDb || _suppress) return false;
+    var auth = authPayload();
+    if (!auth.ownerId) return false;
+    await ensureFirebaseAuth();
+    try {
+      await _fbDb.ref(FB_AUTH_PATH).set(auth);
+      _fbAuthLoaded = true;
+      _fbCfgLoaded = true;
+      return true;
+    } catch (e) {
+      console.warn("[Meishi] meishi_auth save failed", e);
+      return false;
+    }
+  }
+
   function mergeConfigFromRemote(v) {
     if (!v || typeof v !== "object") return;
     var localCo = _config.companySettings || {};
@@ -587,6 +650,7 @@
         _fbDb.ref(FB_CFG_PATH).set(payload);
         _fbCfgLoaded = true;
       } catch (e) {}
+      void persistAuthRemote();
     }
     return ok;
   }
@@ -1117,6 +1181,8 @@
 
     await ensureFirebaseAuth();
 
+    await loadAuthFromFirebase();
+
     try {
       var snapRec = await _fbDb.ref(FB_REC_PATH).once("value");
       var rv = snapRec.val();
@@ -1158,6 +1224,15 @@
     try { _fbDb.ref(FB_CFG_PATH + "/imageLibrary").remove(); } catch (e) {}
 
     try {
+      _fbDb.ref(FB_AUTH_PATH).on("value", function (snap) {
+        if (_suppressCfgRemote) return;
+        if (applyAuthFromRemote(snap.val())) {
+          try { localStorage.setItem(CFG_KEY, JSON.stringify(configForMainStorage())); } catch (e) {}
+          fireCfg();
+        }
+      });
+    } catch (e) {}
+    try {
       _fbDb.ref(FB_CFG_PATH).on("value", function (snap) {
         if (_suppressCfgRemote) return;
         var val = snap.val();
@@ -1183,9 +1258,20 @@
 
   async function init() {
     _ready = false;
+    _fbAuthLoaded = false;
     stripLegacyImageLibraryFromLocalConfig();
     var local = loadLocalCfg();
-    if (local) _config = Object.assign({}, _config, local);
+    var localAuth = null;
+    if (local) {
+      localAuth = {
+        ownerId: local.ownerId,
+        ownerPass: local.ownerPass,
+        title: local.title,
+      };
+      delete local.ownerId;
+      delete local.ownerPass;
+      _config = Object.assign({}, _config, local);
+    }
     if (!_config.companySettings) _config.companySettings = {};
     if (!_config.deptSettings) _config.deptSettings = {};
     delete _config.imageLibrary;
@@ -1203,6 +1289,14 @@
       throw new Error("名刺データを読み込めませんでした。\n" + msg);
     }
     await initFirebase();
+    if (_useFirebase) {
+      if (!_fbAuthLoaded) {
+        _config.ownerId = "";
+        _config.ownerPass = "";
+      }
+    } else if (localAuth) {
+      applyAuthFromRemote(localAuth);
+    }
     await applyLocalImageLibrary();
     await applyLocalPreviewPersonal();
     migrateDeptKeys();
@@ -1286,6 +1380,13 @@
     nextRecordNo: nextRecordNo,
     getConfig: function () { return clone(_config); },
     saveConfig: function (obj) { _config = Object.assign({}, _config, obj || {}); persistCfg(); fireCfg(); },
+    saveConfigAsync: async function (obj) {
+      _config = Object.assign({}, _config, obj || {});
+      var localOk = persistCfg();
+      var authOk = await persistAuthRemote();
+      fireCfg();
+      return { localOk: localOk, authOk: authOk };
+    },
     getImageLibrary: getImageLibrary,
     setImageLibrary: setImageLibrary,
     addToImageLibrary: addToImageLibrary,
@@ -1337,6 +1438,8 @@
     },
     useFirebase: function () { return _useFirebase; },
     firebaseConfigLoaded: function () { return _fbCfgLoaded; },
+    firebaseAuthLoaded: function () { return _fbAuthLoaded; },
+    refreshAuthFromFirebase: loadAuthFromFirebase,
     verifyUserLogin: verifyUserLogin,
     onConfigChange: function (cb) { if (typeof cb === "function") _cfgListeners.push(cb); },
     onRecordsChange: function (cb) { if (typeof cb === "function") _recListeners.push(cb); },

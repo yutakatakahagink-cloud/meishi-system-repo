@@ -10,7 +10,7 @@
     <script src="config.js" onerror="console.info('[Meishi] config.js なし → localStorage モード')"></script>
     <script src="meishi-fields.js"></script>
     <script src="meishi-catalog.js?v=20250617g"></script>
-    <script src="meishi-store.js?v=20250619b"></script>
+    <script src="meishi-store.js?v=20250619c"></script>
     <script src="meishi-layout.js?v=20250617x"></script>
     <script src="meishi-image-lib.js?v=20250617j"></script>
     <script src="meishi-card-ui.js?v=20250618c"></script>
@@ -144,17 +144,35 @@
         }
         var id = document.getElementById("loginId").value;
         var pw = document.getElementById("loginPass").value;
-        if (MeishiStore.verifyUserLogin(id, pw)) {
-          sessionStorage.setItem(SK, "1");
-          document.getElementById("btnLogout").style.display = "";
-          openEditor();
+        var attempt = function () {
+          if (MeishiStore.verifyUserLogin(id, pw)) {
+            sessionStorage.setItem(SK, "1");
+            document.getElementById("btnLogout").style.display = "";
+            openEditor();
+            return;
+          }
+          var hint = "";
+          if (MeishiStore.useFirebase() && !MeishiStore.firebaseAuthLoaded()) {
+            hint = "\n\n※ ログイン情報をサーバーから取得できていません。\n" +
+              "所有者が本番URL（owner.html）で「基本・URL」を保存し、\n" +
+              "Firebase の Database ルールに meishi_auth の read を追加してください。";
+          }
+          alert("IDまたはパスワードが違います。" + hint);
+        };
+        if (MeishiStore.useFirebase() && MeishiStore.refreshAuthFromFirebase) {
+          setLoginStatus("ログイン情報を確認中…");
+          setLoginEnabled(false);
+          MeishiStore.refreshAuthFromFirebase().then(function () {
+            setBadge();
+            setLoginEnabled(true);
+            setLoginStatus(MeishiStore.firebaseAuthLoaded()
+              ? "所有者が設定した ID / パスワードを入力してください。"
+              : "ログイン情報をサーバーから取得できませんでした。");
+            attempt();
+          });
           return;
         }
-        var hint = "";
-        if (MeishiStore.useFirebase() && !MeishiStore.firebaseConfigLoaded()) {
-          hint = "\n\n※ ログイン情報がサーバーから取得できていません。所有者が本番URLで「基本・URL」を保存し、Firebase の Database ルールに meishi_config の read が許可されているか確認してください。";
-        }
-        alert("IDまたはパスワードが違います。" + hint);
+        attempt();
       }
       document.getElementById("btnLogin").addEventListener("click", doLogin);
       document.getElementById("loginPass").addEventListener("keydown", function (e) { if (e.key === "Enter") doLogin(); });
@@ -166,7 +184,7 @@
 
       function setBadge() {
         var b = document.getElementById("syncBadge");
-        if (MeishiStore.useFirebase() && MeishiStore.firebaseConfigLoaded()) {
+        if (MeishiStore.useFirebase() && MeishiStore.firebaseAuthLoaded()) {
           b.textContent = "全端末で共有中";
           b.style.background = "rgba(40,180,99,.35)";
         } else if (MeishiStore.useFirebase()) {
@@ -184,7 +202,7 @@
         try { await MeishiStore.init(); } catch (e) { alert(e.message || e); }
         loginReady = true;
         setLoginEnabled(true);
-        setLoginStatus(MeishiStore.useFirebase() && !MeishiStore.firebaseConfigLoaded()
+        setLoginStatus(MeishiStore.useFirebase() && !MeishiStore.firebaseAuthLoaded()
           ? "ログイン情報をサーバーから取得できませんでした。所有者に設定の再保存を依頼してください。"
           : "所有者が設定した ID / パスワードを入力してください。");
         var c = MeishiStore.getConfig();
@@ -194,7 +212,7 @@
         MeishiStore.onConfigChange(function (cc) {
           document.getElementById("appTitle").textContent = cc.title || "名刺印刷システム";
           setBadge();
-          if (MeishiStore.firebaseConfigLoaded()) {
+          if (MeishiStore.firebaseAuthLoaded()) {
             setLoginStatus("所有者が設定した ID / パスワードを入力してください。");
           }
         });

@@ -36,7 +36,7 @@
 
   function setBadge() {
     var b = document.getElementById("syncBadge");
-    if (MeishiStore.useFirebase() && MeishiStore.firebaseConfigLoaded()) {
+    if (MeishiStore.useFirebase() && MeishiStore.firebaseAuthLoaded()) {
       b.textContent = "全端末で共有中";
       b.style.background = "rgba(40,180,99,.35)";
     } else if (MeishiStore.useFirebase()) {
@@ -1048,20 +1048,28 @@
       var ownerPass = document.getElementById("ownerPass").value;
       if (!ownerId) return alert("ログインIDを入力してください");
       if (!ownerPass) return alert("パスワードを入力してください");
-      MeishiStore.saveConfig({
+      var payload = {
         title: document.getElementById("title").value.trim() || "名刺印刷システム",
         ownerId: ownerId,
         ownerPass: ownerPass,
+      };
+      var save = MeishiStore.saveConfigAsync
+        ? MeishiStore.saveConfigAsync(payload)
+        : Promise.resolve({ localOk: true, authOk: !MeishiStore.useFirebase() });
+      save.then(function (r) {
+        refreshUserUrlFields();
+        setBadge();
+        var msg = "保存しました";
+        if (MeishiStore.useFirebase() && (!r || !r.authOk)) {
+          msg += "\n\n※ ログイン情報を Firebase に書き込めませんでした。\n" +
+            "Firebase Console → Authentication で「匿名」を有効化し、\n" +
+            "Realtime Database ルールに次を追加して「公開」してください:\n\n" +
+            '"meishi_auth": { ".read": true, ".write": "auth != null" }';
+        } else if (MeishiStore.useFirebase()) {
+          msg += "\n\n携帯・他PCは「使用者ページ」の本番URLから、同じ ID / パスワードでログインできます。";
+        }
+        alert(msg);
       });
-      refreshUserUrlFields();
-      setBadge();
-      var msg = "保存しました";
-      if (MeishiStore.useFirebase() && !MeishiStore.firebaseConfigLoaded()) {
-        msg += "\n\n※ Firebase へ設定を書き込めていない可能性があります。右上が「同期未完了」のときは、Firebase Console で Authentication「匿名」を有効化し、Database ルールに meishi_config の read/write を追加してください。";
-      } else if (MeishiStore.useFirebase()) {
-        msg += "\n\n携帯・他PCは「使用者ページ」の本番URLから、同じ ID / パスワードでログインできます。";
-      }
-      alert(msg);
     };
     document.getElementById("btnCopy").onclick = function () {
       var url = document.getElementById("userUrl").value || defaultUserPageUrl();
