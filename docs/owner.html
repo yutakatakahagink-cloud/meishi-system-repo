@@ -15,12 +15,12 @@
     <script src="meishi-layout.js?v=20250617x"></script>
     <script src="meishi-image-lib.js?v=20250617j"></script>
     <script src="meishi-card-ui.js?v=20250617p"></script>
-    <script src="meishi-back-card-ui.js?v=20250617x"></script>
+    <script src="meishi-back-card-ui.js?v=20250617y"></script>
     <script src="meishi-print-sheet.js"></script>
     <script src="meishi-user-print.js?v=20250617t"></script>
     <script src="meishi-preview-init.js?v=20250617t"></script>
     <link rel="stylesheet" href="meishi-print-sheet.css" />
-    <link rel="stylesheet" href="owner.css?v=20250617x" />
+    <link rel="stylesheet" href="owner.css?v=20250617y" />
   </head>
   <body>
     <header>
@@ -115,7 +115,7 @@
             </div>
             </div>
             <div id="coBackDesign" style="display:none">
-              <p class="hint">裏面は名刺上でテキストを直接入力・書式変更できます。選択するとツールバーが表示されます。</p>
+              <p class="hint">裏面は名刺上でテキストを直接入力できます。書式は右のパネルで変更してください。</p>
               <div class="btn-row">
                 <button type="button" class="btn sm ghost" id="btnCoBackText">＋テキスト</button>
                 <button type="button" class="btn sm ghost" id="btnCoBackImgPick">＋画像</button>
@@ -127,7 +127,7 @@
                 <div class="card inner" id="coBackDesignPanel">
                   <div id="backDesignNone" class="hint">テキストまたは画像をクリック</div>
                   <div id="backDesignCtl" style="display:none">
-                    <p class="hint" style="margin:0 0 8px">内容は名刺上で直接入力。書式は名刺上のツールバーまたは下で変更できます。</p>
+                    <p class="hint" style="margin:0 0 8px">内容は名刺上で直接入力。書式は下のボタンで変更できます。</p>
                     <div class="des-row"><label>文字</label><div class="size-step"><button type="button" id="backDesSizeUp" title="大きく">▲</button><span id="backDesSizeV">12px</span><button type="button" id="backDesSizeDown" title="小さく">▼</button></div></div>
                     <div class="des-row"><label>色</label><input type="color" id="backDesColor" /></div>
                     <div class="des-row"><label>書体</label><div class="seg"><button type="button" data-back-font="" class="on">標準</button><button type="button" data-back-font="gothic">ゴシック</button><button type="button" data-back-font="mincho">明朝</button></div></div>
@@ -202,7 +202,7 @@
                 <div class="card inner" id="deBackDesignPanel">
                   <div id="deBackDesignNone" class="hint">テキストまたは画像をクリック</div>
                   <div id="deBackDesignCtl" style="display:none">
-                    <p class="hint" style="margin:0 0 8px">内容は名刺上で直接入力。書式は名刺上のツールバーまたは下で変更できます。</p>
+                    <p class="hint" style="margin:0 0 8px">内容は名刺上で直接入力。書式は下のボタンで変更できます。</p>
                     <div class="des-row"><label>文字</label><div class="size-step"><button type="button" id="deBackDesSizeUp" title="大きく">▲</button><span id="deBackDesSizeV">12px</span><button type="button" id="deBackDesSizeDown" title="小さく">▼</button></div></div>
                     <div class="des-row"><label>色</label><input type="color" id="deBackDesColor" /></div>
                     <div class="des-row"><label>書体</label><div class="seg"><button type="button" data-de-back-font="" class="on">標準</button><button type="button" data-de-back-font="gothic">ゴシック</button><button type="button" data-de-back-font="mincho">明朝</button></div></div>

@@ -74,7 +74,6 @@
     var textNodes = {};
     var imgNodes = {};
     var guideLayer = null;
-    var formatBar = null;
     var panelShowDesign = null;
 
     function imgSelId(id) { return "__img:" + id; }
@@ -138,7 +137,6 @@
       Object.assign(hit.st, patch);
       applyTextStyle(hit.node, hit.st, editingId === sel);
       saveLayout();
-      syncFormatBarState();
       if (panelShowDesign) panelShowDesign();
     }
 
@@ -146,119 +144,6 @@
       var hit = getSelectedText();
       if (!hit) return;
       patchSelectedText({ size: clampSize((hit.st.size || 12) + delta) });
-    }
-
-    function ensureFormatBar() {
-      if (readOnly || formatBar) return;
-      formatBar = document.createElement("div");
-      formatBar.className = "btel-format-bar";
-      formatBar.setAttribute("role", "toolbar");
-      formatBar.innerHTML =
-        "<button type=\"button\" class=\"fmt-btn\" data-fmt=\"size-up\" title=\"大きく\">▲</button>" +
-        "<span class=\"fmt-size\" data-fmt-size>12px</span>" +
-        "<button type=\"button\" class=\"fmt-btn\" data-fmt=\"size-down\" title=\"小さく\">▼</button>" +
-        "<span class=\"fmt-sep\"></span>" +
-        "<select class=\"fmt-font\" data-fmt=\"font\" title=\"書体\">" +
-        "<option value=\"\">標準</option><option value=\"gothic\">ゴシック</option><option value=\"mincho\">明朝</option>" +
-        "</select>" +
-        "<input type=\"color\" class=\"fmt-color\" data-fmt=\"color\" title=\"文字色\" />" +
-        "<button type=\"button\" class=\"fmt-btn fmt-bold\" data-fmt=\"bold\" title=\"太字\">B</button>" +
-        "<button type=\"button\" class=\"fmt-btn fmt-italic\" data-fmt=\"italic\" title=\"斜体\"><i>I</i></button>" +
-        "<button type=\"button\" class=\"fmt-btn fmt-underline\" data-fmt=\"underline\" title=\"下線\"><u>U</u></button>" +
-        "<span class=\"fmt-sep\"></span>" +
-        "<button type=\"button\" class=\"fmt-btn\" data-fmt=\"align-left\" title=\"左揃え\">左</button>" +
-        "<button type=\"button\" class=\"fmt-btn\" data-fmt=\"align-center\" title=\"中央\">中</button>" +
-        "<button type=\"button\" class=\"fmt-btn\" data-fmt=\"align-right\" title=\"右揃え\">右</button>";
-      formatBar.addEventListener("mousedown", function (ev) {
-        var tag = (ev.target && ev.target.tagName) || "";
-        if (tag === "INPUT" || tag === "SELECT" || tag === "OPTION") return;
-        ev.preventDefault();
-      });
-      formatBar.addEventListener("click", function (ev) {
-        var btn = ev.target.closest("[data-fmt]");
-        if (!btn || btn.tagName === "INPUT") return;
-        var fmt = btn.getAttribute("data-fmt");
-        if (fmt === "size-up") bumpTextSize(SIZE_STEP);
-        else if (fmt === "size-down") bumpTextSize(-SIZE_STEP);
-        else if (fmt === "bold") {
-          var hit = getSelectedText();
-          if (hit) patchSelectedText({ bold: hit.st.bold ? 0 : 1 });
-        } else if (fmt === "italic") {
-          var hitI = getSelectedText();
-          if (hitI) patchSelectedText({ italic: hitI.st.italic ? 0 : 1 });
-        } else if (fmt === "underline") {
-          var hitU = getSelectedText();
-          if (hitU) patchSelectedText({ underline: hitU.st.underline ? 0 : 1 });
-        } else if (fmt === "align-left") patchSelectedText({ align: "left" });
-        else if (fmt === "align-center") patchSelectedText({ align: "center" });
-        else if (fmt === "align-right") patchSelectedText({ align: "right" });
-      });
-      var colorInp = formatBar.querySelector("[data-fmt=\"color\"]");
-      if (colorInp) {
-        colorInp.addEventListener("input", function () {
-          patchSelectedText({ color: this.value });
-        });
-      }
-      var fontSel = formatBar.querySelector("[data-fmt=\"font\"]");
-      if (fontSel) {
-        fontSel.addEventListener("change", function () {
-          patchSelectedText({ font: this.value || "" });
-        });
-      }
-      cardEl.appendChild(formatBar);
-    }
-
-    function syncFormatBarState() {
-      if (!formatBar) return;
-      var hit = getSelectedText();
-      if (!hit) {
-        formatBar.style.display = "none";
-        return;
-      }
-      var st = hit.st;
-      var sizeEl = formatBar.querySelector("[data-fmt-size]");
-      if (sizeEl) sizeEl.textContent = st.size + "px";
-      var colorInp = formatBar.querySelector("[data-fmt=\"color\"]");
-      if (colorInp) colorInp.value = st.color && st.color.length === 7 ? st.color : "#222222";
-      var boldBtn = formatBar.querySelector("[data-fmt=\"bold\"]");
-      if (boldBtn) boldBtn.classList.toggle("on", !!st.bold);
-      var italicBtn = formatBar.querySelector("[data-fmt=\"italic\"]");
-      if (italicBtn) italicBtn.classList.toggle("on", !!st.italic);
-      var underlineBtn = formatBar.querySelector("[data-fmt=\"underline\"]");
-      if (underlineBtn) underlineBtn.classList.toggle("on", !!st.underline);
-      var fontSel = formatBar.querySelector("[data-fmt=\"font\"]");
-      if (fontSel) fontSel.value = st.font || "";
-      formatBar.querySelectorAll("[data-fmt^=\"align-\"]").forEach(function (b) {
-        var al = b.getAttribute("data-fmt").replace("align-", "");
-        b.classList.toggle("on", (st.align || "left") === al);
-      });
-      var upBtn = formatBar.querySelector("[data-fmt=\"size-up\"]");
-      var downBtn = formatBar.querySelector("[data-fmt=\"size-down\"]");
-      if (upBtn) upBtn.disabled = st.size >= SIZE_MAX;
-      if (downBtn) downBtn.disabled = st.size <= SIZE_MIN;
-    }
-
-    function positionFormatBar() {
-      if (readOnly) return;
-      ensureFormatBar();
-      var hit = getSelectedText();
-      if (!hit) {
-        if (formatBar) formatBar.style.display = "none";
-        return;
-      }
-      syncFormatBarState();
-      formatBar.style.display = "flex";
-      var st = hit.st;
-      var node = hit.node;
-      var barH = formatBar.offsetHeight || 32;
-      var top = st.y - barH - 4;
-      if (top < 0) top = st.y + node.offsetHeight + 4;
-      var left = st.x;
-      var maxLeft = Math.max(0, (cardEl.clientWidth || 300) - formatBar.offsetWidth - 4);
-      if (left > maxLeft) left = maxLeft;
-      formatBar.style.left = left + "px";
-      formatBar.style.top = top + "px";
-      formatBar.style.zIndex = editingId === sel ? "20" : "15";
     }
 
     function applyTextStyle(node, st, skipContent) {
@@ -310,7 +195,6 @@
           if (selObj) { selObj.removeAllRanges(); selObj.addRange(range); }
         } catch (e) {}
       }
-      positionFormatBar();
     }
 
     function attachInlineEdit(node, st) {
@@ -345,7 +229,6 @@
       Object.keys(imgNodes).forEach(function (id) {
         imgNodes[id].wrap.classList.toggle("sel", sel === imgSelId(id));
       });
-      positionFormatBar();
     }
 
     function attachDrag(node, st, isImage) {
@@ -370,7 +253,6 @@
           st.x = nx; st.y = ny;
           node.style.left = nx + "px";
           node.style.top = ny + "px";
-          if (!isImage) positionFormatBar();
         }
         function mv(e2) {
           var q = pxFromEvent(e2);
@@ -547,7 +429,6 @@
     function invalidate() {
       built = false;
       editingId = null;
-      formatBar = null;
       textNodes = {};
       imgNodes = {};
       guideLayer = null;
@@ -586,7 +467,7 @@
           designCtl.style.display = "none";
           designNone.style.display = "";
           if (isImgSel(sel)) designNone.textContent = "画像が選択されています。ドラッグで移動、右下でサイズ変更できます。";
-          else designNone.textContent = "テキストをクリックして直接入力・書式変更できます。名刺上のツールバー、または右の書式パネルも使えます。";
+          else designNone.textContent = "テキストをクリックして直接入力できます。書式は右のパネルで変更してください。";
           return;
         }
         designNone.style.display = "none";
