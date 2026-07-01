@@ -18,6 +18,19 @@
   height: calc((var(--card-h) + 32px) * var(--preview-scale) + var(--stage-pad-x));
 }
 
+.preview-scale-box--back {
+  --stage-pad: 16px;
+  height: calc((var(--card-h) + 32px) * var(--preview-scale) + var(--stage-pad-x));
+}
+
+.preview-scale-box--back > .stage {
+  top: 50%;
+  min-height: calc(var(--card-h) + 32px);
+  align-items: center;
+  transform: translate(-50%, -50%) scale(var(--preview-scale));
+  transform-origin: center center;
+}
+
 #printArea,
 #pvPrintArea {
   width: fit-content;

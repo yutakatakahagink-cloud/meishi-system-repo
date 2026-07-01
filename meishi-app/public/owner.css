@@ -60,7 +60,7 @@ th{background:#f3f6fb;position:sticky;top:0}tr.sel{background:#e8eef8}tr:hover{b
 .editor{display:grid;grid-template-columns:1fr 200px;gap:10px;align-items:start;margin-top:10px}
 @media(max-width:800px){.editor{grid-template-columns:1fr}}
 .meishi{width:91mm;height:55mm;background:#fff;position:relative;box-shadow:0 3px 12px rgba(0,0,0,.25);overflow:hidden}
-.stage{background:#cfd6e0;border-radius:12px;padding:16px;display:flex;justify-content:center}
+.stage{background:#cfd6e0;border-radius:12px;padding:16px;display:flex;justify-content:center;align-items:center}
 .el,.imgel{position:absolute;cursor:move;touch-action:none;border:1px dashed transparent;user-select:none}
 .el{white-space:pre;line-height:1.3;padding:1px 2px;box-sizing:border-box}
 .meishi.design-mode .el,.meishi.design-mode .imgel{border:none}
