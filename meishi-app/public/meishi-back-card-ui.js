@@ -250,10 +250,17 @@
           updateSelectionHighlight();
           onSelect(id, getLayout());
         }
+        var pid = ev.pointerId;
         var p = pxFromEvent(ev);
         var sx = p.clientX, sy = p.clientY, ox = st.x, oy = st.y;
         var raf = 0, nx = ox, ny = oy;
         var dragging = false;
+        var ended = false;
+        function detachPointer() {
+          document.removeEventListener("pointermove", mv, true);
+          document.removeEventListener("pointerup", up, true);
+          document.removeEventListener("pointercancel", up, true);
+        }
         function applyPos() {
           raf = 0;
           st.x = nx; st.y = ny;
@@ -261,23 +268,27 @@
           node.style.top = ny + "px";
         }
         function mv(e2) {
+          if (ended || e2.pointerId !== pid) return;
           var q = pxFromEvent(e2);
           var dx = q.clientX - sx;
           var dy = q.clientY - sy;
           if (!dragging) {
             if (Math.abs(dx) < DRAG_START && Math.abs(dy) < DRAG_START) return;
             dragging = true;
-            ev.preventDefault();
-            node.setPointerCapture(ev.pointerId);
+            try { node.setPointerCapture(pid); } catch (e) {}
             cardEl.classList.add("is-dragging");
           }
           nx = Math.round(ox + dx);
           ny = Math.round(oy + dy);
           var guides = guideForDrag(cardEl, node, nx, ny, snapExtraCardEls);
-          showDragGuides(guides, nx, ny, node.offsetWidth, node.offsetHeight, isImage ? "center" : "center");
+          showDragGuides(guides, nx, ny, node.offsetWidth, node.offsetHeight, "center");
           if (!raf) raf = requestAnimationFrame(applyPos);
         }
         function up(e2) {
+          if (ended) return;
+          if (e2.pointerId !== pid) return;
+          ended = true;
+          detachPointer();
           if (raf) cancelAnimationFrame(raf);
           if (dragging) {
             applyPos();
@@ -287,14 +298,14 @@
             enterInlineEdit(node, st, false);
           }
           cardEl.classList.remove("is-dragging");
-          try { node.releasePointerCapture(e2.pointerId); } catch (e) {}
-          node.removeEventListener("pointermove", mv);
-          node.removeEventListener("pointerup", up);
-          node.removeEventListener("pointercancel", up);
+          try {
+            if (node.hasPointerCapture && node.hasPointerCapture(pid)) node.releasePointerCapture(pid);
+          } catch (e) {}
         }
-        node.addEventListener("pointermove", mv);
-        node.addEventListener("pointerup", up);
-        node.addEventListener("pointercancel", up);
+        if (isImage) ev.preventDefault();
+        document.addEventListener("pointermove", mv, true);
+        document.addEventListener("pointerup", up, true);
+        document.addEventListener("pointercancel", up, true);
       });
     }
 
@@ -304,11 +315,18 @@
         if (ev.button !== 0) return;
         ev.preventDefault();
         ev.stopPropagation();
-        handle.setPointerCapture(ev.pointerId);
+        var pid = ev.pointerId;
+        try { handle.setPointerCapture(pid); } catch (e) {}
         cardEl.classList.add("is-dragging");
         var p = pxFromEvent(ev);
         var sx = p.clientX, sy = p.clientY, ow = im.w, oh = im.h;
         var raf = 0, nw = ow, nh = oh;
+        var ended = false;
+        function detachPointer() {
+          document.removeEventListener("pointermove", mv, true);
+          document.removeEventListener("pointerup", up, true);
+          document.removeEventListener("pointercancel", up, true);
+        }
         function applySize() {
           raf = 0;
           im.w = nw; im.h = nh;
@@ -316,6 +334,7 @@
           wrap.style.height = nh + "px";
         }
         function mv(e2) {
+          if (ended || e2.pointerId !== pid) return;
           var q = pxFromEvent(e2);
           nw = Math.max(16, Math.round(ow + (q.clientX - sx)));
           nh = Math.max(12, Math.round(oh + (q.clientY - sy)));
@@ -323,16 +342,23 @@
           showDragGuides(guides, im.x, im.y, nw, nh, "br");
           if (!raf) raf = requestAnimationFrame(applySize);
         }
-        function up() {
+        function up(e2) {
+          if (ended) return;
+          if (e2.pointerId !== pid) return;
+          ended = true;
+          detachPointer();
           if (raf) cancelAnimationFrame(raf);
           applySize();
           hideGuides();
           cardEl.classList.remove("is-dragging");
+          try {
+            if (handle.hasPointerCapture && handle.hasPointerCapture(pid)) handle.releasePointerCapture(pid);
+          } catch (e) {}
           saveLayout();
         }
-        handle.addEventListener("pointermove", mv);
-        handle.addEventListener("pointerup", up);
-        handle.addEventListener("pointercancel", up);
+        document.addEventListener("pointermove", mv, true);
+        document.addEventListener("pointerup", up, true);
+        document.addEventListener("pointercancel", up, true);
       });
     }
 
