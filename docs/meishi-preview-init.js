@@ -29,6 +29,7 @@
     var pvPersonalLayout = null;
     var pvPersonalUI = null;
     var pvPersonalHooked = false;
+    var pvSideToggleHooked = false;
 
     function newPersonalLayout() {
       var layout = MeishiLayout.defLayout();
@@ -151,6 +152,21 @@
       loadPreviewPersonalImages();
     }
 
+    function initPreviewSideToggle() {
+      if (pvSideToggleHooked) return;
+      var tg = document.getElementById("pvSideToggle");
+      if (!tg || !userPrint || !userPrint.setPreviewSide) return;
+      pvSideToggleHooked = true;
+      tg.addEventListener("click", function (e) {
+        var b = e.target.closest("button[data-side]");
+        if (!b) return;
+        tg.querySelectorAll("button[data-side]").forEach(function (btn) {
+          btn.classList.toggle("on", btn === b);
+        });
+        userPrint.setPreviewSide(b.getAttribute("data-side"));
+      });
+    }
+
     function init() {
       if (!userPrint) {
         userPrint = MeishiUserPrint.create({
@@ -158,7 +174,10 @@
           textFlow: true,
           isActive: cfg.isActive || function () { return true; },
           onBeforePrint: function () {
-            if (userPrint) userPrint.renderCard();
+            if (userPrint) {
+              userPrint.renderCard();
+              if (userPrint.renderBackCard) userPrint.renderBackCard();
+            }
             refreshPreviewPersonal();
           },
           onClear: function () {
@@ -167,9 +186,11 @@
         });
         userPrint.init();
         initPreviewPersonal();
+        initPreviewSideToggle();
       } else {
         userPrint.rebuild();
         loadPreviewPersonalImages();
+        initPreviewSideToggle();
       }
     }
 

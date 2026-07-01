@@ -10,11 +10,21 @@
   var coUI = null;
   var coPanel = null;
   var coLayout = null;
+  var coLayoutBack = null;
+  var coBackUI = null;
+  var coBackPanel = null;
+  var coSide = "front";
   var currentCo = "";
   var deCoUI = null;
   var deUI = null;
   var deCoLayout = null;
   var deLayout = null;
+  var deCoLayoutBack = null;
+  var deLayoutBack = null;
+  var deCoBackUI = null;
+  var deBackUI = null;
+  var deBackPanel = null;
+  var deSide = "front";
   var currentDeptKey = "";
   var previewPanel = null;
 
@@ -52,8 +62,15 @@
     document.querySelectorAll(".panel").forEach(function (p) {
       p.classList.toggle("on", p.id === "panel-" + id);
     });
-    if (id === "company") refreshCoDesign();
-    if (id === "dept") { fillDeptPanel(); refreshDeptDesign(true); }
+    if (id === "company") {
+      if (coSide === "back") refreshCoBackDesign();
+      else refreshCoDesign();
+    }
+    if (id === "dept") {
+      fillDeptPanel();
+      if (deSide === "back") refreshDeptBackDesign(true);
+      else refreshDeptDesign(true);
+    }
     if (id === "preview") initPreviewPanel();
     if (id === "records") {
       renderRecTable();
@@ -92,6 +109,44 @@
       });
       if (typeof done === "function") done();
     });
+  }
+
+  function pickImagesIntoBackLayout(layout, prefix, done) {
+    pickImagesIntoLayout(layout, prefix, done);
+  }
+
+  function bindSideToggle(toggleId, onSwitch) {
+    var tg = document.getElementById(toggleId);
+    if (!tg || tg._sideBound) return;
+    tg._sideBound = true;
+    tg.addEventListener("click", function (e) {
+      var b = e.target.closest("button[data-side]");
+      if (!b) return;
+      tg.querySelectorAll("button[data-side]").forEach(function (btn) {
+        btn.classList.toggle("on", btn === b);
+      });
+      onSwitch(b.getAttribute("data-side"));
+    });
+  }
+
+  function switchCoSide(side) {
+    coSide = side === "back" ? "back" : "front";
+    var front = document.getElementById("coFrontDesign");
+    var back = document.getElementById("coBackDesign");
+    if (front) front.style.display = coSide === "front" ? "" : "none";
+    if (back) back.style.display = coSide === "back" ? "" : "none";
+    if (coSide === "back") refreshCoBackDesign();
+    else refreshCoDesign();
+  }
+
+  function switchDeSide(side) {
+    deSide = side === "back" ? "back" : "front";
+    var front = document.getElementById("deFrontDesign");
+    var back = document.getElementById("deBackDesign");
+    if (front) front.style.display = deSide === "front" ? "" : "none";
+    if (back) back.style.display = deSide === "back" ? "" : "none";
+    if (deSide === "back") refreshDeptBackDesign(false);
+    else refreshDeptDesign(false);
   }
 
   function fillBasic() {
@@ -285,11 +340,19 @@
     }
     renderCatalogEditor(window._coEditingCatalog);
     coLayout = p.layout ? MeishiCatalog.normalizeLayout(MeishiLayout.clone(p.layout)) : MeishiLayout.defLayout();
+    coLayoutBack = p.layoutBack && MeishiLayout.isValidBackLayout(p.layoutBack)
+      ? MeishiCatalog.normalizeBackLayout(MeishiLayout.clone(p.layoutBack))
+      : MeishiLayout.defBackLayout();
     if (coUI && prevCo && prevCo !== currentCo) {
       coUI.invalidate();
       if (coPanel && coPanel.clearSelection) coPanel.clearSelection();
     }
-    refreshCoDesign();
+    if (coBackUI && prevCo && prevCo !== currentCo) {
+      coBackUI.invalidate();
+      if (coBackPanel && coBackPanel.clearSelection) coBackPanel.clearSelection();
+    }
+    if (coSide === "back") refreshCoBackDesign();
+    else refreshCoDesign();
   }
 
   function renderCatalogEditor(cat) {
@@ -338,7 +401,11 @@
     if (!currentCo) return;
     var p = MeishiStore.getCompanyProfileForEdit(currentCo);
     coLayout = p.layout ? MeishiCatalog.normalizeLayout(MeishiLayout.clone(p.layout)) : MeishiLayout.defLayout();
+    coLayoutBack = p.layoutBack && MeishiLayout.isValidBackLayout(p.layoutBack)
+      ? MeishiCatalog.normalizeBackLayout(MeishiLayout.clone(p.layoutBack))
+      : MeishiLayout.defBackLayout();
     if (coUI) coUI.invalidate();
+    if (coBackUI) coBackUI.invalidate();
   }
 
   function afterCoSaveRefresh() {
@@ -352,6 +419,7 @@
     renderRecTable();
     fillDeptPanel();
     refreshCoDesign();
+    refreshCoBackDesign();
     initPreviewPanel();
   }
 
@@ -360,6 +428,7 @@
       company: currentCo,
       catalog: cloneCat(window._coEditingCatalog) || MeishiCatalog.emptyCatalog(),
       layout: MeishiCatalog.normalizeLayout(MeishiLayout.clone(coLayout)),
+      layoutBack: MeishiCatalog.normalizeBackLayout(MeishiLayout.clone(coLayoutBack || MeishiLayout.defBackLayout())),
     };
   }
 
@@ -433,6 +502,38 @@
     });
   }
 
+  function refreshCoBackDesign() {
+    if (!coLayoutBack) coLayoutBack = MeishiLayout.defBackLayout();
+    if (!coBackUI) {
+      coBackUI = MeishiBackCardUI.createBackCardUI({
+        cardEl: document.getElementById("coDesCardBack"),
+        getLayout: function () { return coLayoutBack; },
+        onLayoutChange: function () { renderCoBackImgList(); },
+        onSelect: function () { if (coBackPanel) coBackPanel.showDesign(); },
+      });
+      coBackPanel = coBackUI.bindBackDesignPanel(document.getElementById("coBackDesignPanel"));
+    }
+    coBackUI.renderCard();
+    if (coBackPanel) coBackPanel.showDesign();
+    renderCoBackImgList();
+  }
+
+  function renderCoBackImgList() {
+    var list = document.getElementById("coBackImgList");
+    if (!list || !coLayoutBack) return;
+    list.innerHTML = (coLayoutBack.images || []).map(function (im, i) {
+      var src = window.MeishiImageLib ? MeishiImageLib.itemUrl(im) : (im.src || "");
+      return "<div class='img-item'><img src='" + esc(src) + "' /><button type='button' data-i='" + i + "' class='linkbtn'>削除</button></div>";
+    }).join("");
+    list.querySelectorAll("[data-i]").forEach(function (btn) {
+      btn.onclick = function () {
+        coLayoutBack.images.splice(+btn.getAttribute("data-i"), 1);
+        if (coBackUI) coBackUI.invalidate();
+        refreshCoBackDesign();
+      };
+    });
+  }
+
   function getDeptPickers() {
     return {
       co: document.getElementById("deCoPick").value,
@@ -482,7 +583,8 @@
     fillDeptReadonly();
     currentDeptKey = "";
     loadDeptLayout();
-    refreshDeptDesign(false);
+    if (deSide === "back") refreshDeptBackDesign(false);
+    else refreshDeptDesign(false);
   }
 
   function fillDeptReadonly() {
@@ -534,6 +636,7 @@
     if (key === currentDeptKey && deLayout) return;
     currentDeptKey = key;
     deCoLayout = MeishiCatalog.normalizeLayout(MeishiLayout.clone(MeishiStore.getCompanyLayout(pk.co)));
+    deCoLayoutBack = MeishiCatalog.normalizeBackLayout(MeishiLayout.clone(MeishiStore.getCompanyLayoutBack(pk.co)));
     var dept = MeishiStore.getDeptSettingsForEdit(pk.co, pk.aff1, pk.aff2);
     if (dept.layout && MeishiLayout.isValidLayout(dept.layout)) {
       deLayout = MeishiCatalog.normalizeLayout(MeishiLayout.clone(dept.layout));
@@ -546,8 +649,15 @@
     } else {
       deLayout = newDeptLayout();
     }
+    if (dept.layoutBack && MeishiLayout.isValidBackLayout(dept.layoutBack)) {
+      deLayoutBack = MeishiCatalog.normalizeBackLayout(MeishiLayout.clone(dept.layoutBack));
+    } else {
+      deLayoutBack = MeishiLayout.defBackLayout();
+    }
     if (deCoUI) deCoUI.invalidate();
     if (deUI) deUI.invalidate();
+    if (deCoBackUI) deCoBackUI.invalidate();
+    if (deBackUI) deBackUI.invalidate();
   }
 
   function reloadDeptLayoutFromStore() {
@@ -558,7 +668,9 @@
   function afterDeptSaveRefresh() {
     reloadDeptLayoutFromStore();
     if (deCoUI) deCoUI.invalidate();
-    refreshDeptDesign();
+    if (deCoBackUI) deCoBackUI.invalidate();
+    if (deSide === "back") refreshDeptBackDesign();
+    else refreshDeptDesign();
   }
 
   function collectDeptProfile() {
@@ -567,11 +679,14 @@
     pk.aff2 = document.getElementById("deAff2Pick").value;
     if (!deLayout) loadDeptLayout();
     if (!deLayout) deLayout = newDeptLayout();
+    if (!deLayoutBack) loadDeptLayout();
+    if (!deLayoutBack) deLayoutBack = MeishiLayout.defBackLayout();
     return {
       company: pk.co,
       aff1: pk.aff1,
       aff2: pk.aff2,
       layout: MeishiCatalog.normalizeLayout(MeishiLayout.clone(deLayout)),
+      layoutBack: MeishiCatalog.normalizeBackLayout(MeishiLayout.clone(deLayoutBack)),
     };
   }
 
@@ -654,6 +769,73 @@
         deLayout.images.splice(+btn.getAttribute("data-i"), 1);
         if (deUI) deUI.invalidate();
         refreshDeptDesign();
+      };
+    });
+  }
+
+  function refreshDeptBackDesign(forceReload) {
+    if (forceReload) reloadDeptLayoutFromStore();
+    else if (!deLayoutBack) loadDeptLayout();
+    var pk = getDeptPickers();
+    pk.co = document.getElementById("deCoPick").value;
+    pk.aff1 = document.getElementById("deAff1Pick").value;
+    pk.aff2 = document.getElementById("deAff2Pick").value;
+    if (!pk.co) return;
+    deCoLayoutBack = MeishiCatalog.normalizeBackLayout(MeishiLayout.clone(MeishiStore.getCompanyLayoutBack(pk.co)));
+
+    if (!deCoBackUI) {
+      deCoBackUI = MeishiBackCardUI.createBackCardUI({
+        cardEl: document.getElementById("deCoBaseCardBack"),
+        getLayout: function () { return deCoLayoutBack; },
+        readOnly: true,
+        onLayoutChange: function () {},
+        onSelect: function () {},
+      });
+    }
+    if (!deBackUI) {
+      deBackUI = MeishiBackCardUI.createBackCardUI({
+        cardEl: document.getElementById("deDesCardBack"),
+        getLayout: function () { return deLayoutBack; },
+        snapExtraCardEl: document.getElementById("deCoBaseCardBack"),
+        onLayoutChange: function () { renderDeBackImgList(); },
+        onSelect: function () {
+          var none = document.getElementById("deBackDesignNone");
+          var ctl = document.getElementById("deBackDesignCtl");
+          if (none) none.style.display = "none";
+          if (ctl) ctl.style.display = "";
+          if (deBackPanel) deBackPanel.showDesign();
+        },
+      });
+      deBackPanel = deBackUI.bindBackDesignPanel(document.getElementById("deBackDesignPanel"), {
+        content: "deBackDesContent",
+        size: "deBackDesSize",
+        sizeV: "deBackDesSizeV",
+        color: "deBackDesColor",
+        norm: "deBackDesNorm",
+        bold: "deBackDesBold",
+        ctl: "deBackDesignCtl",
+        none: "deBackDesignNone",
+        alignAttr: "data-de-back-al",
+      });
+    }
+    deCoBackUI.renderCard();
+    deBackUI.renderCard();
+    if (deBackPanel) deBackPanel.showDesign();
+    renderDeBackImgList();
+  }
+
+  function renderDeBackImgList() {
+    var list = document.getElementById("deBackImgList");
+    if (!list || !deLayoutBack) return;
+    list.innerHTML = (deLayoutBack.images || []).map(function (im, i) {
+      var src = window.MeishiImageLib ? MeishiImageLib.itemUrl(im) : (im.src || "");
+      return "<div class='img-item'><img src='" + esc(src) + "' /><button type='button' data-i='" + i + "' class='linkbtn'>削除</button></div>";
+    }).join("");
+    list.querySelectorAll("[data-i]").forEach(function (btn) {
+      btn.onclick = function () {
+        deLayoutBack.images.splice(+btn.getAttribute("data-i"), 1);
+        if (deBackUI) deBackUI.invalidate();
+        refreshDeptBackDesign();
       };
     });
   }
@@ -908,6 +1090,28 @@
       if (coUI) coUI.invalidate();
       refreshCoDesign();
     };
+    document.getElementById("btnCoBackText").onclick = function () {
+      if (!coLayoutBack) coLayoutBack = MeishiLayout.defBackLayout();
+      coLayoutBack.texts = coLayoutBack.texts || [];
+      coLayoutBack.texts.push(MeishiLayout.defTextBlock(coLayoutBack.texts.length));
+      if (coBackUI) coBackUI.invalidate();
+      refreshCoBackDesign();
+    };
+    document.getElementById("btnCoBackImgPick").onclick = function () {
+      if (!coLayoutBack) coLayoutBack = MeishiLayout.defBackLayout();
+      pickImagesIntoBackLayout(coLayoutBack, "co-back", function () {
+        if (coBackUI) coBackUI.invalidate();
+        refreshCoBackDesign();
+      });
+    };
+    document.getElementById("btnCoBackDesReset").onclick = function () {
+      if (!confirm("裏面デザインを初期化しますか？")) return;
+      coLayoutBack = MeishiLayout.defBackLayout();
+      if (coBackUI) coBackUI.invalidate();
+      refreshCoBackDesign();
+    };
+    bindSideToggle("coSideToggle", switchCoSide);
+    bindSideToggle("deSideToggle", switchDeSide);
     document.getElementById("deCoPick").onchange = function () { currentDeptKey = ""; fillDeptAff1(); };
     document.getElementById("deAff1Pick").onchange = function () { currentDeptKey = ""; fillDeptAff2(); };
     document.getElementById("deAff2Pick").onchange = function () { currentDeptKey = ""; fillDeptAff2(); };
@@ -933,6 +1137,34 @@
         if (deUI) deUI.invalidate();
         refreshDeptDesign();
       });
+    };
+    document.getElementById("btnDeBackText").onclick = function () {
+      var pk = getDeptPickers();
+      pk.aff1 = document.getElementById("deAff1Pick").value;
+      if (!pk.co || !pk.aff1) return alert("会社と所属1を選択してください");
+      if (!deLayoutBack) loadDeptLayout();
+      if (!deLayoutBack) deLayoutBack = MeishiLayout.defBackLayout();
+      deLayoutBack.texts = deLayoutBack.texts || [];
+      deLayoutBack.texts.push(MeishiLayout.defTextBlock(deLayoutBack.texts.length));
+      if (deBackUI) deBackUI.invalidate();
+      refreshDeptBackDesign();
+    };
+    document.getElementById("btnDeBackImgPick").onclick = function () {
+      var pk = getDeptPickers();
+      pk.aff1 = document.getElementById("deAff1Pick").value;
+      if (!pk.co || !pk.aff1) return alert("会社と所属1を選択してください");
+      if (!deLayoutBack) loadDeptLayout();
+      if (!deLayoutBack) deLayoutBack = MeishiLayout.defBackLayout();
+      pickImagesIntoBackLayout(deLayoutBack, "dept-back", function () {
+        if (deBackUI) deBackUI.invalidate();
+        refreshDeptBackDesign();
+      });
+    };
+    document.getElementById("btnDeBackDesReset").onclick = function () {
+      if (!confirm("この部署の裏面追加（テキスト・画像）をすべて削除しますか？")) return;
+      deLayoutBack = MeishiLayout.defBackLayout();
+      if (deBackUI) deBackUI.invalidate();
+      refreshDeptBackDesign();
     };
     document.getElementById("recSearch").oninput = function () { recFilter = this.value; renderRecTable(); };
     document.querySelector("#recTbl tbody").addEventListener("click", function (e) {

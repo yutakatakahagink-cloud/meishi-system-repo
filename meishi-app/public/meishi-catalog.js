@@ -193,6 +193,25 @@
     return layout;
   }
 
+  function normalizeBackLayout(layout) {
+    if (!layout || typeof layout !== "object") return MeishiLayout.defBackLayout();
+    if (!Array.isArray(layout.texts)) layout.texts = [];
+    if (!Array.isArray(layout.images)) layout.images = [];
+    layout.texts = layout.texts.map(function (t, i) {
+      if (!t || typeof t !== "object") return MeishiLayout.defTextBlock(i);
+      if (!t.id) t.id = "txt" + Date.now() + i;
+      if (t.content == null) t.content = "";
+      if (typeof t.x !== "number") t.x = 20;
+      if (typeof t.y !== "number") t.y = 20;
+      if (typeof t.size !== "number") t.size = 12;
+      if (!t.color) t.color = "#222222";
+      if (t.bold == null) t.bold = 0;
+      if (!t.align) t.align = "left";
+      return t;
+    });
+    return layout;
+  }
+
   function recordsEqual(a, b, skipNo) {
     return MeishiFields.COLUMNS.every(function (c) {
       if (skipNo && c.key === "no") return true;
@@ -214,6 +233,7 @@
     getEmailList: getEmailList,
     getListByPath: getListByPath,
     normalizeLayout: normalizeLayout,
+    normalizeBackLayout: normalizeBackLayout,
     recordsEqual: recordsEqual,
     addUnique: addUnique,
     ensureList: ensureList,

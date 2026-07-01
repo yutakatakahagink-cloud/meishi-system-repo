@@ -13,11 +13,12 @@
     <script src="meishi-layout.js?v=20250617g"></script>
     <script src="meishi-image-lib.js?v=20250617j"></script>
     <script src="meishi-card-ui.js?v=20250617p"></script>
+    <script src="meishi-back-card-ui.js?v=20250617s"></script>
     <script src="meishi-print-sheet.js"></script>
-    <script src="meishi-user-print.js?v=20250617n"></script>
-    <script src="meishi-preview-init.js?v=20250617i"></script>
+    <script src="meishi-user-print.js?v=20250617t"></script>
+    <script src="meishi-preview-init.js?v=20250617t"></script>
     <link rel="stylesheet" href="meishi-print-sheet.css" />
-    <link rel="stylesheet" href="owner.css?v=20250617q" />
+    <link rel="stylesheet" href="owner.css?v=20250617s" />
     <style>
       .view{display:none}.view.active{display:block}
       header .header-actions{display:flex;align-items:center;gap:8px;margin-left:auto}
@@ -78,12 +79,21 @@
               <div class="field"><label>工事件名（任意）</label><input id="pvInKoji" placeholder="例: 令和○年度 ○○工事" /></div>
             </div>
             <div class="print-stagewrap">
-              <div class="hint">個人画像は氏名を選ぶと表示・印刷されます</div>
+              <div class="seg card-side-toggle" id="pvSideToggle">
+                <button type="button" data-side="front" class="on">表</button>
+                <button type="button" data-side="back">裏</button>
+              </div>
+              <div class="hint" id="pvSideHint">個人画像は氏名を選ぶと表示・印刷されます</div>
               <div id="pvPrintArea">
-                <div class="preview-scale-box preview-scale-box--stack">
+                <div class="preview-scale-box preview-scale-box--stack" id="pvFrontWrap">
                   <div class="stage stack">
                     <div class="meishi under print-readonly" id="pvCard"></div>
                     <div class="meishi over" id="pvCardPersonal"></div>
+                  </div>
+                </div>
+                <div class="preview-scale-box" id="pvBackWrap" style="display:none">
+                  <div class="stage">
+                    <div class="meishi print-readonly" id="pvCardBack"></div>
                   </div>
                 </div>
               </div>

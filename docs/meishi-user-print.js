@@ -47,7 +47,10 @@
     var records = [];
     var S = { name: "", company: "", aff1: "", aff2: "", aff3: "", title: "", postal: "" };
     var layout = null;
+    var layoutBack = null;
     var cardUI = null;
+    var backCardUI = null;
+    var previewSide = "front";
     var storeHooked = false;
 
     function reloadRecords() {
@@ -129,7 +132,11 @@
       layout = MeishiCatalog.normalizeLayout(MeishiLayout.clone(
         MeishiStore.getEffectiveLayout(S.company, S.aff1, S.aff2)
       ));
+      layoutBack = MeishiCatalog.normalizeBackLayout(MeishiLayout.clone(
+        MeishiStore.getEffectiveBackLayout(S.company, S.aff1, S.aff2)
+      ));
       if (cardUI) cardUI.invalidate();
+      if (backCardUI) backCardUI.invalidate();
     }
 
     function resolveStdLayout() {
@@ -200,6 +207,53 @@
       cardUI.renderCard();
     }
 
+    function ensureBackCardUI() {
+      if (backCardUI) return;
+      var backEl = document.getElementById("pvCardBack");
+      if (!backEl || !window.MeishiBackCardUI) return;
+      backCardUI = MeishiBackCardUI.createBackCardUI({
+        cardEl: backEl,
+        readOnly: true,
+        getLayout: function () { return layoutBack || MeishiLayout.defBackLayout(); },
+        onLayoutChange: function () {},
+        onSelect: function () {},
+      });
+    }
+
+    function renderBackCard() {
+      if (!S.company) return;
+      if (!layoutBack) {
+        layoutBack = MeishiCatalog.normalizeBackLayout(MeishiLayout.clone(
+          MeishiStore.getEffectiveBackLayout(S.company, S.aff1, S.aff2)
+        ));
+      }
+      ensureBackCardUI();
+      if (backCardUI) backCardUI.renderCard();
+    }
+
+    function updatePreviewSideHint() {
+      var hint = document.getElementById("pvSideHint");
+      if (!hint) return;
+      hint.textContent = previewSide === "back"
+        ? "裏面プレビュー（会社・部署共通の裏面デザイン）"
+        : "個人画像は氏名を選ぶと表示・印刷されます";
+    }
+
+    function setPreviewSide(side) {
+      previewSide = side === "back" ? "back" : "front";
+      var fw = document.getElementById("pvFrontWrap");
+      var bw = document.getElementById("pvBackWrap");
+      if (fw) fw.style.display = previewSide === "front" ? "" : "none";
+      if (bw) bw.style.display = previewSide === "back" ? "" : "none";
+      updatePreviewSideHint();
+      if (previewSide === "back") {
+        refreshLayoutFromStore();
+        renderBackCard();
+      } else {
+        renderCard();
+      }
+    }
+
     function rebuild() {
       var guard = 0;
       var changed = true;
@@ -223,7 +277,8 @@
       el("inTel").value = firstNonEmpty(locRows, "tel");
       el("inFax").value = firstNonEmpty(locRows, "fax");
       refreshLayoutFromStore();
-      renderCard();
+      if (previewSide === "back") renderBackCard();
+      else renderCard();
     }
 
     function bindSel(idKey, stateKey, resetKeys) {
@@ -313,6 +368,7 @@
         changed = fillSelect(el("selPostal"), filteredExcept("postal").map(function (r) { return r.postal; }), "郵便番号", "postal", true) || changed;
       }
       renderCard();
+      if (previewSide === "back") renderBackCard();
       if (typeof cfg.onClear === "function") cfg.onClear();
     }
 
@@ -325,7 +381,8 @@
           rebuild();
         } else {
           refreshLayoutFromStore();
-          if (layout) renderCard();
+          if (previewSide === "back") renderBackCard();
+          else if (layout) renderCard();
         }
       });
       MeishiStore.onRecordsChange(function () {
@@ -348,6 +405,8 @@
       init: init,
       rebuild: rebuild,
       renderCard: renderCard,
+      renderBackCard: renderBackCard,
+      setPreviewSide: setPreviewSide,
       clear: clear,
     };
   }

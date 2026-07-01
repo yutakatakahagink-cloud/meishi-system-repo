@@ -39,13 +39,38 @@
     return v && typeof v === "object" && v.el && typeof v.el === "object";
   }
 
+  function defTextBlock(index) {
+    var i = index || 0;
+    return {
+      id: "txt" + Date.now() + i,
+      content: "テキスト",
+      x: 20 + i * 8,
+      y: 20 + i * 8,
+      size: 12,
+      color: "#222222",
+      bold: 0,
+      align: "left",
+    };
+  }
+
+  function defBackLayout() {
+    return { texts: [], images: [] };
+  }
+
+  function isValidBackLayout(v) {
+    return v && typeof v === "object" && Array.isArray(v.texts) && Array.isArray(v.images);
+  }
+
   window.MeishiLayout = {
     ELS: ELS,
     LK: LK,
     clone: clone,
     defLayout: defLayout,
+    defBackLayout: defBackLayout,
+    defTextBlock: defTextBlock,
     loadLocal: loadLocal,
     saveLocal: saveLocal,
     isValidLayout: isValidLayout,
+    isValidBackLayout: isValidBackLayout,
   };
 })();

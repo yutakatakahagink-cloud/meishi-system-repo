@@ -371,6 +371,11 @@
           } else if (rv.layout && MeishiLayout.isValidLayout(rv.layout)) {
             out[k].layout = clone(rv.layout);
           }
+          if (lv.layoutBack && MeishiLayout.isValidBackLayout(lv.layoutBack)) {
+            out[k].layoutBack = clone(lv.layoutBack);
+          } else if (rv.layoutBack && MeishiLayout.isValidBackLayout(rv.layoutBack)) {
+            out[k].layoutBack = clone(rv.layoutBack);
+          }
         }
       } else {
         out[k] = clone(rv);
@@ -494,6 +499,13 @@
     return l;
   }
 
+  function compactBackLayoutForStore(layout) {
+    var l = MeishiCatalog.normalizeBackLayout(clone(layout));
+    if (!l) return l;
+    l.images = (l.images || []).map(normalizeLayoutImageForStore).filter(Boolean);
+    return l;
+  }
+
   function persistCfg() {
     var payload = configForMainStorage();
     if (!payload || typeof payload !== "object") {
@@ -546,6 +558,7 @@
     p.company = co;
     if (!p.catalog || typeof p.catalog !== "object") p.catalog = MeishiCatalog.emptyCatalog();
     if (p.layout) p.layout = MeishiCatalog.normalizeLayout(clone(p.layout));
+    if (p.layoutBack) p.layoutBack = MeishiCatalog.normalizeBackLayout(clone(p.layoutBack));
     if (raw && raw.logo && p.layout) {
       if (!p.layout.images.some(function (im) { return im.src === raw.logo; })) {
         p.layout.images.push({ id: "logo1", src: raw.logo, x: 250, y: 8, w: 80, h: 44 });
@@ -704,6 +717,9 @@
     if (profile.layout && MeishiLayout.isValidLayout(profile.layout)) {
       out.layout = compactLayoutForStore(profile.layout);
     }
+    if (profile.layoutBack && MeishiLayout.isValidBackLayout(profile.layoutBack)) {
+      out.layoutBack = compactBackLayoutForStore(profile.layoutBack);
+    }
 
     _config.companySettings[key] = out;
 
@@ -721,6 +737,7 @@
       aff1: MeishiFields.norm(aff1),
       aff2: MeishiFields.norm(aff2 || ""),
       layout: null,
+      layoutBack: null,
       images: [],
     };
     if (!raw || typeof raw !== "object") return out;
@@ -741,6 +758,9 @@
     if (layout) {
       out.layout = layout;
       out.images = clone(layout.images || []);
+    }
+    if (raw.layoutBack && MeishiLayout.isValidBackLayout(raw.layoutBack)) {
+      out.layoutBack = compactBackLayoutForStore(raw.layoutBack);
     }
     return out;
   }
@@ -916,6 +936,9 @@
       out.layout = compactLayoutForStore(data.layout);
       out.images = clone(out.layout.images || []);
     }
+    if (data && data.layoutBack && MeishiLayout.isValidBackLayout(data.layoutBack)) {
+      out.layoutBack = compactBackLayoutForStore(data.layoutBack);
+    }
     _config.deptSettings[k] = out;
     var ok = persistCfg();
     if (!ok) return false;
@@ -964,6 +987,43 @@
     var merged = MeishiLayout.clone(base);
     if (dept.images && dept.images.length) merged.images = (merged.images || []).concat(MeishiLayout.clone(dept.images));
     return MeishiCatalog.normalizeLayout(merged);
+  }
+
+  function getCompanyLayoutBack(company) {
+    var p = getCompanyProfileForEdit(company);
+    if (p.layoutBack && MeishiLayout.isValidBackLayout(p.layoutBack)) {
+      return MeishiCatalog.normalizeBackLayout(clone(p.layoutBack));
+    }
+    return MeishiLayout.defBackLayout();
+  }
+
+  function getDeptLayoutBack(company, aff1, aff2) {
+    var dept = getDeptSettings(company, aff1, aff2);
+    if (dept.layoutBack && MeishiLayout.isValidBackLayout(dept.layoutBack)) {
+      return MeishiCatalog.normalizeBackLayout(clone(dept.layoutBack));
+    }
+    return null;
+  }
+
+  function getEffectiveBackLayout(company, aff1, aff2) {
+    var base = getCompanyLayoutBack(company);
+    var dept = getDeptLayoutBack(company, aff1, aff2);
+    var merged = MeishiLayout.clone(base);
+    if (dept) {
+      if (dept.texts && dept.texts.length) {
+        merged.texts = (merged.texts || []).concat(MeishiLayout.clone(dept.texts));
+      }
+      if (dept.images && dept.images.length) {
+        merged.images = (merged.images || []).concat(MeishiLayout.clone(dept.images));
+      }
+    }
+    return MeishiCatalog.normalizeBackLayout(merged);
+  }
+
+  function resolveBackLayoutImages(layout) {
+    var imgs = (layout && layout.images) ? layout.images.slice() : [];
+    if (window.MeishiImageLib) imgs = MeishiImageLib.resolveImages(imgs);
+    return imgs.filter(function (im) { return im && (im.src || im.path || im.libId); });
   }
 
   function nextRecordNo() {
@@ -1188,8 +1248,12 @@
     getAff1List: getAff1List,
     getAff2List: getAff2ListForDept,
     getCompanyLayout: getCompanyLayout,
+    getCompanyLayoutBack: getCompanyLayoutBack,
     getDeptLayout: getDeptLayout,
+    getDeptLayoutBack: getDeptLayoutBack,
     getEffectiveLayout: getEffectiveLayout,
+    getEffectiveBackLayout: getEffectiveBackLayout,
+    resolveBackLayoutImages: resolveBackLayoutImages,
     getPrintImages: getPrintImages,
     getDefaultLayout: function () {
       var v = _config.defaultLayout;
