@@ -807,8 +807,8 @@
         },
       });
       deBackPanel = deBackUI.bindBackDesignPanel(document.getElementById("deBackDesignPanel"), {
-        content: "deBackDesContent",
-        size: "deBackDesSize",
+        sizeUp: "deBackDesSizeUp",
+        sizeDown: "deBackDesSizeDown",
         sizeV: "deBackDesSizeV",
         color: "deBackDesColor",
         norm: "deBackDesNorm",

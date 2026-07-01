@@ -4,6 +4,9 @@
 (function () {
   var SNAP_THRESH = 6;
   var DRAG_START = 5;
+  var SIZE_MIN = 6;
+  var SIZE_MAX = 60;
+  var SIZE_STEP = 1;
 
   function pxFromEvent(e) { return e.touches ? e.touches[0] : e; }
 
@@ -71,6 +74,8 @@
     var textNodes = {};
     var imgNodes = {};
     var guideLayer = null;
+    var formatBar = null;
+    var panelShowDesign = null;
 
     function imgSelId(id) { return "__img:" + id; }
     function isImgSel(s) { return s && s.indexOf("__img:") === 0; }
@@ -110,6 +115,124 @@
       var gx = guides.guideX != null ? guides.guideX : (anchor === "br" ? boxX + boxW : boxX + boxW / 2);
       var gy = guides.guideY != null ? guides.guideY : (anchor === "br" ? boxY + boxH : boxY + boxH / 2);
       showGuides(gx, gy);
+    }
+
+    function clampSize(n) {
+      return Math.max(SIZE_MIN, Math.min(SIZE_MAX, Math.round(n)));
+    }
+
+    function getSelectedText() {
+      if (!sel || isImgSel(sel)) return null;
+      var layout = getLayout();
+      var st = (layout.texts || []).find(function (t) { return t.id === sel; });
+      var node = textNodes[sel];
+      if (!st || !node) return null;
+      return { st: st, node: node };
+    }
+
+    function patchSelectedText(patch) {
+      var hit = getSelectedText();
+      if (!hit || readOnly) return;
+      if (editingId === sel && patch.content != null) return;
+      if (patch.size != null) patch.size = clampSize(patch.size);
+      Object.assign(hit.st, patch);
+      applyTextStyle(hit.node, hit.st, editingId === sel);
+      saveLayout();
+      syncFormatBarState();
+      if (panelShowDesign) panelShowDesign();
+    }
+
+    function bumpTextSize(delta) {
+      var hit = getSelectedText();
+      if (!hit) return;
+      patchSelectedText({ size: clampSize((hit.st.size || 12) + delta) });
+    }
+
+    function ensureFormatBar() {
+      if (readOnly || formatBar) return;
+      formatBar = document.createElement("div");
+      formatBar.className = "btel-format-bar";
+      formatBar.setAttribute("role", "toolbar");
+      formatBar.innerHTML =
+        "<button type=\"button\" class=\"fmt-btn\" data-fmt=\"size-up\" title=\"大きく\">▲</button>" +
+        "<span class=\"fmt-size\" data-fmt-size>12px</span>" +
+        "<button type=\"button\" class=\"fmt-btn\" data-fmt=\"size-down\" title=\"小さく\">▼</button>" +
+        "<span class=\"fmt-sep\"></span>" +
+        "<input type=\"color\" class=\"fmt-color\" data-fmt=\"color\" title=\"文字色\" />" +
+        "<button type=\"button\" class=\"fmt-btn fmt-bold\" data-fmt=\"bold\" title=\"太字\">B</button>" +
+        "<button type=\"button\" class=\"fmt-btn\" data-fmt=\"align-left\" title=\"左揃え\">左</button>" +
+        "<button type=\"button\" class=\"fmt-btn\" data-fmt=\"align-center\" title=\"中央\">中</button>" +
+        "<button type=\"button\" class=\"fmt-btn\" data-fmt=\"align-right\" title=\"右揃え\">右</button>";
+      formatBar.addEventListener("mousedown", function (ev) {
+        ev.preventDefault();
+      });
+      formatBar.addEventListener("click", function (ev) {
+        var btn = ev.target.closest("[data-fmt]");
+        if (!btn || btn.tagName === "INPUT") return;
+        var fmt = btn.getAttribute("data-fmt");
+        if (fmt === "size-up") bumpTextSize(SIZE_STEP);
+        else if (fmt === "size-down") bumpTextSize(-SIZE_STEP);
+        else if (fmt === "bold") {
+          var hit = getSelectedText();
+          if (hit) patchSelectedText({ bold: hit.st.bold ? 0 : 1 });
+        } else if (fmt === "align-left") patchSelectedText({ align: "left" });
+        else if (fmt === "align-center") patchSelectedText({ align: "center" });
+        else if (fmt === "align-right") patchSelectedText({ align: "right" });
+      });
+      var colorInp = formatBar.querySelector("[data-fmt=\"color\"]");
+      if (colorInp) {
+        colorInp.addEventListener("input", function () {
+          patchSelectedText({ color: this.value });
+        });
+      }
+      cardEl.appendChild(formatBar);
+    }
+
+    function syncFormatBarState() {
+      if (!formatBar) return;
+      var hit = getSelectedText();
+      if (!hit) {
+        formatBar.style.display = "none";
+        return;
+      }
+      var st = hit.st;
+      var sizeEl = formatBar.querySelector("[data-fmt-size]");
+      if (sizeEl) sizeEl.textContent = st.size + "px";
+      var colorInp = formatBar.querySelector("[data-fmt=\"color\"]");
+      if (colorInp) colorInp.value = st.color && st.color.length === 7 ? st.color : "#222222";
+      var boldBtn = formatBar.querySelector("[data-fmt=\"bold\"]");
+      if (boldBtn) boldBtn.classList.toggle("on", !!st.bold);
+      formatBar.querySelectorAll("[data-fmt^=\"align-\"]").forEach(function (b) {
+        var al = b.getAttribute("data-fmt").replace("align-", "");
+        b.classList.toggle("on", (st.align || "left") === al);
+      });
+      var upBtn = formatBar.querySelector("[data-fmt=\"size-up\"]");
+      var downBtn = formatBar.querySelector("[data-fmt=\"size-down\"]");
+      if (upBtn) upBtn.disabled = st.size >= SIZE_MAX;
+      if (downBtn) downBtn.disabled = st.size <= SIZE_MIN;
+    }
+
+    function positionFormatBar() {
+      if (readOnly) return;
+      ensureFormatBar();
+      var hit = getSelectedText();
+      if (!hit) {
+        if (formatBar) formatBar.style.display = "none";
+        return;
+      }
+      syncFormatBarState();
+      formatBar.style.display = "flex";
+      var st = hit.st;
+      var node = hit.node;
+      var barH = formatBar.offsetHeight || 32;
+      var top = st.y - barH - 4;
+      if (top < 0) top = st.y + node.offsetHeight + 4;
+      var left = st.x;
+      var maxLeft = Math.max(0, (cardEl.clientWidth || 300) - formatBar.offsetWidth - 4);
+      if (left > maxLeft) left = maxLeft;
+      formatBar.style.left = left + "px";
+      formatBar.style.top = top + "px";
+      formatBar.style.zIndex = editingId === sel ? "20" : "15";
     }
 
     function applyTextStyle(node, st, skipContent) {
@@ -158,6 +281,7 @@
           if (selObj) { selObj.removeAllRanges(); selObj.addRange(range); }
         } catch (e) {}
       }
+      positionFormatBar();
     }
 
     function attachInlineEdit(node, st) {
@@ -192,6 +316,7 @@
       Object.keys(imgNodes).forEach(function (id) {
         imgNodes[id].wrap.classList.toggle("sel", sel === imgSelId(id));
       });
+      positionFormatBar();
     }
 
     function attachDrag(node, st, isImage) {
@@ -216,6 +341,7 @@
           st.x = nx; st.y = ny;
           node.style.left = nx + "px";
           node.style.top = ny + "px";
+          if (!isImage) positionFormatBar();
         }
         function mv(e2) {
           var q = pxFromEvent(e2);
@@ -392,6 +518,7 @@
     function invalidate() {
       built = false;
       editingId = null;
+      formatBar = null;
       textNodes = {};
       imgNodes = {};
       guideLayer = null;
@@ -411,8 +538,8 @@
       function q(id, fallback) {
         return panel.querySelector("#" + (panelIds[id] || fallback));
       }
-      var backDesContent = q("content", "backDesContent");
-      var backDesSize = q("size", "backDesSize");
+      var backDesSizeUp = q("sizeUp", "backDesSizeUp");
+      var backDesSizeDown = q("sizeDown", "backDesSizeDown");
       var backDesSizeV = q("sizeV", "backDesSizeV");
       var backDesColor = q("color", "backDesColor");
       var backDesNorm = q("norm", "backDesNorm");
@@ -421,34 +548,23 @@
       var designNone = q("none", "backDesignNone");
       var alignAttr = panelIds.alignAttr || "data-back-al";
 
-      function patchText(patch) {
-        if (readOnly || !sel || isImgSel(sel)) return;
-        var layout = getLayout();
-        var st = (layout.texts || []).find(function (t) { return t.id === sel; });
-        var node = textNodes[sel];
-        if (!st || !node) return;
-        if (editingId === sel && patch.content != null) return;
-        Object.assign(st, patch);
-        applyTextStyle(node, st, editingId === sel);
-        saveLayout();
-      }
-
       function showDesign() {
         if (!designCtl || !designNone) return;
         if (!sel || isImgSel(sel)) {
           designCtl.style.display = "none";
           designNone.style.display = "";
           if (isImgSel(sel)) designNone.textContent = "画像が選択されています。ドラッグで移動、右下でサイズ変更できます。";
-          else designNone.textContent = "テキストをクリックして直接入力できます。もう一度クリックで編集、ドラッグで移動。「＋テキスト」で追加。";
+          else designNone.textContent = "テキストをクリックして直接入力・書式変更できます。名刺上のツールバー、または右の書式パネルも使えます。";
           return;
         }
         designNone.style.display = "none";
         designCtl.style.display = "";
-        var layout = getLayout();
-        var st = (layout.texts || []).find(function (t) { return t.id === sel; });
-        if (!st) return;
-        if (backDesSize) backDesSize.value = st.size;
+        var hit = getSelectedText();
+        if (!hit) return;
+        var st = hit.st;
         if (backDesSizeV) backDesSizeV.textContent = st.size + "px";
+        if (backDesSizeUp) backDesSizeUp.disabled = st.size >= SIZE_MAX;
+        if (backDesSizeDown) backDesSizeDown.disabled = st.size <= SIZE_MIN;
         if (backDesColor) backDesColor.value = st.color && st.color.length === 7 ? st.color : "#222222";
         if (backDesNorm) backDesNorm.classList.toggle("on", !st.bold);
         if (backDesBold) backDesBold.classList.toggle("on", !!st.bold);
@@ -457,22 +573,29 @@
         });
       }
 
-      if (backDesSize) backDesSize.addEventListener("input", function () {
-        patchText({ size: +this.value });
-        if (backDesSizeV) backDesSizeV.textContent = this.value + "px";
+      panelShowDesign = showDesign;
+
+      if (backDesSizeUp) backDesSizeUp.addEventListener("click", function () {
+        bumpTextSize(SIZE_STEP);
+        showDesign();
+      });
+      if (backDesSizeDown) backDesSizeDown.addEventListener("click", function () {
+        bumpTextSize(-SIZE_STEP);
+        showDesign();
       });
       if (backDesColor) backDesColor.addEventListener("input", function () {
-        patchText({ color: this.value });
+        patchSelectedText({ color: this.value });
+        showDesign();
       });
       if (backDesNorm) backDesNorm.addEventListener("click", function () {
-        patchText({ bold: 0 }); showDesign();
+        patchSelectedText({ bold: 0 }); showDesign();
       });
       if (backDesBold) backDesBold.addEventListener("click", function () {
-        patchText({ bold: 1 }); showDesign();
+        patchSelectedText({ bold: 1 }); showDesign();
       });
       panel.querySelectorAll("[" + alignAttr + "]").forEach(function (b) {
         b.addEventListener("click", function () {
-          patchText({ align: this.getAttribute(alignAttr) });
+          patchSelectedText({ align: this.getAttribute(alignAttr) });
           showDesign();
         });
       });
