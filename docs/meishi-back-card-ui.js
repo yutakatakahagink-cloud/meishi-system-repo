@@ -146,6 +146,12 @@
       patchSelectedText({ size: clampSize((hit.st.size || 12) + delta) });
     }
 
+    function cardInnerWidth() {
+      var w = cardEl.clientWidth;
+      if (w > 0) return w;
+      return Math.round(91 * 96 / 25.4);
+    }
+
     function applyTextStyle(node, st, skipContent) {
       if (!skipContent && st.id !== editingId && document.activeElement !== node) {
         node.textContent = st.content || "";
@@ -161,7 +167,7 @@
       node.style.textAlign = st.align || "left";
       node.style.whiteSpace = "pre-wrap";
       node.style.wordBreak = "break-word";
-      node.style.maxWidth = Math.max(40, (cardEl.clientWidth || 300) - st.x - 8) + "px";
+      node.style.maxWidth = Math.max(40, cardInnerWidth() - st.x - 8) + "px";
     }
 
     function syncTextContentFromNode(node, st) {

@@ -153,6 +153,10 @@
     transform: scaleX(-1);
   }
 
+  .meishi-a4-sheet--duplex-back .meishi-print-card-wrap {
+    transform: scaleX(-1);
+  }
+
   .meishi-print-slot {
     width: 91mm;
     height: 55mm;
@@ -179,6 +183,20 @@
     position: relative;
     overflow: hidden;
     background: #fff !important;
+  }
+
+  .meishi-a4-sheet--duplex-back .meishi-print-card-wrap {
+    transform: scaleX(-1) !important;
+  }
+
+  .meishi-print-card-wrap .btel {
+    position: absolute;
+    box-sizing: border-box;
+  }
+
+  .meishi-print-card-wrap .imgel {
+    position: absolute;
+    box-sizing: border-box;
   }
 
   .meishi-print-card-wrap .meishi.meishi-overlay {

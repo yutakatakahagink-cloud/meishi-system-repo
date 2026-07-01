@@ -316,18 +316,25 @@
         btn._mpBound = true;
         btn.addEventListener("click", function () {
           if (cardUI) cardUI.clearSelection();
-          if (typeof cfg.onBeforePrint === "function") cfg.onBeforePrint();
-          renderCard();
-          renderBackCard();
           var printArea = document.getElementById("printArea") || document.getElementById("pvPrintArea");
           if (window.MeishiPrintSheet && typeof window.MeishiPrintSheet.printFromArea === "function") {
             window.MeishiPrintSheet.printFromArea(printArea, {
+              beforePrint: function () {
+                if (typeof cfg.onBeforePrint === "function") cfg.onBeforePrint();
+              },
+              prepareRender: function () {
+                renderCard();
+                renderBackCard();
+              },
               afterPrint: function () {
                 renderCard();
                 if (previewSide === "back") renderBackCard();
               },
             });
           } else {
+            if (typeof cfg.onBeforePrint === "function") cfg.onBeforePrint();
+            renderCard();
+            renderBackCard();
             window.print();
             renderCard();
           }
