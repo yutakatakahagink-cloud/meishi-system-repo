@@ -89,7 +89,10 @@ th{background:#f3f6fb;position:sticky;top:0}tr.sel{background:#e8eef8}tr:hover{b
 .size-step button:active:not(:disabled),.btel-format-bar .fmt-btn:active:not(:disabled){transform:scale(.96)}
 .size-step button:disabled,.btel-format-bar .fmt-btn:disabled{opacity:.35;cursor:default}
 .size-step span,.btel-format-bar .fmt-size{min-width:38px;text-align:center;font-size:.8rem;color:#54607a}
-.btel-format-bar{position:absolute;display:none;align-items:center;gap:4px;padding:4px 6px;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,.12);pointer-events:auto;flex-wrap:nowrap}
+.btel-format-bar{position:absolute;display:none;align-items:center;gap:4px;padding:4px 6px;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,.12);pointer-events:auto;flex-wrap:wrap;max-width:calc(100% - 8px)}
+.btel-format-bar .fmt-font{height:28px;padding:0 4px;border:1px solid var(--line);border-radius:6px;font-size:.75rem;background:#fff;cursor:pointer;max-width:72px}
+.btel-format-bar .fmt-italic i{font-style:italic}
+.btel-format-bar .fmt-underline u{text-decoration:underline}
 .btel-format-bar .fmt-sep{width:1px;height:20px;background:var(--line);margin:0 2px}
 .btel-format-bar .fmt-color{width:28px;height:28px;padding:2px;border:1px solid var(--line);border-radius:6px;cursor:pointer;background:#fff}
 .btel-format-bar .fmt-bold{font-weight:700}

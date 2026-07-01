@@ -12,15 +12,15 @@
     <script src="meishi-catalog-sync.js?v=20250615c"></script>
     <script src="meishi-catalog-editor.js?v=20250617r"></script>
     <script src="meishi-store.js?v=20250617j"></script>
-    <script src="meishi-layout.js?v=20250617g"></script>
+    <script src="meishi-layout.js?v=20250617x"></script>
     <script src="meishi-image-lib.js?v=20250617j"></script>
     <script src="meishi-card-ui.js?v=20250617p"></script>
-    <script src="meishi-back-card-ui.js?v=20250617w"></script>
+    <script src="meishi-back-card-ui.js?v=20250617x"></script>
     <script src="meishi-print-sheet.js"></script>
     <script src="meishi-user-print.js?v=20250617t"></script>
     <script src="meishi-preview-init.js?v=20250617t"></script>
     <link rel="stylesheet" href="meishi-print-sheet.css" />
-    <link rel="stylesheet" href="owner.css?v=20250617w" />
+    <link rel="stylesheet" href="owner.css?v=20250617x" />
   </head>
   <body>
     <header>
@@ -130,7 +130,9 @@
                     <p class="hint" style="margin:0 0 8px">内容は名刺上で直接入力。書式は名刺上のツールバーまたは下で変更できます。</p>
                     <div class="des-row"><label>文字</label><div class="size-step"><button type="button" id="backDesSizeUp" title="大きく">▲</button><span id="backDesSizeV">12px</span><button type="button" id="backDesSizeDown" title="小さく">▼</button></div></div>
                     <div class="des-row"><label>色</label><input type="color" id="backDesColor" /></div>
+                    <div class="des-row"><label>書体</label><div class="seg"><button type="button" data-back-font="" class="on">標準</button><button type="button" data-back-font="gothic">ゴシック</button><button type="button" data-back-font="mincho">明朝</button></div></div>
                     <div class="des-row"><label>太さ</label><div class="seg"><button type="button" id="backDesNorm">標準</button><button type="button" id="backDesBold">太字</button></div></div>
+                    <div class="des-row"><label>装飾</label><div class="seg"><button type="button" id="backDesItalic">斜体</button><button type="button" id="backDesUnderline">下線</button></div></div>
                     <div class="des-row"><label>配置</label><div class="seg"><button type="button" data-back-al="left">左</button><button type="button" data-back-al="center">中</button><button type="button" data-back-al="right">右</button></div></div>
                   </div>
                 </div>
@@ -203,7 +205,9 @@
                     <p class="hint" style="margin:0 0 8px">内容は名刺上で直接入力。書式は名刺上のツールバーまたは下で変更できます。</p>
                     <div class="des-row"><label>文字</label><div class="size-step"><button type="button" id="deBackDesSizeUp" title="大きく">▲</button><span id="deBackDesSizeV">12px</span><button type="button" id="deBackDesSizeDown" title="小さく">▼</button></div></div>
                     <div class="des-row"><label>色</label><input type="color" id="deBackDesColor" /></div>
+                    <div class="des-row"><label>書体</label><div class="seg"><button type="button" data-de-back-font="" class="on">標準</button><button type="button" data-de-back-font="gothic">ゴシック</button><button type="button" data-de-back-font="mincho">明朝</button></div></div>
                     <div class="des-row"><label>太さ</label><div class="seg"><button type="button" id="deBackDesNorm">標準</button><button type="button" id="deBackDesBold">太字</button></div></div>
+                    <div class="des-row"><label>装飾</label><div class="seg"><button type="button" id="deBackDesItalic">斜体</button><button type="button" id="deBackDesUnderline">下線</button></div></div>
                     <div class="des-row"><label>配置</label><div class="seg"><button type="button" data-de-back-al="left">左</button><button type="button" data-de-back-al="center">中</button><button type="button" data-de-back-al="right">右</button></div></div>
                   </div>
                 </div>
@@ -303,7 +307,7 @@
         <button type="button" class="btn sm" id="btnQrClose">閉じる</button>
       </div>
     </div>
-    <script src="owner-admin.js?v=20250617v"></script>
+    <script src="owner-admin.js?v=20250617x"></script>
     <script>OwnerAdmin.init();</script>
   </body>
 </html>

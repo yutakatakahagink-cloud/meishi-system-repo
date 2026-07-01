@@ -813,9 +813,12 @@
         color: "deBackDesColor",
         norm: "deBackDesNorm",
         bold: "deBackDesBold",
+        italic: "deBackDesItalic",
+        underline: "deBackDesUnderline",
         ctl: "deBackDesignCtl",
         none: "deBackDesignNone",
         alignAttr: "data-de-back-al",
+        fontAttr: "data-de-back-font",
       });
     }
     deCoBackUI.renderCard();

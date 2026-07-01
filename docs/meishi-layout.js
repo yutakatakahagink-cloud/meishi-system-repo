@@ -49,8 +49,23 @@
       size: 12,
       color: "#222222",
       bold: 0,
+      italic: 0,
+      underline: 0,
+      font: "",
       align: "left",
     };
+  }
+
+  var BACK_FONTS = [
+    { id: "", label: "標準" },
+    { id: "gothic", label: "ゴシック" },
+    { id: "mincho", label: "明朝" },
+  ];
+
+  function resolveBackFontFamily(fontId) {
+    if (fontId === "mincho") return '"Hiragino Mincho ProN", "Yu Mincho", serif';
+    if (fontId === "gothic") return '"Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif';
+    return '"Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif';
   }
 
   function defBackLayout() {
@@ -68,6 +83,8 @@
     defLayout: defLayout,
     defBackLayout: defBackLayout,
     defTextBlock: defTextBlock,
+    BACK_FONTS: BACK_FONTS,
+    resolveBackFontFamily: resolveBackFontFamily,
     loadLocal: loadLocal,
     saveLocal: saveLocal,
     isValidLayout: isValidLayout,

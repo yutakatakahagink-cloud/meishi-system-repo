@@ -158,12 +158,20 @@
         "<span class=\"fmt-size\" data-fmt-size>12px</span>" +
         "<button type=\"button\" class=\"fmt-btn\" data-fmt=\"size-down\" title=\"小さく\">▼</button>" +
         "<span class=\"fmt-sep\"></span>" +
+        "<select class=\"fmt-font\" data-fmt=\"font\" title=\"書体\">" +
+        "<option value=\"\">標準</option><option value=\"gothic\">ゴシック</option><option value=\"mincho\">明朝</option>" +
+        "</select>" +
         "<input type=\"color\" class=\"fmt-color\" data-fmt=\"color\" title=\"文字色\" />" +
         "<button type=\"button\" class=\"fmt-btn fmt-bold\" data-fmt=\"bold\" title=\"太字\">B</button>" +
+        "<button type=\"button\" class=\"fmt-btn fmt-italic\" data-fmt=\"italic\" title=\"斜体\"><i>I</i></button>" +
+        "<button type=\"button\" class=\"fmt-btn fmt-underline\" data-fmt=\"underline\" title=\"下線\"><u>U</u></button>" +
+        "<span class=\"fmt-sep\"></span>" +
         "<button type=\"button\" class=\"fmt-btn\" data-fmt=\"align-left\" title=\"左揃え\">左</button>" +
         "<button type=\"button\" class=\"fmt-btn\" data-fmt=\"align-center\" title=\"中央\">中</button>" +
         "<button type=\"button\" class=\"fmt-btn\" data-fmt=\"align-right\" title=\"右揃え\">右</button>";
       formatBar.addEventListener("mousedown", function (ev) {
+        var tag = (ev.target && ev.target.tagName) || "";
+        if (tag === "INPUT" || tag === "SELECT" || tag === "OPTION") return;
         ev.preventDefault();
       });
       formatBar.addEventListener("click", function (ev) {
@@ -175,6 +183,12 @@
         else if (fmt === "bold") {
           var hit = getSelectedText();
           if (hit) patchSelectedText({ bold: hit.st.bold ? 0 : 1 });
+        } else if (fmt === "italic") {
+          var hitI = getSelectedText();
+          if (hitI) patchSelectedText({ italic: hitI.st.italic ? 0 : 1 });
+        } else if (fmt === "underline") {
+          var hitU = getSelectedText();
+          if (hitU) patchSelectedText({ underline: hitU.st.underline ? 0 : 1 });
         } else if (fmt === "align-left") patchSelectedText({ align: "left" });
         else if (fmt === "align-center") patchSelectedText({ align: "center" });
         else if (fmt === "align-right") patchSelectedText({ align: "right" });
@@ -183,6 +197,12 @@
       if (colorInp) {
         colorInp.addEventListener("input", function () {
           patchSelectedText({ color: this.value });
+        });
+      }
+      var fontSel = formatBar.querySelector("[data-fmt=\"font\"]");
+      if (fontSel) {
+        fontSel.addEventListener("change", function () {
+          patchSelectedText({ font: this.value || "" });
         });
       }
       cardEl.appendChild(formatBar);
@@ -202,6 +222,12 @@
       if (colorInp) colorInp.value = st.color && st.color.length === 7 ? st.color : "#222222";
       var boldBtn = formatBar.querySelector("[data-fmt=\"bold\"]");
       if (boldBtn) boldBtn.classList.toggle("on", !!st.bold);
+      var italicBtn = formatBar.querySelector("[data-fmt=\"italic\"]");
+      if (italicBtn) italicBtn.classList.toggle("on", !!st.italic);
+      var underlineBtn = formatBar.querySelector("[data-fmt=\"underline\"]");
+      if (underlineBtn) underlineBtn.classList.toggle("on", !!st.underline);
+      var fontSel = formatBar.querySelector("[data-fmt=\"font\"]");
+      if (fontSel) fontSel.value = st.font || "";
       formatBar.querySelectorAll("[data-fmt^=\"align-\"]").forEach(function (b) {
         var al = b.getAttribute("data-fmt").replace("align-", "");
         b.classList.toggle("on", (st.align || "left") === al);
@@ -243,7 +269,10 @@
       node.style.top = st.y + "px";
       node.style.fontSize = st.size + "px";
       node.style.color = st.color;
+      node.style.fontFamily = MeishiLayout.resolveBackFontFamily(st.font || "");
       node.style.fontWeight = st.bold ? "700" : "400";
+      node.style.fontStyle = st.italic ? "italic" : "normal";
+      node.style.textDecoration = st.underline ? "underline" : "none";
       node.style.textAlign = st.align || "left";
       node.style.whiteSpace = "pre-wrap";
       node.style.wordBreak = "break-word";
@@ -544,9 +573,12 @@
       var backDesColor = q("color", "backDesColor");
       var backDesNorm = q("norm", "backDesNorm");
       var backDesBold = q("bold", "backDesBold");
+      var backDesItalic = q("italic", "backDesItalic");
+      var backDesUnderline = q("underline", "backDesUnderline");
       var designCtl = q("ctl", "backDesignCtl");
       var designNone = q("none", "backDesignNone");
       var alignAttr = panelIds.alignAttr || "data-back-al";
+      var fontAttr = panelIds.fontAttr || "data-back-font";
 
       function showDesign() {
         if (!designCtl || !designNone) return;
@@ -568,6 +600,11 @@
         if (backDesColor) backDesColor.value = st.color && st.color.length === 7 ? st.color : "#222222";
         if (backDesNorm) backDesNorm.classList.toggle("on", !st.bold);
         if (backDesBold) backDesBold.classList.toggle("on", !!st.bold);
+        if (backDesItalic) backDesItalic.classList.toggle("on", !!st.italic);
+        if (backDesUnderline) backDesUnderline.classList.toggle("on", !!st.underline);
+        panel.querySelectorAll("[" + fontAttr + "]").forEach(function (b) {
+          b.classList.toggle("on", (b.getAttribute(fontAttr) || "") === (st.font || ""));
+        });
         panel.querySelectorAll("[" + alignAttr + "]").forEach(function (b) {
           b.classList.toggle("on", b.getAttribute(alignAttr) === st.align);
         });
@@ -592,6 +629,22 @@
       });
       if (backDesBold) backDesBold.addEventListener("click", function () {
         patchSelectedText({ bold: 1 }); showDesign();
+      });
+      if (backDesItalic) backDesItalic.addEventListener("click", function () {
+        var hit = getSelectedText();
+        if (hit) patchSelectedText({ italic: hit.st.italic ? 0 : 1 });
+        showDesign();
+      });
+      if (backDesUnderline) backDesUnderline.addEventListener("click", function () {
+        var hit = getSelectedText();
+        if (hit) patchSelectedText({ underline: hit.st.underline ? 0 : 1 });
+        showDesign();
+      });
+      panel.querySelectorAll("[" + fontAttr + "]").forEach(function (b) {
+        b.addEventListener("click", function () {
+          patchSelectedText({ font: this.getAttribute(fontAttr) || "" });
+          showDesign();
+        });
       });
       panel.querySelectorAll("[" + alignAttr + "]").forEach(function (b) {
         b.addEventListener("click", function () {

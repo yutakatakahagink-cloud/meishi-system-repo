@@ -206,6 +206,9 @@
       if (typeof t.size !== "number") t.size = 12;
       if (!t.color) t.color = "#222222";
       if (t.bold == null) t.bold = 0;
+      if (t.italic == null) t.italic = 0;
+      if (t.underline == null) t.underline = 0;
+      if (t.font == null) t.font = "";
       if (!t.align) t.align = "left";
       return t;
     });
