@@ -449,13 +449,18 @@
         var loc = cat.locations[+btn.getAttribute("data-i")];
         if (!loc) return;
         var oldPostal = loc.postal;
-        var po = prompt("郵便番号", loc.postal);
-        if (po == null) return;
-        loc.postal = po.trim();
-        loc.address = prompt("住所", loc.address || "") || loc.address;
-        loc.tel = prompt("TEL", loc.tel || "") || loc.tel;
-        loc.fax = prompt("FAX", loc.fax || "") || loc.fax;
-        emit({ type: "updateLocation", oldPostal: oldPostal, loc: { postal: loc.postal, address: loc.address, tel: loc.tel, fax: loc.fax } });
+        var labels = { postal: "郵便番号", address: "住所", tel: "TEL", fax: "FAX" };
+        var nv = prompt(labels[fieldId] || "値", loc[fieldId] || "");
+        if (nv == null) return;
+        loc[fieldId] = nv.trim();
+        if (fieldId === "postal") {
+          MeishiCatalog.addUnique(cat.postal, loc.postal);
+        }
+        emit({
+          type: "updateLocation",
+          oldPostal: oldPostal,
+          loc: { postal: loc.postal, address: loc.address, tel: loc.tel, fax: loc.fax },
+        });
         refresh();
       };
     });
