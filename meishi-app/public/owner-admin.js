@@ -349,7 +349,7 @@
     }
     if (coBackUI && prevCo && prevCo !== currentCo) {
       coBackUI.invalidate();
-      if (coBackPanel && coBackPanel.clearSelection) coBackPanel.clearSelection();
+      if (coBackUI.clearSelection) coBackUI.clearSelection();
     }
     if (coSide === "back") refreshCoBackDesign();
     else refreshCoDesign();
