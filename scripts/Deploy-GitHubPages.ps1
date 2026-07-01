@@ -154,6 +154,11 @@ try {
   }
 
   Invoke-RepoGit @("add", "-A")
+  $docsCfg = Join-Path $RepoPath "docs\config.js"
+  if (Test-Path -LiteralPath $docsCfg) {
+    Invoke-RepoGit @("add", "-f", "docs/config.js")
+    Write-Host "Force-added: docs/config.js (Firebase / Pages)"
+  }
   if ($IncludeConfigJs) {
     $cfgRel = "meishi-app/public/config.js"
     $cfgAbs = Join-Path $RepoPath $cfgRel

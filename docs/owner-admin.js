@@ -250,16 +250,36 @@
   }
 
   function refreshUserUrlFields() {
-    var url = defaultUserPageUrl();
-    document.getElementById("userUrl").value = url;
+    var userUrl = defaultUserPageUrl();
+    document.getElementById("userUrl").value = userUrl;
+    var ownerInp = document.getElementById("ownerUrl");
+    if (ownerInp) ownerInp.value = MeishiStore.ownerUrl();
   }
 
-  function openUserPage() {
-    var url = document.getElementById("userUrl").value || defaultUserPageUrl();
+  function copyTextToClipboard(text, okMsg) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { alert(okMsg || "コピーしました"); }).catch(function () {});
+      return;
+    }
+    var ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.left = "-9999px";
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    try {
+      document.execCommand("copy");
+      alert(okMsg || "コピーしました");
+    } catch (e) {}
+    document.body.removeChild(ta);
+  }
+
+  function openPageUrl(url) {
     try {
       url = new URL(url, window.location.href).href;
     } catch (e) {
-      url = defaultUserPageUrl();
+      return;
     }
     var a = document.createElement("a");
     a.href = url;
@@ -1025,21 +1045,30 @@
     };
     document.getElementById("btnCopy").onclick = function () {
       var url = document.getElementById("userUrl").value || defaultUserPageUrl();
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(url).then(function () { alert("URLをコピーしました"); }).catch(function () {});
-      } else {
-        var inp = document.getElementById("userUrl");
-        inp.focus();
-        inp.select();
-        try { document.execCommand("copy"); alert("URLをコピーしました"); } catch (e) {}
-      }
+      copyTextToClipboard(url, "使用者URLをコピーしました");
     };
     document.getElementById("btnQr").onclick = showUserQr;
     document.getElementById("btnQrClose").onclick = hideUserQr;
     document.getElementById("qrModal").onclick = function (e) {
       if (e.target === document.getElementById("qrModal")) hideUserQr();
     };
-    document.getElementById("btnOpen").onclick = openUserPage;
+    document.getElementById("btnOpen").onclick = function () {
+      openPageUrl(document.getElementById("userUrl").value || defaultUserPageUrl());
+    };
+    var btnCopyOwner = document.getElementById("btnCopyOwner");
+    if (btnCopyOwner) {
+      btnCopyOwner.onclick = function () {
+        var inp = document.getElementById("ownerUrl");
+        copyTextToClipboard((inp && inp.value) || MeishiStore.ownerUrl(), "所有者URLをコピーしました");
+      };
+    }
+    var btnOpenOwner = document.getElementById("btnOpenOwner");
+    if (btnOpenOwner) {
+      btnOpenOwner.onclick = function () {
+        var inp = document.getElementById("ownerUrl");
+        openPageUrl((inp && inp.value) || MeishiStore.ownerUrl());
+      };
+    }
     document.getElementById("btnImgLibAdd").onclick = addImagesToLibrary;
     document.getElementById("imgLibFileInput").onchange = onImgLibFilesSelected;
     document.getElementById("coPick").onchange = fillCoPanel;

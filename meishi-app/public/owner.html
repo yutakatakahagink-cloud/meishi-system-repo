@@ -11,7 +11,7 @@
     <script src="meishi-catalog.js?v=20250617g"></script>
     <script src="meishi-catalog-sync.js?v=20250615c"></script>
     <script src="meishi-catalog-editor.js?v=20250617r"></script>
-    <script src="meishi-store.js?v=20250617j"></script>
+    <script src="meishi-store.js?v=20250619a"></script>
     <script src="meishi-layout.js?v=20250617x"></script>
     <script src="meishi-image-lib.js?v=20250617j"></script>
     <script src="meishi-card-ui.js?v=20250618c"></script>
@@ -20,7 +20,7 @@
     <script src="meishi-user-print.js?v=20250618b"></script>
     <script src="meishi-preview-init.js?v=20250617t"></script>
     <link rel="stylesheet" href="meishi-print-sheet.css?v=20250618b" />
-    <link rel="stylesheet" href="owner.css?v=20250618a" />
+    <link rel="stylesheet" href="owner.css?v=20250619a" />
   </head>
   <body>
     <header>
@@ -47,12 +47,22 @@
           <button class="btn" id="btnSaveBasic">保存</button>
         </div>
         <div class="card">
-          <h2>使用者URL</h2>
-          <p class="hint">このURLを社員に共有してください（ログイン後、名刺プレビュー画面が直接開きます）。携帯では QR コードを読み取るか、URLをコピーしてブラウザで開きます。</p>
-          <div class="url-box">
-            <input id="userUrl" readonly /><button type="button" class="btn sm ghost" id="btnCopy">コピー</button>
-            <button type="button" class="btn sm ghost" id="btnQr">QR表示</button>
-            <button type="button" class="btn sm" id="btnOpen">開く</button>
+          <h2>携帯・他PCから開く（本番URL）</h2>
+          <p class="hint">下記URLをブックマーク・QR・チャットで共有すると、どの端末からも同じ画面が開きます。設定・名刺データは Firebase 同期時に全端末で共有されます（右上バッジが「全端末で共有中」）。</p>
+          <div class="field">
+            <label>使用者ページ（社員向け）</label>
+            <div class="url-box">
+              <input id="userUrl" readonly /><button type="button" class="btn sm ghost" id="btnCopy">コピー</button>
+              <button type="button" class="btn sm ghost" id="btnQr">QR表示</button>
+              <button type="button" class="btn sm" id="btnOpen">開く</button>
+            </div>
+          </div>
+          <div class="field">
+            <label>所有者ページ（管理者向け）</label>
+            <div class="url-box">
+              <input id="ownerUrl" readonly /><button type="button" class="btn sm ghost" id="btnCopyOwner">コピー</button>
+              <button type="button" class="btn sm" id="btnOpenOwner">開く</button>
+            </div>
           </div>
         </div>
         <div class="card">
@@ -307,7 +317,7 @@
         <button type="button" class="btn sm" id="btnQrClose">閉じる</button>
       </div>
     </div>
-    <script src="owner-admin.js?v=20250617x"></script>
+    <script src="owner-admin.js?v=20250619a"></script>
     <script>OwnerAdmin.init();</script>
   </body>
 </html>

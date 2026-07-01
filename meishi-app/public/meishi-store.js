@@ -48,6 +48,26 @@
     if (dir === "") dir = "/";
     return window.location.origin + dir + rel;
   }
+  /** 共有用ページ URL（携帯・他PC向け）。MEISHI_BASE_URL があれば常に本番URLを返す。 */
+  function sharePageUrl(page, opts) {
+    opts = opts || {};
+    var p = String(page || "").replace(/^\//, "");
+    var base = window.MEISHI_BASE_URL;
+    var url;
+    if (base && /^https?:\/\//i.test(String(base))) {
+      url = String(base).replace(/\/?$/, "/") + p;
+    } else if (window.location.protocol === "http:" || window.location.protocol === "https:") {
+      url = assetUrl(p);
+    } else {
+      try {
+        url = new URL(p, window.location.href).href;
+      } catch (e) {
+        url = p;
+      }
+    }
+    if (opts.hash) url += "#" + String(opts.hash).replace(/^#/, "");
+    return url;
+  }
   /** 使用者/所有者ページ URL（開く・コピー用）。表示中のサイト origin を優先。 */
   function publicPageUrl(page, opts) {
     opts = opts || {};
@@ -1273,8 +1293,8 @@
     useFirebase: function () { return _useFirebase; },
     onConfigChange: function (cb) { if (typeof cb === "function") _cfgListeners.push(cb); },
     onRecordsChange: function (cb) { if (typeof cb === "function") _recListeners.push(cb); },
-    userUrl: function () { return publicPageUrl("user.html", { hash: "preview" }); },
-    ownerUrl: function () { return publicPageUrl("owner.html", { hash: "preview" }); },
+    userUrl: function () { return sharePageUrl("user.html", { hash: "preview" }); },
+    ownerUrl: function () { return sharePageUrl("owner.html"); },
     get ready() { return _ready; },
   };
 })();
