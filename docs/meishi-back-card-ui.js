@@ -3,6 +3,7 @@
  */
 (function () {
   var SNAP_THRESH = 6;
+  var DRAG_START = 5;
 
   function pxFromEvent(e) { return e.touches ? e.touches[0] : e; }
 
@@ -137,18 +138,16 @@
         if (readOnly) return;
         if (ev.button !== 0) return;
         if (ev.target.classList.contains("rs")) return;
-        ev.preventDefault();
         var id = node.dataset.id;
         if (sel !== id) {
           sel = id;
           updateSelectionHighlight();
           onSelect(id, getLayout());
         }
-        node.setPointerCapture(ev.pointerId);
-        cardEl.classList.add("is-dragging");
         var p = pxFromEvent(ev);
         var sx = p.clientX, sy = p.clientY, ox = st.x, oy = st.y;
         var raf = 0, nx = ox, ny = oy;
+        var dragging = false;
         function applyPos() {
           raf = 0;
           st.x = nx; st.y = ny;
@@ -157,18 +156,33 @@
         }
         function mv(e2) {
           var q = pxFromEvent(e2);
-          nx = Math.round(ox + (q.clientX - sx));
-          ny = Math.round(oy + (q.clientY - sy));
+          var dx = q.clientX - sx;
+          var dy = q.clientY - sy;
+          if (!dragging) {
+            if (Math.abs(dx) < DRAG_START && Math.abs(dy) < DRAG_START) return;
+            dragging = true;
+            ev.preventDefault();
+            node.setPointerCapture(ev.pointerId);
+            cardEl.classList.add("is-dragging");
+          }
+          nx = Math.round(ox + dx);
+          ny = Math.round(oy + dy);
           var guides = guideForDrag(cardEl, node, nx, ny, snapExtraCardEls);
           showDragGuides(guides, nx, ny, node.offsetWidth, node.offsetHeight, isImage ? "center" : "center");
           if (!raf) raf = requestAnimationFrame(applyPos);
         }
-        function up() {
+        function up(e2) {
           if (raf) cancelAnimationFrame(raf);
-          applyPos();
-          hideGuides();
+          if (dragging) {
+            applyPos();
+            hideGuides();
+            saveLayout();
+          }
           cardEl.classList.remove("is-dragging");
-          saveLayout();
+          try { node.releasePointerCapture(e2.pointerId); } catch (e) {}
+          node.removeEventListener("pointermove", mv);
+          node.removeEventListener("pointerup", up);
+          node.removeEventListener("pointercancel", up);
         }
         node.addEventListener("pointermove", mv);
         node.addEventListener("pointerup", up);
