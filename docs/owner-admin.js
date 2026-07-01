@@ -1093,9 +1093,11 @@
     document.getElementById("btnCoBackText").onclick = function () {
       if (!coLayoutBack) coLayoutBack = MeishiLayout.defBackLayout();
       coLayoutBack.texts = coLayoutBack.texts || [];
-      coLayoutBack.texts.push(MeishiLayout.defTextBlock(coLayoutBack.texts.length));
+      var block = MeishiLayout.defTextBlock(coLayoutBack.texts.length);
+      coLayoutBack.texts.push(block);
       if (coBackUI) coBackUI.invalidate();
       refreshCoBackDesign();
+      if (coBackUI && coBackUI.editTextById) coBackUI.editTextById(block.id, true);
     };
     document.getElementById("btnCoBackImgPick").onclick = function () {
       if (!coLayoutBack) coLayoutBack = MeishiLayout.defBackLayout();
@@ -1145,9 +1147,11 @@
       if (!deLayoutBack) loadDeptLayout();
       if (!deLayoutBack) deLayoutBack = MeishiLayout.defBackLayout();
       deLayoutBack.texts = deLayoutBack.texts || [];
-      deLayoutBack.texts.push(MeishiLayout.defTextBlock(deLayoutBack.texts.length));
+      var block = MeishiLayout.defTextBlock(deLayoutBack.texts.length);
+      deLayoutBack.texts.push(block);
       if (deBackUI) deBackUI.invalidate();
       refreshDeptBackDesign();
+      if (deBackUI && deBackUI.editTextById) deBackUI.editTextById(block.id, true);
     };
     document.getElementById("btnDeBackImgPick").onclick = function () {
       var pk = getDeptPickers();

@@ -15,12 +15,12 @@
     <script src="meishi-layout.js?v=20250617g"></script>
     <script src="meishi-image-lib.js?v=20250617j"></script>
     <script src="meishi-card-ui.js?v=20250617p"></script>
-    <script src="meishi-back-card-ui.js?v=20250617u"></script>
+    <script src="meishi-back-card-ui.js?v=20250617v"></script>
     <script src="meishi-print-sheet.js"></script>
     <script src="meishi-user-print.js?v=20250617t"></script>
     <script src="meishi-preview-init.js?v=20250617t"></script>
     <link rel="stylesheet" href="meishi-print-sheet.css" />
-    <link rel="stylesheet" href="owner.css?v=20250617u" />
+    <link rel="stylesheet" href="owner.css?v=20250617v" />
   </head>
   <body>
     <header>
@@ -115,7 +115,7 @@
             </div>
             </div>
             <div id="coBackDesign" style="display:none">
-              <p class="hint">裏面は自由にテキストと画像を配置できます。テキストはクリックして右パネルで内容・書式を編集します。</p>
+              <p class="hint">裏面は名刺上でテキストを直接入力できます。1回クリックで選択、もう1回クリックまたはダブルクリックで編集、ドラッグで移動。</p>
               <div class="btn-row">
                 <button type="button" class="btn sm ghost" id="btnCoBackText">＋テキスト</button>
                 <button type="button" class="btn sm ghost" id="btnCoBackImgPick">＋画像</button>
@@ -127,7 +127,7 @@
                 <div class="card inner" id="coBackDesignPanel">
                   <div id="backDesignNone" class="hint">テキストまたは画像をクリック</div>
                   <div id="backDesignCtl" style="display:none">
-                    <div class="des-row"><label>内容</label><textarea id="backDesContent" rows="3" style="width:100%;resize:vertical"></textarea></div>
+                    <p class="hint" style="margin:0 0 8px">文字の内容は名刺上で直接入力してください。下はサイズ・色などの書式です。</p>
                     <div class="des-row"><label>文字</label><input type="range" id="backDesSize" min="6" max="60" /><span id="backDesSizeV"></span></div>
                     <div class="des-row"><label>色</label><input type="color" id="backDesColor" /></div>
                     <div class="des-row"><label>太さ</label><div class="seg"><button type="button" id="backDesNorm">標準</button><button type="button" id="backDesBold">太字</button></div></div>
@@ -185,7 +185,7 @@
             </div>
             </div>
             <div id="deBackDesign" style="display:none">
-              <p class="hint">下層＝会社共通の裏面（編集不可）。上層＝部署用の裏面テキスト・画像を追加できます。</p>
+              <p class="hint">下層＝会社共通の裏面（編集不可）。上層＝部署用テキスト・画像。テキストは名刺上で直接入力。</p>
               <div class="btn-row">
                 <button type="button" class="btn sm ghost" id="btnDeBackText">＋テキスト</button>
                 <button type="button" class="btn sm ghost" id="btnDeBackImgPick">＋部署画像</button>
@@ -200,7 +200,7 @@
                 <div class="card inner" id="deBackDesignPanel">
                   <div id="deBackDesignNone" class="hint">テキストまたは画像をクリック</div>
                   <div id="deBackDesignCtl" style="display:none">
-                    <div class="des-row"><label>内容</label><textarea id="deBackDesContent" rows="3" style="width:100%;resize:vertical"></textarea></div>
+                    <p class="hint" style="margin:0 0 8px">文字の内容は名刺上で直接入力してください。下はサイズ・色などの書式です。</p>
                     <div class="des-row"><label>文字</label><input type="range" id="deBackDesSize" min="6" max="60" /><span id="deBackDesSizeV"></span></div>
                     <div class="des-row"><label>色</label><input type="color" id="deBackDesColor" /></div>
                     <div class="des-row"><label>太さ</label><div class="seg"><button type="button" id="deBackDesNorm">標準</button><button type="button" id="deBackDesBold">太字</button></div></div>
@@ -303,7 +303,7 @@
         <button type="button" class="btn sm" id="btnQrClose">閉じる</button>
       </div>
     </div>
-    <script src="owner-admin.js?v=20250617t"></script>
+    <script src="owner-admin.js?v=20250617v"></script>
     <script>OwnerAdmin.init();</script>
   </body>
 </html>

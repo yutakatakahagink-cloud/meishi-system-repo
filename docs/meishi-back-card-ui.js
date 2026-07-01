@@ -66,6 +66,7 @@
     var onSelect = opts.onSelect || function () {};
     var onLayoutChange = opts.onLayoutChange || function () {};
     var sel = null;
+    var editingId = null;
     var built = false;
     var textNodes = {};
     var imgNodes = {};
@@ -111,8 +112,10 @@
       showGuides(gx, gy);
     }
 
-    function applyTextStyle(node, st) {
-      node.textContent = st.content || "";
+    function applyTextStyle(node, st, skipContent) {
+      if (!skipContent && st.id !== editingId && document.activeElement !== node) {
+        node.textContent = st.content || "";
+      }
       node.style.left = st.x + "px";
       node.style.top = st.y + "px";
       node.style.fontSize = st.size + "px";
@@ -122,6 +125,64 @@
       node.style.whiteSpace = "pre-wrap";
       node.style.wordBreak = "break-word";
       node.style.maxWidth = Math.max(40, (cardEl.clientWidth || 300) - st.x - 8) + "px";
+    }
+
+    function syncTextContentFromNode(node, st) {
+      st.content = (node.innerText || "").replace(/\r\n/g, "\n");
+    }
+
+    function exitInlineEdit(node, st) {
+      if (!node || !st || editingId !== st.id) return;
+      syncTextContentFromNode(node, st);
+      node.contentEditable = "false";
+      node.classList.remove("is-editing");
+      editingId = null;
+      saveLayout();
+    }
+
+    function enterInlineEdit(node, st, selectAll) {
+      if (readOnly || !node || !st) return;
+      editingId = st.id;
+      sel = st.id;
+      updateSelectionHighlight();
+      onSelect(st.id, getLayout());
+      node.contentEditable = "true";
+      node.classList.add("is-editing");
+      if (node.textContent !== (st.content || "")) node.textContent = st.content || "";
+      node.focus();
+      if (selectAll) {
+        try {
+          var range = document.createRange();
+          range.selectNodeContents(node);
+          var selObj = window.getSelection();
+          if (selObj) { selObj.removeAllRanges(); selObj.addRange(range); }
+        } catch (e) {}
+      }
+    }
+
+    function attachInlineEdit(node, st) {
+      node.addEventListener("blur", function () {
+        if (editingId === st.id) exitInlineEdit(node, st);
+      });
+      node.addEventListener("input", function () {
+        if (editingId !== st.id) return;
+        syncTextContentFromNode(node, st);
+        saveLayout();
+      });
+      node.addEventListener("keydown", function (ev) {
+        if (editingId !== st.id) return;
+        if (ev.key === "Escape") {
+          ev.preventDefault();
+          node.blur();
+        }
+        ev.stopPropagation();
+      });
+      node.addEventListener("dblclick", function (ev) {
+        if (readOnly) return;
+        ev.preventDefault();
+        ev.stopPropagation();
+        enterInlineEdit(node, st, false);
+      });
     }
 
     function updateSelectionHighlight() {
@@ -138,7 +199,9 @@
         if (readOnly) return;
         if (ev.button !== 0) return;
         if (ev.target.classList.contains("rs")) return;
+        if (!isImage && (editingId === st.id || node.classList.contains("is-editing"))) return;
         var id = node.dataset.id;
+        var wasSelected = sel === id;
         if (sel !== id) {
           sel = id;
           updateSelectionHighlight();
@@ -177,6 +240,8 @@
             applyPos();
             hideGuides();
             saveLayout();
+          } else if (!isImage && wasSelected) {
+            enterInlineEdit(node, st, false);
           }
           cardEl.classList.remove("is-dragging");
           try { node.releasePointerCapture(e2.pointerId); } catch (e) {}
@@ -242,12 +307,16 @@
             node = document.createElement("div");
             node.className = "btel";
             node.dataset.id = st.id;
-            if (!readOnly) attachDrag(node, st, false);
-            else node.style.cursor = "default";
+            if (!readOnly) {
+              attachInlineEdit(node, st);
+              attachDrag(node, st, false);
+            } else {
+              node.style.cursor = "default";
+            }
             cardEl.appendChild(node);
             textNodes[st.id] = node;
           }
-          applyTextStyle(node, st);
+          applyTextStyle(node, st, st.id === editingId);
         });
       }
       Object.keys(textNodes).forEach(function (id) {
@@ -322,10 +391,18 @@
 
     function invalidate() {
       built = false;
+      editingId = null;
       textNodes = {};
       imgNodes = {};
       guideLayer = null;
       cardEl.innerHTML = "";
+    }
+
+    function editTextById(id, selectAll) {
+      var node = textNodes[id];
+      var layout = getLayout();
+      var st = (layout.texts || []).find(function (t) { return t.id === id; });
+      if (node && st) enterInlineEdit(node, st, selectAll !== false);
     }
 
     function bindBackDesignPanel(panel, panelIds) {
@@ -350,8 +427,9 @@
         var st = (layout.texts || []).find(function (t) { return t.id === sel; });
         var node = textNodes[sel];
         if (!st || !node) return;
+        if (editingId === sel && patch.content != null) return;
         Object.assign(st, patch);
-        applyTextStyle(node, st);
+        applyTextStyle(node, st, editingId === sel);
         saveLayout();
       }
 
@@ -361,7 +439,7 @@
           designCtl.style.display = "none";
           designNone.style.display = "";
           if (isImgSel(sel)) designNone.textContent = "画像が選択されています。ドラッグで移動、右下でサイズ変更できます。";
-          else designNone.textContent = "テキストまたは画像をクリックして編集します。「＋テキスト」で自由入力の文字を追加できます。";
+          else designNone.textContent = "テキストをクリックして直接入力できます。もう一度クリックで編集、ドラッグで移動。「＋テキスト」で追加。";
           return;
         }
         designNone.style.display = "none";
@@ -369,7 +447,6 @@
         var layout = getLayout();
         var st = (layout.texts || []).find(function (t) { return t.id === sel; });
         if (!st) return;
-        if (backDesContent) backDesContent.value = st.content || "";
         if (backDesSize) backDesSize.value = st.size;
         if (backDesSizeV) backDesSizeV.textContent = st.size + "px";
         if (backDesColor) backDesColor.value = st.color && st.color.length === 7 ? st.color : "#222222";
@@ -380,10 +457,6 @@
         });
       }
 
-      if (backDesContent) backDesContent.addEventListener("input", function () {
-        patchText({ content: this.value });
-        showDesign();
-      });
       if (backDesSize) backDesSize.addEventListener("input", function () {
         patchText({ size: +this.value });
         if (backDesSizeV) backDesSizeV.textContent = this.value + "px";
@@ -412,6 +485,7 @@
       invalidate: invalidate,
       bindBackDesignPanel: bindBackDesignPanel,
       clearSelection: function () { sel = null; updateSelectionHighlight(); },
+      editTextById: editTextById,
       getSelection: function () { return sel; },
       setSelection: function (v) { sel = v; updateSelectionHighlight(); },
     };
