@@ -52,6 +52,142 @@
 
   };
 
+  /** 印刷時の内部解像度倍率（テキスト・画像のにじみ低減） */
+  var PRINT_QUALITY_SCALE = 2;
+
+
+
+  function scaleInlinePx(value, scale) {
+
+    if (value == null || value === "") return value;
+
+    var s = String(value).trim();
+
+    var m = s.match(/^([\d.]+)px$/);
+
+    if (m) return (Math.round(parseFloat(m[1]) * scale * 100) / 100) + "px";
+
+    return s;
+
+  }
+
+
+
+  function enhanceElementForPrint(el, scale) {
+
+    ["left", "top", "width", "height", "fontSize", "maxWidth"].forEach(function (prop) {
+
+      if (el.style[prop]) el.style[prop] = scaleInlinePx(el.style[prop], scale);
+
+    });
+
+  }
+
+
+
+  function enhanceCardForPrint(card, scale) {
+
+    card.querySelectorAll(".el, .btel, .imgel").forEach(function (el) {
+
+      enhanceElementForPrint(el, scale);
+
+    });
+
+    card.querySelectorAll(".imgel img").forEach(function (img) {
+
+      img.decoding = "sync";
+
+      img.loading = "eager";
+
+      img.style.imageRendering = "auto";
+
+    });
+
+    card.style.width = (LAYOUT.cardW * scale) + "mm";
+
+    card.style.height = (LAYOUT.cardH * scale) + "mm";
+
+    card.style.transform = "scale(" + (1 / scale) + ")";
+
+    card.style.transformOrigin = "top left";
+
+    card.classList.add("meishi-print-hidpi");
+
+  }
+
+
+
+  /** 短辺とじ裏面：scaleX 二重反転の代わりに列を入れ替え（にじみ防止） */
+  function layoutDuplexBackSheet(sheet) {
+
+    var slots = sheet.querySelectorAll(".meishi-print-slot");
+
+    var r;
+
+    for (r = 0; r < LAYOUT.rows; r++) {
+
+      var left = slots[r * LAYOUT.cols];
+
+      var right = slots[r * LAYOUT.cols + 1];
+
+      if (left) left.style.gridColumn = "2";
+
+      if (right) right.style.gridColumn = "1";
+
+    }
+
+  }
+
+
+
+  function enhancePrintBundle(bundle) {
+
+    if (!bundle) return;
+
+    bundle.querySelectorAll(".meishi-a4-sheet--duplex-back").forEach(layoutDuplexBackSheet);
+
+    bundle.querySelectorAll(".meishi-print-card-wrap .meishi").forEach(function (card) {
+
+      enhanceCardForPrint(card, PRINT_QUALITY_SCALE);
+
+    });
+
+  }
+
+
+
+  function waitForImages(root, timeoutMs) {
+
+    var imgs = root ? root.querySelectorAll("img[src]") : [];
+
+    if (!imgs.length) return Promise.resolve();
+
+    var timeout = timeoutMs == null ? 8000 : timeoutMs;
+
+    var waits = Array.prototype.map.call(imgs, function (img) {
+
+      if (img.complete && img.naturalWidth > 0) return Promise.resolve();
+
+      return new Promise(function (resolve) {
+
+        img.addEventListener("load", resolve, { once: true });
+
+        img.addEventListener("error", resolve, { once: true });
+
+      });
+
+    });
+
+    return Promise.race([
+
+      Promise.all(waits),
+
+      new Promise(function (resolve) { setTimeout(resolve, timeout); }),
+
+    ]);
+
+  }
+
 
 
   function cloneCardStage(stageEl) {
@@ -79,6 +215,14 @@
       });
 
       if (i > 0) c.classList.add("meishi-overlay");
+
+      c.querySelectorAll("img").forEach(function (img) {
+
+        img.decoding = "sync";
+
+        img.loading = "eager";
+
+      });
 
       wrap.appendChild(c);
 
@@ -327,6 +471,8 @@
 
       hidePreviewBoxes(area);
 
+      enhancePrintBundle(bundle);
+
 
 
       var cleaned = false;
@@ -349,11 +495,19 @@
 
 
 
-      w.addEventListener("afterprint", cleanup);
+      function doPrint() {
 
-      w.print();
+        w.addEventListener("afterprint", cleanup);
 
-      setTimeout(cleanup, 1500);
+        w.print();
+
+        setTimeout(cleanup, 1500);
+
+      }
+
+
+
+      waitForImages(bundle).then(doPrint);
 
     } finally {
 
