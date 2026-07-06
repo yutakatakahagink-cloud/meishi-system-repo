@@ -325,6 +325,7 @@
               prepareRender: function () {
                 renderCard();
                 renderBackCard();
+                if (typeof cfg.preparePrint === "function") cfg.preparePrint();
               },
               afterPrint: function () {
                 renderCard();

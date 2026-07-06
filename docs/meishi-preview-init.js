@@ -180,6 +180,9 @@
             }
             refreshPreviewPersonal();
           },
+          preparePrint: function () {
+            refreshPreviewPersonal();
+          },
           onClear: function () {
             loadPreviewPersonalImages();
           },

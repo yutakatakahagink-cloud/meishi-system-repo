@@ -52,7 +52,7 @@
 
   };
 
-  /** 印刷時の内部解像度倍率（テキスト・画像のにじみ低減） */
+  /** 印刷時の内部解像度倍率（ラッパー全体を縮小してにじみ低減） */
   var PRINT_QUALITY_SCALE = 2;
 
 
@@ -73,45 +73,75 @@
 
 
 
-  function enhanceElementForPrint(el, scale) {
+  function preserveImgSrc(img) {
 
-    ["left", "top", "width", "height", "fontSize", "maxWidth"].forEach(function (prop) {
+    if (!img) return;
 
-      if (el.style[prop]) el.style[prop] = scaleInlinePx(el.style[prop], scale);
+    var src = img.currentSrc || img.src || img.getAttribute("src") || "";
 
-    });
+    if (src) {
+
+      img.setAttribute("src", src);
+
+      img.src = src;
+
+    }
+
+    img.removeAttribute("srcset");
+
+    img.decoding = "sync";
+
+    img.loading = "eager";
+
+    img.style.imageRendering = "auto";
 
   }
 
 
 
-  function enhanceCardForPrint(card, scale) {
+  function enhanceCardWrapForPrint(wrap, scale) {
 
-    card.querySelectorAll(".el, .btel, .imgel").forEach(function (el) {
+    if (!wrap || scale <= 1) return;
 
-      enhanceElementForPrint(el, scale);
+    var inner = document.createElement("div");
+
+    inner.className = "meishi-print-hidpi-inner";
+
+    inner.style.width = (LAYOUT.cardW * scale) + "mm";
+
+    inner.style.height = (LAYOUT.cardH * scale) + "mm";
+
+    inner.style.transform = "scale(" + (1 / scale) + ")";
+
+    inner.style.transformOrigin = "top left";
+
+    inner.style.position = "relative";
+
+    while (wrap.firstChild) inner.appendChild(wrap.firstChild);
+
+    wrap.appendChild(inner);
+
+    inner.querySelectorAll(".meishi").forEach(function (card) {
+
+      card.style.width = (LAYOUT.cardW * scale) + "mm";
+
+      card.style.height = (LAYOUT.cardH * scale) + "mm";
 
     });
 
-    card.querySelectorAll(".imgel img").forEach(function (img) {
+    inner.querySelectorAll(".el, .btel, .imgel").forEach(function (el) {
 
-      img.decoding = "sync";
+      ["left", "top", "width", "height", "fontSize", "maxWidth"].forEach(function (prop) {
 
-      img.loading = "eager";
+        if (el.style[prop]) el.style[prop] = scaleInlinePx(el.style[prop], scale);
 
-      img.style.imageRendering = "auto";
+      });
 
     });
 
-    card.style.width = (LAYOUT.cardW * scale) + "mm";
+    inner.querySelectorAll(".imgel img").forEach(preserveImgSrc);
 
-    card.style.height = (LAYOUT.cardH * scale) + "mm";
-
-    card.style.transform = "scale(" + (1 / scale) + ")";
-
-    card.style.transformOrigin = "top left";
-
-    card.classList.add("meishi-print-hidpi");
+    wrap.classList.add("meishi-print-hidpi-wrap");
 
   }
 
@@ -146,9 +176,11 @@
 
     bundle.querySelectorAll(".meishi-a4-sheet--duplex-back").forEach(layoutDuplexBackSheet);
 
-    bundle.querySelectorAll(".meishi-print-card-wrap .meishi").forEach(function (card) {
+    bundle.querySelectorAll(".meishi-print-card-wrap").forEach(function (wrap) {
 
-      enhanceCardForPrint(card, PRINT_QUALITY_SCALE);
+      wrap.querySelectorAll(".imgel img").forEach(preserveImgSrc);
+
+      enhanceCardWrapForPrint(wrap, PRINT_QUALITY_SCALE);
 
     });
 
@@ -216,13 +248,7 @@
 
       if (i > 0) c.classList.add("meishi-overlay");
 
-      c.querySelectorAll("img").forEach(function (img) {
-
-        img.decoding = "sync";
-
-        img.loading = "eager";
-
-      });
+      c.querySelectorAll("img").forEach(preserveImgSrc);
 
       wrap.appendChild(c);
 
