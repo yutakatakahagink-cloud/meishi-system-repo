@@ -150,6 +150,11 @@
 
   .meishi-a4-sheet--duplex-back {
     page-break-after: avoid;
+    transform: scaleX(-1);
+  }
+
+  .meishi-a4-sheet--duplex-back .meishi-print-card-wrap {
+    transform: scaleX(-1);
   }
 
   .meishi-print-slot {
@@ -167,34 +172,31 @@
     overflow: hidden;
   }
 
-  .meishi-print-hidpi-inner {
-    position: relative;
-    overflow: visible;
-  }
-
   .meishi-print-card-wrap .meishi {
+    width: 91mm !important;
+    height: 55mm !important;
     max-width: none !important;
     max-height: none !important;
     box-shadow: none !important;
+    transform: none !important;
     margin: 0 !important;
     position: relative;
     overflow: hidden;
     background: #fff !important;
-    transform: none !important;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
   }
 
-  .meishi-print-card-wrap:not(.meishi-print-hidpi-wrap) .meishi {
-    width: 91mm !important;
-    height: 55mm !important;
+  .meishi-a4-sheet--duplex-back .meishi-print-card-wrap {
+    transform: scaleX(-1) !important;
   }
 
-  .meishi-print-card-wrap .el,
   .meishi-print-card-wrap .btel {
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    text-rendering: geometricPrecision;
+    position: absolute;
+    box-sizing: border-box;
+  }
+
+  .meishi-print-card-wrap .imgel {
+    position: absolute;
+    box-sizing: border-box;
   }
 
   .meishi-print-card-wrap .imgel img {
@@ -202,7 +204,6 @@
     height: 100%;
     object-fit: contain;
     object-position: center center;
-    image-rendering: auto;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
