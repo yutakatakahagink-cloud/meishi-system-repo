@@ -226,6 +226,13 @@
     return false;
   }
 
+  function localImageLibraryHasItems() {
+    var sync = loadLocalImageLibrarySync();
+    if (sync === undefined) return false;
+    if (sync === "__idb__") return true;
+    return Array.isArray(sync) && sync.length > 0;
+  }
+
   function shouldPreferRemoteData() {
     return !window.MEISHI_OWNER_PAGE;
   }
@@ -313,10 +320,24 @@
   }
 
   function imageLibraryForRemote(arr) {
-    return (arr || []).filter(function (x) {
-      var src = String(x && x.src || "");
-      return src.indexOf("data:") !== 0;
-    }).map(normalizeLibraryItem).filter(Boolean);
+    return (arr || []).map(normalizeLibraryItem).filter(function (x) {
+      if (!x) return false;
+      var src = String(x.src || "");
+      if (src.indexOf("blob:") === 0) return false;
+      return true;
+    });
+  }
+
+  async function syncImageLibraryRemote(arr) {
+    if (!_useFirebase || !_fbDb) return false;
+    var payload = imageLibraryForRemote(arr);
+    try {
+      await _fbDb.ref(FB_IMG_LIB_PATH).set(payload);
+      return true;
+    } catch (e) {
+      console.warn("[Meishi] image library remote save failed", e);
+      return false;
+    }
   }
 
   function configForMainStorage() {
@@ -333,7 +354,7 @@
       _suppressImgLibRemote = true;
       if (_suppressImgLibRemoteTimer) clearTimeout(_suppressImgLibRemoteTimer);
       _suppressImgLibRemoteTimer = setTimeout(function () { _suppressImgLibRemote = false; }, 10000);
-      try { _fbDb.ref(FB_IMG_LIB_PATH).set(imageLibraryForRemote(arr)); } catch (e) {}
+      await syncImageLibraryRemote(arr);
     }
     return ok;
   }
@@ -369,7 +390,21 @@
   async function applyImageLibraryWithRemote(remoteLib) {
     var remoteArr = Array.isArray(remoteLib) ? remoteLib.map(normalizeLibraryItem).filter(Boolean) : [];
     var hasRemote = remoteArr.length > 0;
-    if (shouldPreferRemoteData() && hasRemote) {
+    if (shouldPreferRemoteData()) {
+      if (hasRemote) {
+        _config.imageLibrary = remoteArr;
+        await saveImageLibraryToStorage(remoteArr);
+        return;
+      }
+      if (localImageLibraryHasItems()) {
+        await applyLocalImageLibrary();
+        return;
+      }
+      _config.imageLibrary = [];
+      await saveImageLibraryToStorage([]);
+      return;
+    }
+    if (hasRemote && !localImageLibraryHasItems()) {
       _config.imageLibrary = remoteArr;
       await saveImageLibraryToStorage(remoteArr);
       return;
@@ -552,6 +587,20 @@
     if (hasPv) await persistPreviewPersonalStore();
   }
 
+  async function syncAllToRemote() {
+    if (!_useFirebase || !_fbDb) return { ok: false, reason: "firebase" };
+    try {
+      persistCfg();
+      persistRec();
+      await persistImageLibraryStore(getImageLibrary());
+      await persistPreviewPersonalStore();
+      return { ok: true };
+    } catch (e) {
+      console.warn("[Meishi] syncAllToRemote failed", e);
+      return { ok: false, reason: String(e && e.message || e) };
+    }
+  }
+
   function verifyUserLogin(id, pw) {
     var c = _config;
     var eid = String(id == null ? "" : id).trim();
@@ -706,7 +755,10 @@
       try {
         _fbDb.ref(FB_CFG_PATH).set(payload);
         _fbCfgLoaded = true;
-      } catch (e) {}
+        void persistImageLibraryStore(getImageLibrary());
+      } catch (e) {
+        console.warn("[Meishi] config remote save failed", e);
+      }
       void persistAuthRemote();
     }
     return ok;
@@ -912,6 +964,7 @@
     }
 
     persistCfg();
+    void persistImageLibraryStore(getImageLibrary());
     fireCfg();
   }
 
@@ -1125,6 +1178,7 @@
     }
     _config.deptSettings[k] = out;
     var ok = persistCfg();
+    void persistImageLibraryStore(getImageLibrary());
     if (!ok) return false;
     fireCfg();
     fireRec();
@@ -1314,6 +1368,12 @@
           try { localStorage.setItem(REC_KEY, JSON.stringify(_records)); } catch (e) {}
           fireRec();
         }
+      });
+    } catch (e) {}
+    try {
+      _fbDb.ref(FB_IMG_LIB_PATH).on("value", function (snap) {
+        if (_suppressImgLibRemote) return;
+        void applyImageLibraryWithRemote(snap.val()).then(function () { fireCfg(); });
       });
     } catch (e) {}
   }
@@ -1508,6 +1568,7 @@
     firebaseConfigLoaded: function () { return _fbCfgLoaded; },
     firebaseAuthLoaded: function () { return _fbAuthLoaded; },
     refreshAuthFromFirebase: loadAuthFromFirebase,
+    syncAllToRemote: syncAllToRemote,
     verifyUserLogin: verifyUserLogin,
     onConfigChange: function (cb) { if (typeof cb === "function") _cfgListeners.push(cb); },
     onRecordsChange: function (cb) { if (typeof cb === "function") _recListeners.push(cb); },

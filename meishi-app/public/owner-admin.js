@@ -37,7 +37,7 @@
   function setBadge() {
     var b = document.getElementById("syncBadge");
     if (MeishiStore.useFirebase() && MeishiStore.firebaseAuthLoaded()) {
-      b.textContent = "全端末で共有中";
+      b.textContent = MeishiStore.firebaseConfigLoaded() ? "全端末で共有中" : "同期中…";
       b.style.background = "rgba(40,180,99,.35)";
     } else if (MeishiStore.useFirebase()) {
       b.textContent = "同期未完了";
@@ -46,6 +46,11 @@
       b.textContent = "この端末のみ";
       b.style.background = "rgba(243,156,18,.35)";
     }
+  }
+
+  function syncRemoteAfterSave() {
+    if (!MeishiStore.syncAllToRemote) return;
+    void MeishiStore.syncAllToRemote().then(function () { setBadge(); });
   }
 
   function isPreviewDeepLink() {
@@ -245,6 +250,7 @@
     }
     MeishiStore.addToImageLibrary(batch).then(function (n) {
       renderImgLibBox();
+      if (n > 0) syncRemoteAfterSave();
       if (n > 0) alert(n + " 件を画像保存ボックスに追加しました");
       else alert("選択した画像は既に登録済みです");
       if (n > 0 && !MeishiStore.getImageLibrary().length) {
@@ -449,6 +455,7 @@
     refreshCoDesign();
     refreshCoBackDesign();
     initPreviewPanel();
+    syncRemoteAfterSave();
   }
 
   function collectCoProfile() {
@@ -699,6 +706,7 @@
     if (deCoBackUI) deCoBackUI.invalidate();
     if (deSide === "back") refreshDeptBackDesign();
     else refreshDeptDesign();
+    syncRemoteAfterSave();
   }
 
   function collectDeptProfile() {
