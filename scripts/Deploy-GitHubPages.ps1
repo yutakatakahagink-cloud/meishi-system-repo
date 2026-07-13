@@ -67,8 +67,10 @@ if ($copied -eq 0) {
 $publicSrc = Join-Path $SourceRoot "meishi-app\public"
 $docsDest = Join-Path $RepoPath "docs"
 if (-not $RepoPath) { throw "RepoPath is empty." }
-if (-not (Test-Path -LiteralPath $publicSrc)) {
+if (-not $publicSrc -or -not (Test-Path -LiteralPath $publicSrc)) {
   Write-Warning "Skip docs sync (missing): $publicSrc"
+} elseif (-not $docsDest) {
+  Write-Warning "Skip docs sync (docsDest empty)"
 } else {
   if (Test-Path -LiteralPath $docsDest) {
     Remove-Item -LiteralPath $docsDest -Recurse -Force -ErrorAction Stop
