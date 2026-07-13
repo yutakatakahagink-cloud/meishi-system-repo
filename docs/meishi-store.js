@@ -6,11 +6,11 @@
   const REC_KEY = "meishi_records_v1";
   const IMG_LIB_KEY = "meishi_image_library_v1";
   const PREVIEW_PERSONAL_KEY = "meishi_preview_personal_v1";
-  const FB_CFG_PATH = "meishi_config";
+  const FB_CFG_PATH = "hh_data/meishi_config";
   const FB_AUTH_PATH = "hh_data/meishi_auth";
-  const FB_REC_PATH = "meishi_records";
-  const FB_IMG_LIB_PATH = "meishi_image_library";
-  const FB_PREVIEW_PERSONAL_PATH = "meishi_preview_personal";
+  const FB_REC_PATH = "hh_data/meishi_records";
+  const FB_IMG_LIB_PATH = "hh_data/meishi_image_library";
+  const FB_PREVIEW_PERSONAL_PATH = "hh_data/meishi_preview_personal";
 
   let _records = [];
   let _config = {
@@ -226,6 +226,10 @@
     return false;
   }
 
+  function shouldPreferRemoteData() {
+    return !window.MEISHI_OWNER_PAGE;
+  }
+
   async function loadImageLibraryFromStorage() {
     var sync = loadLocalImageLibrarySync();
     if (sync === "__idb__") {
@@ -362,31 +366,73 @@
     await savePreviewPersonalToStorage({});
   }
 
-  async function syncImageLibraryFromRemoteOnce(remoteLib) {
-    if (hasLocalImageLibrarySaved()) return;
-    var arr = Array.isArray(remoteLib) ? remoteLib.map(normalizeLibraryItem).filter(Boolean) : [];
-    _config.imageLibrary = arr;
-    await persistImageLibraryStore(arr);
+  async function applyImageLibraryWithRemote(remoteLib) {
+    var remoteArr = Array.isArray(remoteLib) ? remoteLib.map(normalizeLibraryItem).filter(Boolean) : [];
+    var hasRemote = remoteArr.length > 0;
+    if (shouldPreferRemoteData() && hasRemote) {
+      _config.imageLibrary = remoteArr;
+      await saveImageLibraryToStorage(remoteArr);
+      return;
+    }
+    if (!hasLocalImageLibrarySaved()) {
+      _config.imageLibrary = remoteArr;
+      await saveImageLibraryToStorage(remoteArr);
+      return;
+    }
+    await applyLocalImageLibrary();
   }
 
-  function mergeDeptSettingsEntry(lv, rv) {
+  async function applyPreviewPersonalWithRemote(remotePv) {
+    var hasRemote = remotePv && typeof remotePv === "object" && Object.keys(remotePv).length > 0;
+    if (shouldPreferRemoteData() && hasRemote) {
+      _previewPersonal = remotePv;
+      await savePreviewPersonalToStorage(_previewPersonal);
+      return;
+    }
+    if (!hasLocalPreviewPersonalSaved()) {
+      if (hasRemote) {
+        _previewPersonal = remotePv;
+        await savePreviewPersonalToStorage(_previewPersonal);
+        return;
+      }
+    }
+    await applyLocalPreviewPersonal();
+  }
+
+  function mergeDeptSettingsEntry(lv, rv, preferRemote) {
+    if (preferRemote) {
+      if (rv && typeof rv === "object") {
+        return normalizeDeptProfile(clone(rv), rv.company, rv.aff1, rv.aff2);
+      }
+      if (lv && typeof lv === "object") {
+        return normalizeDeptProfile(clone(lv), lv.company, lv.aff1, lv.aff2);
+      }
+      return normalizeDeptProfile({}, "", "", "");
+    }
     if (!lv || typeof lv !== "object") {
       return normalizeDeptProfile(clone(rv), rv.company, rv.aff1, rv.aff2);
     }
-    // 端末で編集・保存した部署設定を優先（リモートの空 layout で上書きしない）
+    // 所有者端末で編集・保存した部署設定を優先（リモートの空 layout で上書きしない）
     return normalizeDeptProfile(clone(lv), lv.company || rv.company, lv.aff1 || rv.aff1, lv.aff2 != null ? lv.aff2 : (rv.aff2 || ""));
   }
 
-  function mergeSettingsMaps(localMap, remoteMap) {
+  function mergeSettingsMaps(localMap, remoteMap, preferRemote) {
     localMap = localMap && typeof localMap === "object" ? localMap : {};
     remoteMap = remoteMap && typeof remoteMap === "object" ? remoteMap : {};
+    if (preferRemote) {
+      var remoteFirst = clone(remoteMap) || {};
+      Object.keys(localMap).forEach(function (k) {
+        if (!remoteFirst[k]) remoteFirst[k] = clone(localMap[k]);
+      });
+      return remoteFirst;
+    }
     var out = clone(localMap) || {};
     Object.keys(remoteMap).forEach(function (k) {
       var rv = remoteMap[k];
       var lv = out[k];
       if (rv && typeof rv === "object" && lv && typeof lv === "object") {
         if (k.indexOf("|") >= 0) {
-          out[k] = mergeDeptSettingsEntry(lv, rv);
+          out[k] = mergeDeptSettingsEntry(lv, rv, false);
         } else {
           out[k] = Object.assign({}, rv, lv);
           if (lv.layout && MeishiLayout.isValidLayout(lv.layout)) {
@@ -468,6 +514,7 @@
 
   function mergeConfigFromRemote(v) {
     if (!v || typeof v !== "object") return;
+    var preferRemote = shouldPreferRemoteData();
     var localCo = _config.companySettings || {};
     var localDept = _config.deptSettings || {};
     _config = Object.assign({}, _config, v);
@@ -483,14 +530,26 @@
     if (!_config.companySettings) _config.companySettings = {};
     if (!_config.deptSettings) _config.deptSettings = {};
     if (v.companySettings && typeof v.companySettings === "object") {
-      _config.companySettings = mergeSettingsMaps(localCo, v.companySettings);
+      _config.companySettings = mergeSettingsMaps(localCo, v.companySettings, preferRemote);
     }
     if (v.deptSettings && typeof v.deptSettings === "object") {
-      _config.deptSettings = mergeSettingsMaps(localDept, v.deptSettings);
+      _config.deptSettings = mergeSettingsMaps(localDept, v.deptSettings, preferRemote);
     }
     delete _config.imageLibrary;
     _fbCfgLoaded = true;
-    void applyLocalImageLibrary();
+  }
+
+  async function publishOwnerSnapshotToRemote() {
+    if (!_useFirebase || !_fbDb || !window.MEISHI_OWNER_PAGE) return;
+    var hasCo = Object.keys(_config.companySettings || {}).length > 0;
+    var hasDept = Object.keys(_config.deptSettings || {}).length > 0;
+    var hasLib = getImageLibrary().length > 0;
+    var hasPv = Object.keys(_previewPersonal || {}).length > 0;
+    if (!hasCo && !hasDept && !hasLib && !hasPv && !(_records && _records.length)) return;
+    persistCfg();
+    persistRec();
+    if (hasLib) await persistImageLibraryStore(getImageLibrary());
+    if (hasPv) await persistPreviewPersonalStore();
   }
 
   function verifyUserLogin(id, pw) {
@@ -1184,7 +1243,13 @@
     try {
       var snapRec = await _fbDb.ref(FB_REC_PATH).once("value");
       var rv = snapRec.val();
-      if (rv && Array.isArray(rv) && rv.length) { _records = rv; try { localStorage.setItem(REC_KEY, JSON.stringify(_records)); } catch (e) {} }
+      if (rv && Array.isArray(rv) && rv.length) {
+        var localRec = loadLocalRec();
+        if (shouldPreferRemoteData() || !localRec || !localRec.length) {
+          _records = rv;
+          try { localStorage.setItem(REC_KEY, JSON.stringify(_records)); } catch (e) {}
+        }
+      }
     } catch (e) {
       console.warn("[Meishi] Firebase records read failed", e);
     }
@@ -1197,27 +1262,26 @@
         try { localStorage.setItem(CFG_KEY, JSON.stringify(configForMainStorage())); } catch (e) {}
       }
     } catch (e) {
-      console.warn("[Meishi] Firebase config read failed（Database ルールに meishi_config の read を追加してください）", e);
+      console.warn("[Meishi] Firebase config read failed（hh_data/meishi_config）", e);
     }
 
+    var remoteImgLib = null;
     try {
       var snapImg = await _fbDb.ref(FB_IMG_LIB_PATH).once("value");
-      await syncImageLibraryFromRemoteOnce(snapImg.val());
-    } catch (e) {}
+      remoteImgLib = snapImg.val();
+    } catch (e) {
+      console.warn("[Meishi] Firebase image library read failed", e);
+    }
+    await applyImageLibraryWithRemote(remoteImgLib);
 
+    var remotePv = null;
     try {
-      if (!hasLocalPreviewPersonalSaved()) {
-        var snapPv = await _fbDb.ref(FB_PREVIEW_PERSONAL_PATH).once("value");
-        var remotePv = snapPv.val();
-        if (remotePv && typeof remotePv === "object") {
-          _previewPersonal = remotePv;
-          await persistPreviewPersonalStore();
-        }
-      }
-    } catch (e) {}
-
-    await applyLocalImageLibrary();
-    await applyLocalPreviewPersonal();
+      var snapPv = await _fbDb.ref(FB_PREVIEW_PERSONAL_PATH).once("value");
+      remotePv = snapPv.val();
+    } catch (e) {
+      console.warn("[Meishi] Firebase preview personal read failed", e);
+    }
+    await applyPreviewPersonalWithRemote(remotePv);
 
     try { _fbDb.ref(FB_CFG_PATH + "/imageLibrary").remove(); } catch (e) {}
 
@@ -1302,8 +1366,7 @@
       _config.ownerId = "";
       _config.ownerPass = "";
     }
-    await applyLocalImageLibrary();
-    await applyLocalPreviewPersonal();
+    await publishOwnerSnapshotToRemote();
     migrateDeptKeys();
     _ready = true;
   }
