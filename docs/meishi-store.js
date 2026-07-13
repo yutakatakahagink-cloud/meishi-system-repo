@@ -273,6 +273,23 @@
     return undefined;
   }
 
+  async function recoverImageLibraryFromFirebase() {
+    if (!_useFirebase || !_fbDb) return null;
+    try {
+      var snap = await _fbDb.ref(FB_IMG_LIB_PATH).once("value");
+      var remote = snap.val();
+      var arr = Array.isArray(remote) ? remote.map(normalizeLibraryItem).filter(Boolean) : [];
+      if (!arr.length) return null;
+      _config.imageLibrary = arr;
+      await saveImageLibraryToStorage(arr);
+      fireCfg();
+      return arr;
+    } catch (e) {
+      console.warn("[Meishi] recover from Firebase failed", e);
+      return null;
+    }
+  }
+
   async function recoverImageLibrary() {
     var sources = [];
     try {
@@ -314,12 +331,16 @@
         merged.push(n);
       });
     });
-    if (!merged.length) return { ok: false, count: 0 };
+    if (!merged.length) {
+      var fbArr = await recoverImageLibraryFromFirebase();
+      if (fbArr && fbArr.length) return { ok: true, count: fbArr.length, source: "firebase" };
+      return { ok: false, count: 0 };
+    }
     _config.imageLibrary = merged;
     await saveImageLibraryToStorage(merged);
     if (_useFirebase && _fbDb && window.MEISHI_OWNER_PAGE) await syncImageLibraryRemote(merged);
     fireCfg();
-    return { ok: true, count: merged.length };
+    return { ok: true, count: merged.length, source: "local" };
   }
 
   async function bootstrapLocalImageLibrary() {
@@ -518,8 +539,12 @@
       await applyLocalImageLibrary();
       return;
     }
-    _config.imageLibrary = remoteArr;
-    await saveImageLibraryToStorage(remoteArr);
+    if (hasRemote) {
+      _config.imageLibrary = remoteArr;
+      await saveImageLibraryToStorage(remoteArr);
+      return;
+    }
+    await applyLocalImageLibrary();
   }
 
   async function applyPreviewPersonalWithRemote(remotePv) {
