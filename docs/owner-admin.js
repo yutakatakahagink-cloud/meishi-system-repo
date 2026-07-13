@@ -213,6 +213,27 @@
     if (inp) inp.click();
   }
 
+  function recoverImagesFromBackup() {
+    if (!MeishiStore.recoverImageLibrary) {
+      alert("復元機能が利用できません。ページを再読み込みしてください。");
+      return;
+    }
+    void MeishiStore.recoverImageLibrary().then(function (r) {
+      renderImgLibBox();
+      syncRemoteAfterSave();
+      if (r && r.ok) {
+        alert(r.count + " 件の画像を復元しました。");
+        initPreviewPanel();
+      } else {
+        alert(
+          "復元できる画像が見つかりませんでした。\n\n" +
+            "・同じブラウザ・同じ開き方（file:// または http://127.0.0.1:8791）で owner.html を開いているか確認してください。\n" +
+            "・ブラウザのバックアップや以前の端末に残っている場合は、そちらから「＋ 追加」で再登録してください。"
+        );
+      }
+    });
+  }
+
   function onImgLibFilesSelected(e) {
     var files = e.target.files;
     if (!files || !files.length) return;
@@ -1103,6 +1124,7 @@
       };
     }
     document.getElementById("btnImgLibAdd").onclick = addImagesToLibrary;
+    document.getElementById("btnImgLibRecover").onclick = recoverImagesFromBackup;
     document.getElementById("imgLibFileInput").onchange = onImgLibFilesSelected;
     document.getElementById("coPick").onchange = fillCoPanel;
     document.getElementById("btnCoAdd").onclick = function () {
