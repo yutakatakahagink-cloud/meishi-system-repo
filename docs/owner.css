@@ -14,8 +14,16 @@ h2{color:var(--brand-d);font-size:1.05rem;margin:0 0 12px}
 .field.field-disabled label{color:#9aa3b5}
 .field.field-disabled select,.field.field-disabled input{background:#eef1f6;color:#9aa3b5;cursor:not-allowed;border-color:#e2e7ef}
 input,select,textarea{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;font-size:.92rem}
-.field-name-search input[type="search"]{margin-bottom:6px}
-.field-name-search input[type="search"]::-webkit-search-cancel-button{-webkit-appearance:searchfield-cancel-button}
+.name-combo{position:relative}
+.name-combo input{padding-right:36px}
+.name-combo-toggle{position:absolute;top:1px;right:1px;bottom:1px;width:34px;border:0;background:transparent;color:#54607a;cursor:pointer;border-radius:0 8px 8px 0;font-size:.7rem;line-height:1}
+.name-combo-toggle:hover{background:#eef2f8;color:var(--brand)}
+.name-combo-list{position:absolute;z-index:40;left:0;right:0;top:calc(100% + 2px);max-height:220px;overflow:auto;margin:0;padding:4px 0;list-style:none;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 8px 20px rgba(20,35,70,.12)}
+.name-combo-list li{padding:8px 12px;cursor:pointer;font-size:.9rem}
+.name-combo-list li:hover,.name-combo-list li.is-active{background:#eef2f8;color:var(--brand)}
+.name-combo-list li.is-empty{color:#9aa3b5;cursor:default}
+.name-combo-list li.is-empty:hover{background:transparent;color:#9aa3b5}
+.field.field-disabled .name-combo-toggle{cursor:not-allowed;opacity:.45}
 .field-ro input{background:#f3f6fb;color:#6b7280}
 .btn{border:none;border-radius:10px;cursor:pointer;font-size:.95rem;padding:10px 16px;font-weight:600;background:var(--brand);color:#fff;box-shadow:0 1px 2px rgba(0,0,0,.08)}
 .btn.sm{padding:7px 12px;font-size:.82rem}.btn.ghost{background:#fff;color:var(--brand);border:1px solid var(--line)}

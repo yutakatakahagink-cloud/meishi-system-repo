@@ -5,7 +5,8 @@
 (function () {
   var DEFAULT_IDS = {
     selName: "selName",
-    selNameSearch: "selNameSearch",
+    selNameList: "selNameList",
+    selNameToggle: "selNameToggle",
     selCompany: "selCompany",
     selAff1: "selAff1",
     selAff2: "selAff2",
@@ -55,6 +56,8 @@
     var storeHooked = false;
     var nameOptionsAll = [];
     var nameSearchComposing = false;
+    var nameComboOpen = false;
+    var nameComboActiveIndex = -1;
 
     function reloadRecords() {
       records = MeishiStore.getMergedRecords();
@@ -96,33 +99,122 @@
       return normalizeNameQuery(n).indexOf(normalizeNameQuery(q)) >= 0;
     }
 
-    function getNameSearchEl() {
-      var byId = el("selNameSearch");
+    function getNameListEl() {
+      var byId = el("selNameList");
       if (byId) return byId;
-      var nameSel = el("selName");
-      if (!nameSel) return null;
-      var field = nameSel.closest(".field-name-search") || nameSel.closest(".field");
-      if (!field) return null;
-      return field.querySelector('input[type="search"], input.name-search, #pvSelNameSearch, #selNameSearch');
+      var nameEl = el("selName");
+      if (!nameEl) return null;
+      var wrap = nameEl.closest(".name-combo") || nameEl.closest(".field");
+      return wrap ? wrap.querySelector(".name-combo-list") : null;
     }
 
-    function fillNameSelect(values, placeholder, skipAutoPick) {
-      var selEl = el("selName");
-      if (!selEl) return false;
-      nameOptionsAll = uniq(values).sort(function (a, b) {
+    function getNameToggleEl() {
+      var byId = el("selNameToggle");
+      if (byId) return byId;
+      var nameEl = el("selName");
+      if (!nameEl) return null;
+      var wrap = nameEl.closest(".name-combo") || nameEl.closest(".field");
+      return wrap ? wrap.querySelector(".name-combo-toggle") : null;
+    }
+
+    function filteredNameOptions(query, forceAll) {
+      var q = forceAll ? "" : String(query || "");
+      return nameOptionsAll.filter(function (v) { return nameMatchesQuery(v, q); });
+    }
+
+    function setNameComboOpen(open) {
+      nameComboOpen = !!open;
+      var inp = el("selName");
+      var list = getNameListEl();
+      if (inp) inp.setAttribute("aria-expanded", nameComboOpen ? "true" : "false");
+      if (!list) return;
+      if (nameComboOpen) list.hidden = false;
+      else list.hidden = true;
+    }
+
+    function renderNameComboList(forceAll) {
+      var inp = el("selName");
+      var list = getNameListEl();
+      if (!inp || !list) return;
+      var query = forceAll ? "" : String(inp.value || "");
+      var items = filteredNameOptions(query, !!forceAll);
+      nameComboActiveIndex = -1;
+      if (!items.length) {
+        list.innerHTML = '<li class="is-empty">（該当なし）</li>';
+        return;
+      }
+      list.innerHTML = items.map(function (v, i) {
+        return '<li role="option" data-name="' + esc(v) + '" data-idx="' + i + '">' + esc(v) + "</li>";
+      }).join("");
+    }
+
+    function commitNameValue(name, opts) {
+      opts = opts || {};
+      var inp = el("selName");
+      var next = String(name || "").trim();
+      var prev = S.name;
+      S.name = next;
+      if (inp) inp.value = next;
+      setNameComboOpen(false);
+      if (opts.skipRebuild) return;
+      if (prev !== next || opts.forceRebuild) {
+        if (inp) {
+          try {
+            inp.dispatchEvent(new Event("change", { bubbles: true }));
+          } catch (e) {
+            var ev = document.createEvent("HTMLEvents");
+            ev.initEvent("change", true, false);
+            inp.dispatchEvent(ev);
+          }
+        }
+        rebuild();
+      }
+    }
+
+    function fillNameSelect(_values, _placeholder, skipAutoPick) {
+      var inp = el("selName");
+      if (!inp) return false;
+      var field = inp.closest(".field");
+      // プルダウンは常に全社員を候補にする
+      nameOptionsAll = uniq(records.map(function (r) { return r.name; })).sort(function (a, b) {
         return String(a).localeCompare(String(b), "ja");
       });
-      var searchEl = getNameSearchEl();
-      var query = searchEl ? String(searchEl.value || "") : "";
-      var filtered = nameOptionsAll.filter(function (v) { return nameMatchesQuery(v, query); });
-      // 選択中の氏名は検索で隠さない（見失い防止）
-      if (S.name && filtered.indexOf(S.name) < 0 && nameOptionsAll.indexOf(S.name) >= 0) {
-        filtered = [S.name].concat(filtered);
+      var changed = false;
+      if (!nameOptionsAll.length) {
+        inp.disabled = true;
+        inp.value = "";
+        if (field) field.classList.add("field-disabled");
+        if (S.name !== "") { S.name = ""; changed = true; }
+        renderNameComboList(true);
+        setNameComboOpen(false);
+        return changed;
       }
-      return fillSelect(selEl, filtered, placeholder || "氏名を選択", "name", skipAutoPick);
+      inp.disabled = false;
+      if (field) field.classList.remove("field-disabled");
+      if (skipAutoPick) {
+        if (S.name !== "") { S.name = ""; changed = true; }
+        inp.value = "";
+        renderNameComboList(true);
+        return changed;
+      }
+      if (nameOptionsAll.length === 1 && !S.name) {
+        S.name = nameOptionsAll[0];
+        changed = true;
+      }
+      if (S.name && nameOptionsAll.indexOf(S.name) < 0) {
+        S.name = "";
+        changed = true;
+      }
+      if (!(document.activeElement === inp && !S.name && nameComboOpen)) {
+        inp.value = S.name || "";
+      }
+      if (nameComboOpen) renderNameComboList(false);
+      return changed;
     }
 
     function fillSelect(selEl, values, placeholder, stateKey, skipAutoPick) {
+      if (!selEl) return false;
+      if (selEl.tagName === "INPUT") return false;
       var arr = uniq(values);
       var field = selEl.closest(".field");
       var changed = false;
@@ -131,10 +223,6 @@
         selEl.disabled = true;
         selEl.value = "";
         if (field) field.classList.add("field-disabled");
-        if (stateKey === "name") {
-          var ns = getNameSearchEl();
-          if (ns && !String(ns.value || "").trim()) { /* keep typed query */ }
-        }
         if (S[stateKey] !== "") { S[stateKey] = ""; changed = true; }
         return changed;
       }
@@ -329,77 +417,169 @@
     function bindSel(idKey, stateKey, resetKeys) {
       var node = el(idKey);
       if (!node || node._mpBound) return;
+      if (node.tagName === "INPUT" && stateKey === "name") return;
       node._mpBound = true;
       node.addEventListener("change", function () {
         S[stateKey] = this.value;
         (resetKeys || []).forEach(function (k) { S[k] = ""; });
-        var searchEl = getNameSearchEl();
-        if (stateKey === "name" && searchEl && this.value) searchEl.value = this.value;
         rebuild();
       });
     }
 
-    function applyNameSearchFilter(fromCompositionEnd) {
-      var selEl = el("selName");
-      var searchEl = getNameSearchEl();
-      if (!selEl) return;
-      var query = searchEl ? String(searchEl.value || "") : "";
-      var filtered = nameOptionsAll.filter(function (v) { return nameMatchesQuery(v, query); });
-      if (S.name && filtered.indexOf(S.name) < 0 && nameOptionsAll.indexOf(S.name) >= 0) {
-        filtered = [S.name].concat(filtered);
-      }
-      var prev = S.name;
-      fillSelect(selEl, filtered, "氏名を選択", "name", false);
-      if (prev && nameOptionsAll.indexOf(prev) >= 0) {
-        S.name = prev;
-        if (filtered.indexOf(prev) >= 0) selEl.value = prev;
-      }
-      if (fromCompositionEnd && filtered.length === 1 && !S.name) {
-        S.name = filtered[0];
-        selEl.value = filtered[0];
-        if (searchEl) searchEl.value = filtered[0];
-        rebuild();
+    function highlightNameComboItem(idx) {
+      var list = getNameListEl();
+      if (!list) return;
+      var items = list.querySelectorAll("li[data-name]");
+      nameComboActiveIndex = idx;
+      items.forEach(function (li, i) {
+        li.classList.toggle("is-active", i === idx);
+      });
+      if (idx >= 0 && items[idx] && items[idx].scrollIntoView) {
+        items[idx].scrollIntoView({ block: "nearest" });
       }
     }
 
-    function bindNameSearch() {
-      var searchEl = getNameSearchEl();
-      if (!searchEl || searchEl._mpBound) return;
-      searchEl._mpBound = true;
-      searchEl.addEventListener("compositionstart", function () { nameSearchComposing = true; });
-      searchEl.addEventListener("compositionend", function () {
-        nameSearchComposing = false;
-        applyNameSearchFilter(true);
-      });
-      searchEl.addEventListener("input", function () {
-        if (nameSearchComposing) return;
-        applyNameSearchFilter(false);
-      });
-      searchEl.addEventListener("keydown", function (ev) {
-        if (ev.key !== "Enter") return;
-        ev.preventDefault();
-        var selEl = el("selName");
-        if (!selEl || selEl.disabled) return;
-        var opts = Array.prototype.slice.call(selEl.options || []).map(function (o) { return o.value; }).filter(Boolean);
-        var q = String(searchEl.value || "").trim();
-        var pick = "";
-        if (opts.indexOf(q) >= 0) pick = q;
-        else if (opts.length === 1) pick = opts[0];
-        else {
-          var hits = opts.filter(function (v) { return nameMatchesQuery(v, q); });
-          if (hits.length === 1) pick = hits[0];
+    function openNameCombo(forceAll) {
+      var inp = el("selName");
+      if (!inp || inp.disabled) return;
+      renderNameComboList(!!forceAll);
+      setNameComboOpen(true);
+      highlightNameComboItem(-1);
+    }
+
+    function bindNameCombo() {
+      var inp = el("selName");
+      var list = getNameListEl();
+      var toggle = getNameToggleEl();
+      if (!inp || inp._mpNameComboBound) return;
+      inp._mpNameComboBound = true;
+
+      function pickFromActiveOrQuery() {
+        var items = filteredNameOptions(inp.value, false);
+        if (nameComboActiveIndex >= 0 && items[nameComboActiveIndex]) {
+          commitNameValue(items[nameComboActiveIndex]);
+          return;
         }
-        if (!pick) return;
-        S.name = pick;
-        selEl.value = pick;
-        searchEl.value = pick;
-        rebuild();
+        var q = String(inp.value || "").trim();
+        if (nameOptionsAll.indexOf(q) >= 0) {
+          commitNameValue(q);
+          return;
+        }
+        if (items.length === 1) {
+          commitNameValue(items[0]);
+          return;
+        }
+      }
+
+      inp.addEventListener("focus", function () {
+        openNameCombo(!String(inp.value || "").trim());
       });
+      inp.addEventListener("click", function () {
+        openNameCombo(!String(inp.value || "").trim());
+      });
+      inp.addEventListener("compositionstart", function () { nameSearchComposing = true; });
+      inp.addEventListener("compositionend", function () {
+        nameSearchComposing = false;
+        openNameCombo(false);
+      });
+      inp.addEventListener("input", function () {
+        if (nameSearchComposing) return;
+        // 入力中は確定氏名をいったん外し、候補を下に表示
+        if (S.name && String(inp.value || "") !== S.name) S.name = "";
+        openNameCombo(false);
+      });
+      inp.addEventListener("keydown", function (ev) {
+        if (ev.key === "ArrowDown") {
+          ev.preventDefault();
+          if (!nameComboOpen) openNameCombo(!String(inp.value || "").trim());
+          var itemsDown = filteredNameOptions(inp.value, false);
+          if (!itemsDown.length && !String(inp.value || "").trim()) {
+            openNameCombo(true);
+            itemsDown = filteredNameOptions("", true);
+          }
+          if (!itemsDown.length) return;
+          highlightNameComboItem(Math.min(itemsDown.length - 1, nameComboActiveIndex + 1));
+          return;
+        }
+        if (ev.key === "ArrowUp") {
+          ev.preventDefault();
+          if (!nameComboOpen) return;
+          highlightNameComboItem(Math.max(-1, nameComboActiveIndex - 1));
+          return;
+        }
+        if (ev.key === "Enter") {
+          ev.preventDefault();
+          pickFromActiveOrQuery();
+          return;
+        }
+        if (ev.key === "Escape") {
+          setNameComboOpen(false);
+          if (S.name) inp.value = S.name;
+          return;
+        }
+      });
+      inp.addEventListener("blur", function () {
+        setTimeout(function () {
+          if (!nameComboOpen) return;
+          setNameComboOpen(false);
+          var q = String(inp.value || "").trim();
+          if (!q) {
+            if (S.name) commitNameValue("", { forceRebuild: true });
+            return;
+          }
+          if (nameOptionsAll.indexOf(q) >= 0) {
+            if (q !== S.name) commitNameValue(q);
+            else inp.value = q;
+            return;
+          }
+          var hits = filteredNameOptions(q, false);
+          if (hits.length === 1) {
+            commitNameValue(hits[0]);
+            return;
+          }
+          // 未確定入力は選択値へ戻す
+          inp.value = S.name || "";
+        }, 150);
+      });
+
+      if (toggle && !toggle._mpBound) {
+        toggle._mpBound = true;
+        toggle.addEventListener("mousedown", function (ev) { ev.preventDefault(); });
+        toggle.addEventListener("click", function (ev) {
+          ev.preventDefault();
+          if (inp.disabled) return;
+          if (nameComboOpen) {
+            setNameComboOpen(false);
+            return;
+          }
+          inp.focus();
+          openNameCombo(true);
+        });
+      }
+
+      if (list && !list._mpBound) {
+        list._mpBound = true;
+        list.addEventListener("mousedown", function (ev) {
+          var li = ev.target.closest("li[data-name]");
+          if (!li) return;
+          ev.preventDefault();
+          commitNameValue(li.getAttribute("data-name") || "");
+        });
+      }
+
+      if (!document.documentElement._mpNameComboDocBound) {
+        document.documentElement._mpNameComboDocBound = true;
+        document.addEventListener("mousedown", function (ev) {
+          var wrap = inp.closest(".name-combo");
+          if (!wrap) return;
+          if (wrap.contains(ev.target)) return;
+          setNameComboOpen(false);
+        });
+      }
     }
 
     function bindInputs() {
-      bindNameSearch();
-      bindSel("selName", "name", []);
+      bindNameCombo();
       bindSel("selCompany", "company", []);
       bindSel("selAff1", "aff1", []);
       bindSel("selAff2", "aff2", []);
@@ -411,10 +591,10 @@
         sp.addEventListener("change", function () { S.postal = this.value; rebuild(); });
       }
       ["inQual", "inAddress", "inTel", "inFax", "inMobile", "inEmail", "inUrl", "inKoji"].forEach(function (k) {
-        var inp = el(k);
-        if (inp && !inp._mpBound) {
-          inp._mpBound = true;
-          inp.addEventListener("input", renderCard);
+        var inp2 = el(k);
+        if (inp2 && !inp2._mpBound) {
+          inp2._mpBound = true;
+          inp2.addEventListener("input", renderCard);
         }
       });
       var btn = el("btnPrint");
@@ -467,8 +647,9 @@
 
     function clear() {
       S = { name: "", company: "", aff1: "", aff2: "", aff3: "", title: "", postal: "" };
-      var searchEl = getNameSearchEl();
-      if (searchEl) searchEl.value = "";
+      var nameInp = el("selName");
+      if (nameInp) nameInp.value = "";
+      setNameComboOpen(false);
       ["inQual", "inAddress", "inTel", "inFax", "inMobile", "inEmail", "inUrl", "inKoji"].forEach(function (k) {
         var inp = el(k);
         if (inp) inp.value = "";
@@ -479,7 +660,7 @@
       var changed = true;
       while (changed && guard++ < 20) {
         changed = false;
-        changed = fillNameSelect(filteredExcept("name").map(function (r) { return r.name; }), "氏名を選択", true) || changed;
+        changed = fillNameSelect(null, "氏名を選択", true) || changed;
         changed = fillSelect(el("selCompany"), filteredExcept("company").map(function (r) { return r.company; }), "会社・団体名", "company", true) || changed;
         changed = fillSelect(el("selAff1"), filteredExcept("aff1").map(function (r) { return r.aff1; }), "所属1", "aff1", true) || changed;
         changed = fillSelect(el("selAff2"), filteredExcept("aff2").map(function (r) { return r.aff2; }), "所属2", "aff2", true) || changed;

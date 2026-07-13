@@ -16,10 +16,10 @@
     <script src="meishi-card-ui.js?v=20250714b"></script>
     <script src="meishi-back-card-ui.js?v=20250618c"></script>
     <script src="meishi-print-sheet.js?v=20250706c"></script>
-    <script src="meishi-user-print.js?v=20250714c"></script>
-    <script src="meishi-preview-init.js?v=20250714c"></script>
+    <script src="meishi-user-print.js?v=20250714d"></script>
+    <script src="meishi-preview-init.js?v=20250714d"></script>
     <link rel="stylesheet" href="meishi-print-sheet.css?v=20250706c" />
-    <link rel="stylesheet" href="owner.css?v=20250714c" />
+    <link rel="stylesheet" href="owner.css?v=20250714d" />
     <style>
       .view{display:none}.view.active{display:block}
       header .header-actions{display:flex;align-items:center;gap:8px;margin-left:auto}
@@ -62,10 +62,13 @@
           <div class="print-editor">
             <div class="print-panel card inner">
               <h3>項目を選択</h3>
-              <div class="field field-name-search">
+              <div class="field field-name-combo">
                 <label>氏名</label>
-                <input type="search" id="pvSelNameSearch" placeholder="氏名を検索（かな・漢字）" autocomplete="off" />
-                <select id="pvSelName"></select>
+                <div class="name-combo" id="pvNameCombo">
+                  <input type="text" id="pvSelName" placeholder="氏名を選択・検索" autocomplete="off" spellcheck="false" role="combobox" aria-autocomplete="list" aria-expanded="false" />
+                  <button type="button" class="name-combo-toggle" id="pvSelNameToggle" aria-label="氏名一覧を開く" tabindex="-1">▼</button>
+                  <ul class="name-combo-list" id="pvSelNameList" hidden></ul>
+                </div>
               </div>
               <div class="field"><label>会社・団体名</label><select id="pvSelCompany"></select></div>
               <div class="field"><label>所属1</label><select id="pvSelAff1"></select></div>
