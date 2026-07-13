@@ -1230,6 +1230,76 @@
     saveCompanyProfile(key, MeishiCatalog.emptyCompanyProfile(key));
   }
 
+  /** 名刺デザインの文字・配置のみ（images を除く）を他会社へ適用 */
+  function layoutTextOnlyFrom(layout) {
+    var base = MeishiCatalog.normalizeLayout(clone(layout));
+    if (!base) base = MeishiLayout.defLayout();
+    base.images = [];
+    return base;
+  }
+
+  function backLayoutTextOnlyFrom(layoutBack) {
+    var base = MeishiCatalog.normalizeBackLayout(clone(layoutBack));
+    if (!base) base = MeishiLayout.defBackLayout();
+    base.images = [];
+    return base;
+  }
+
+  /**
+   * sourceCompany の表・裏デザインから画像以外（文字位置・書式・裏面テキスト等）を
+   * 他の会社・団体へ適用する。各社の既存画像は残す。
+   * @returns {{ ok: boolean, count: number, source: string, targets: string[] }}
+   */
+  function applyCompanyDesignTextOnly(sourceCompany, opts) {
+    opts = opts || {};
+    var srcKey = MeishiFields.norm(sourceCompany || "日新興業株式会社");
+    if (!srcKey) throw new Error("元になる会社名を指定してください");
+    var src = getCompanyProfileForEdit(srcKey);
+    if (!src.layout || !MeishiLayout.isValidLayout(src.layout)) {
+      throw new Error("「" + srcKey + "」に名刺デザイン（表）がありません。先に会社共通を保存してください。");
+    }
+    var frontText = layoutTextOnlyFrom(src.layout);
+    var backText =
+      src.layoutBack && MeishiLayout.isValidBackLayout(src.layoutBack)
+        ? backLayoutTextOnlyFrom(src.layoutBack)
+        : MeishiLayout.defBackLayout();
+
+    var targets = Array.isArray(opts.targets) && opts.targets.length
+      ? opts.targets.map(function (c) { return MeishiFields.norm(c); }).filter(Boolean)
+      : getCompanyList().map(function (c) { return MeishiFields.norm(c); }).filter(function (c) {
+          return c && c !== srcKey;
+        });
+
+    _config.companySettings = _config.companySettings || {};
+    var applied = [];
+    targets.forEach(function (key) {
+      if (!key || key === srcKey) return;
+      var existing = getCompanyProfileForEdit(key);
+      var keepFrontImgs =
+        existing.layout && Array.isArray(existing.layout.images) ? clone(existing.layout.images) : [];
+      var keepBackImgs =
+        existing.layoutBack && Array.isArray(existing.layoutBack.images)
+          ? clone(existing.layoutBack.images)
+          : [];
+      var newLayout = layoutTextOnlyFrom(frontText);
+      newLayout.images = keepFrontImgs || [];
+      var newBack = backLayoutTextOnlyFrom(backText);
+      newBack.images = keepBackImgs || [];
+      _config.companySettings[key] = {
+        company: key,
+        catalog: clone(existing.catalog) || MeishiCatalog.emptyCatalog(),
+        layout: compactLayoutForStore(newLayout),
+        layoutBack: compactBackLayoutForStore(newBack),
+      };
+      applied.push(key);
+    });
+    if (applied.length) {
+      persistCfg();
+      fireCfg();
+    }
+    return { ok: true, count: applied.length, source: srcKey, targets: applied };
+  }
+
   function getMergedRecords() {
     var cs = {};
     var ds = _config.deptSettings || {};
@@ -1672,6 +1742,7 @@
     renameCompany: renameCompany,
     deleteCompany: deleteCompany,
     addCompany: addCompany,
+    applyCompanyDesignTextOnly: applyCompanyDesignTextOnly,
     getDeptSettings: getDeptSettings,
     getDeptSettingsForEdit: getDeptSettingsForEdit,
     saveDeptSettings: saveDeptSettings,

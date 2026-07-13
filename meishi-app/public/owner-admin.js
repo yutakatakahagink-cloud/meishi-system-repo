@@ -1161,6 +1161,35 @@
       afterCoSaveRefresh();
       alert("名刺データからマスタを取り込み、関連データを更新しました");
     };
+    document.getElementById("btnCoApplyDesignText").onclick = function () {
+      var src = "日新興業株式会社";
+      var others = MeishiStore.getCompanyList().filter(function (c) {
+        return MeishiFields.norm(c) !== MeishiFields.norm(src);
+      });
+      if (!others.length) return alert("適用先の会社・団体がありません（名刺データに他の会社が必要です）");
+      if (
+        !confirm(
+          "「" + src + "」の名刺デザイン（文字位置・書式・裏面テキストなど、画像以外）を\n" +
+            "次の " + others.length + " 社へ適用しますか？\n\n・" + others.join("\n・") +
+            "\n\n※各社の既存画像はそのまま残ります"
+        )
+      ) {
+        return;
+      }
+      try {
+        if (MeishiFields.norm(currentCo) === MeishiFields.norm(src)) {
+          MeishiStore.saveCompanyProfile(currentCo, collectCoProfile(), collectCoSaveMutations());
+        }
+        var r = MeishiStore.applyCompanyDesignTextOnly(src);
+        syncRemoteAfterSave();
+        fillCoPick();
+        fillCoPanel();
+        afterCoSaveRefresh();
+        alert("画像以外のデザインを " + (r.count || 0) + " 社へ適用しました。");
+      } catch (e) {
+        alert(e.message || e);
+      }
+    };
     document.getElementById("btnSaveCo").onclick = function () {
       syncCoCatalogToRecords(null);
       var pending = collectCoSaveMutations();
