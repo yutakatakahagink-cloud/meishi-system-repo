@@ -176,6 +176,22 @@
         });
       }
     }
+    if (!Array.isArray(layout.texts)) layout.texts = [];
+    layout.texts = layout.texts.map(function (t, i) {
+      if (!t || typeof t !== "object") return MeishiLayout.defTextBlock(i);
+      if (!t.id) t.id = "txt" + Date.now() + i;
+      if (t.content == null) t.content = "";
+      if (typeof t.x !== "number") t.x = 20;
+      if (typeof t.y !== "number") t.y = 20;
+      if (typeof t.size !== "number") t.size = 12;
+      if (!t.color) t.color = "#222222";
+      if (t.bold == null) t.bold = 0;
+      if (t.italic == null) t.italic = 0;
+      if (t.underline == null) t.underline = 0;
+      if (t.font == null) t.font = "";
+      if (!t.align) t.align = "left";
+      return t;
+    });
     if (typeof layout.centerShiftMm !== "number" || isNaN(layout.centerShiftMm)) {
       layout.centerShiftMm = 5;
     }
@@ -189,6 +205,7 @@
           layout.el[e.id] = MeishiLayout.clone(def.el[e.id]);
         }
       }
+      if (layout.el[e.id] && layout.el[e.id].font == null) layout.el[e.id].font = "";
     });
     return layout;
   }

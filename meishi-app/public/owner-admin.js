@@ -1200,6 +1200,16 @@
     document.getElementById("btnCoImgPick").onclick = function () {
       pickImagesIntoLayout(coLayout, "co", function () { refreshCoDesign(); });
     };
+    document.getElementById("btnCoFrontText").onclick = function () {
+      if (!coLayout) coLayout = MeishiLayout.defLayout();
+      coLayout = MeishiCatalog.normalizeLayout(coLayout);
+      coLayout.texts = coLayout.texts || [];
+      var block = MeishiLayout.defTextBlock(coLayout.texts.length);
+      coLayout.texts.push(block);
+      if (coUI) coUI.invalidate();
+      refreshCoDesign();
+      if (coUI && coUI.editTextById) coUI.editTextById(block.id, true);
+    };
     document.getElementById("btnCoDesReset").onclick = function () {
       if (!confirm("デザインを初期化しますか？")) return;
       coLayout = MeishiLayout.defLayout();

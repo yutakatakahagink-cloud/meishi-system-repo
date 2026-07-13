@@ -1425,6 +1425,7 @@
     if (!dept) return base;
     var merged = MeishiLayout.clone(base);
     if (dept.images && dept.images.length) merged.images = (merged.images || []).concat(MeishiLayout.clone(dept.images));
+    if (dept.texts && dept.texts.length) merged.texts = (merged.texts || []).concat(MeishiLayout.clone(dept.texts));
     return MeishiCatalog.normalizeLayout(merged);
   }
 

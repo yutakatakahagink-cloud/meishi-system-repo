@@ -8,6 +8,10 @@
   var FLOW_PAD = 6;
   var CARD_W_MM = 91;
   var CENTER_GAP_MM = 2;
+  var DRAG_START = 5;
+  var SIZE_MIN = 6;
+  var SIZE_MAX = 60;
+  var SIZE_STEP = 1;
 
   function maxCenterShiftMm() {
     return (CARD_W_MM - CENTER_GAP_MM) / 2;
@@ -60,7 +64,7 @@
     }
     function addNodesFrom(root) {
       if (!root) return;
-      root.querySelectorAll(".el, .imgel").forEach(function (n) {
+      root.querySelectorAll(".el, .btel, .imgel").forEach(function (n) {
         if (n === excludeNode) return;
         var r = n.getBoundingClientRect();
         var l = r.left - cr.left;
@@ -122,8 +126,11 @@
     var built = false;
     var elNodes = {};
     var imgNodes = {};
+    var textNodes = {};
+    var editingId = null;
     var guideLayer = null;
     var zoneLayer = null;
+    var panelShowDesign = null;
 
     function getCenterShiftMm() {
       var layout = getLayout();
@@ -341,6 +348,9 @@
       Object.keys(elNodes).forEach(function (id) {
         elNodes[id].classList.toggle("sel", id === sel);
       });
+      Object.keys(textNodes).forEach(function (id) {
+        textNodes[id].classList.toggle("sel", id === sel);
+      });
       Object.keys(imgNodes).forEach(function (id) {
         imgNodes[id].wrap.classList.toggle("sel", sel === imgSelId(id));
       });
@@ -409,6 +419,7 @@
       node.style.top = st.y + "px";
       node.style.fontSize = st.size + "px";
       node.style.color = st.color;
+      node.style.fontFamily = MeishiLayout.resolveBackFontFamily(st.font || "");
       node.style.fontWeight = st.bold ? "700" : "400";
       node.style.textAlign = st.align;
       node.style.overflow = "";
@@ -490,6 +501,8 @@
       if (built) return;
       cardEl.innerHTML = "";
       elNodes = {};
+      textNodes = {};
+      editingId = null;
       if (readOnly) cardEl.classList.add("print-readonly");
       else cardEl.classList.remove("print-readonly");
       if (textFlow) cardEl.classList.add("text-flow");
@@ -512,7 +525,7 @@
           var d = document.createElement("div");
           d.className = "el";
           d.dataset.id = e.id;
-          if (!readOnly) attachDrag(d, st);
+          if (!readOnly) attachDrag(d, st, false);
           else d.style.cursor = "default";
           cardEl.appendChild(d);
           elNodes[e.id] = d;
@@ -569,7 +582,7 @@
           rs.className = "rs";
           wrap.appendChild(rs);
           if (!readOnly) {
-            attachDrag(wrap, raw);
+            attachDrag(wrap, raw, true);
             attachResize(rs, raw, wrap);
           } else {
             wrap.style.cursor = "default";
@@ -591,6 +604,122 @@
         if (!ids[id]) {
           imgNodes[id].wrap.remove();
           delete imgNodes[id];
+        }
+      });
+    }
+
+    function cardInnerWidth() {
+      var w = cardEl.clientWidth;
+      if (w > 0) return w;
+      return Math.round(91 * 96 / 25.4);
+    }
+
+    function applyFreeTextStyle(node, st, skipContent) {
+      if (!skipContent && st.id !== editingId && document.activeElement !== node) {
+        node.textContent = st.content || "";
+      }
+      node.style.left = st.x + "px";
+      node.style.top = st.y + "px";
+      node.style.fontSize = st.size + "px";
+      node.style.color = st.color;
+      node.style.fontFamily = MeishiLayout.resolveBackFontFamily(st.font || "");
+      node.style.fontWeight = st.bold ? "700" : "400";
+      node.style.fontStyle = st.italic ? "italic" : "normal";
+      node.style.textDecoration = st.underline ? "underline" : "none";
+      node.style.textAlign = st.align || "left";
+      node.style.whiteSpace = "pre-wrap";
+      node.style.wordBreak = "break-word";
+      node.style.maxWidth = Math.max(40, cardInnerWidth() - st.x - 8) + "px";
+    }
+
+    function syncFreeTextContentFromNode(node, st) {
+      st.content = (node.innerText || "").replace(/\r\n/g, "\n");
+    }
+
+    function exitInlineEdit(node, st) {
+      if (!node || !st || editingId !== st.id) return;
+      syncFreeTextContentFromNode(node, st);
+      node.contentEditable = "false";
+      node.classList.remove("is-editing");
+      editingId = null;
+      saveLayout();
+    }
+
+    function enterInlineEdit(node, st, selectAll) {
+      if (readOnly || !node || !st) return;
+      editingId = st.id;
+      sel = st.id;
+      updateSelectionHighlight();
+      onSelect(st.id, getLayout());
+      node.contentEditable = "true";
+      node.classList.add("is-editing");
+      if (node.textContent !== (st.content || "")) node.textContent = st.content || "";
+      node.focus();
+      if (selectAll) {
+        try {
+          var range = document.createRange();
+          range.selectNodeContents(node);
+          var selObj = window.getSelection();
+          if (selObj) { selObj.removeAllRanges(); selObj.addRange(range); }
+        } catch (e) {}
+      }
+      if (panelShowDesign) panelShowDesign();
+    }
+
+    function attachInlineEdit(node, st) {
+      node.addEventListener("blur", function () {
+        if (editingId === st.id) exitInlineEdit(node, st);
+      });
+      node.addEventListener("input", function () {
+        if (editingId !== st.id) return;
+        syncFreeTextContentFromNode(node, st);
+        saveLayout();
+      });
+      node.addEventListener("keydown", function (ev) {
+        if (editingId !== st.id) return;
+        if (ev.key === "Escape") {
+          ev.preventDefault();
+          node.blur();
+        }
+        ev.stopPropagation();
+      });
+      node.addEventListener("dblclick", function (ev) {
+        if (readOnly) return;
+        ev.preventDefault();
+        ev.stopPropagation();
+        enterInlineEdit(node, st, false);
+      });
+    }
+
+    function syncFreeTextNodes() {
+      if (hideElements) return;
+      var layout = MeishiCatalog.normalizeLayout(getLayout());
+      var texts = layout.texts || [];
+      var ids = {};
+      texts.forEach(function (st) {
+        if (!st || !st.id) return;
+        ids[st.id] = st;
+        var node = textNodes[st.id];
+        if (!node) {
+          node = document.createElement("div");
+          node.className = "btel";
+          node.dataset.id = st.id;
+          if (!readOnly) {
+            attachDrag(node, st, false);
+            attachInlineEdit(node, st);
+          } else {
+            node.style.cursor = "default";
+          }
+          cardEl.appendChild(node);
+          textNodes[st.id] = node;
+        }
+        applyFreeTextStyle(node, st, editingId === st.id);
+      });
+      Object.keys(textNodes).forEach(function (id) {
+        if (!ids[id]) {
+          textNodes[id].remove();
+          delete textNodes[id];
+          if (editingId === id) editingId = null;
         }
       });
     }
@@ -619,32 +748,35 @@
           });
         }
         reflowTextElements(layout);
+        syncFreeTextNodes();
       }
       syncImageNodes();
       updateZoneLayerVisual();
       updateSelectionHighlight();
     }
 
-    function attachDrag(node, st) {
+    function attachDrag(node, st, isImage) {
       node.addEventListener("pointerdown", function (ev) {
         if (readOnly) return;
         if (ev.button !== 0) return;
         if (ev.target.classList.contains("rs")) return;
-        ev.preventDefault();
+        if (!isImage && (editingId === st.id || node.classList.contains("is-editing"))) return;
         var id = node.dataset.id;
+        var wasSelected = sel === id;
+        var isFreeText = !isImage && !!textNodes[id];
         if (sel !== id) {
           sel = id;
           updateSelectionHighlight();
           onSelect(id, getLayout());
+          if (panelShowDesign) panelShowDesign();
         }
         var pid = ev.pointerId;
-        try { node.setPointerCapture(pid); } catch (e) {}
-        cardEl.classList.add("is-dragging");
         var p = pxFromEvent(ev);
         var sx = p.clientX, sy = p.clientY, ox = st.x, oy = st.y;
-        var isTextDrag = useZoneTextLayout() && node.classList.contains("el");
-        var isImageDrag = node.classList.contains("imgel");
+        var isTextDrag = !isImage && !isFreeText && useZoneTextLayout() && node.classList.contains("el");
+        var isImageDrag = !!isImage || node.classList.contains("imgel");
         var raf = 0, nx = ox, ny = oy;
+        var dragging = false;
         var ended = false;
         function detachPointer() {
           document.removeEventListener("pointermove", mv, true);
@@ -657,17 +789,26 @@
           node.style.left = nx + "px";
           node.style.top = ny + "px";
           if (isTextDrag) node.style.maxWidth = textMaxWidth(st) + "px";
+          if (isFreeText) node.style.maxWidth = Math.max(40, cardInnerWidth() - st.x - 8) + "px";
         }
         function mv(e2) {
           if (ended || e2.pointerId !== pid) return;
           var q = pxFromEvent(e2);
-          var rawNx = Math.round(ox + (q.clientX - sx));
-          var rawNy = Math.round(oy + (q.clientY - sy));
+          var dx = q.clientX - sx;
+          var dy = q.clientY - sy;
+          if (!dragging) {
+            if (isFreeText && Math.abs(dx) < DRAG_START && Math.abs(dy) < DRAG_START) return;
+            dragging = true;
+            try { node.setPointerCapture(pid); } catch (e) {}
+            cardEl.classList.add("is-dragging");
+          }
+          var rawNx = Math.round(ox + dx);
+          var rawNy = Math.round(oy + dy);
           var pointerX = q.clientX - cardEl.getBoundingClientRect().left;
           nx = isTextDrag ? clampTextDragX(node, rawNx, pointerX) : rawNx;
           ny = rawNy;
           var guides = snapDragPosition(cardEl, node, nx, ny, zoneSnapEdges(), snapExtraCardEls);
-          if (isImageDrag) showDragGuides(guides, nx, ny, node.offsetWidth, node.offsetHeight, "center");
+          if (isImageDrag || isFreeText) showDragGuides(guides, nx, ny, node.offsetWidth, node.offsetHeight, "center");
           else showGuides(guides.guideX, guides.guideY);
           if (!raf) raf = requestAnimationFrame(applyPos);
         }
@@ -677,19 +818,25 @@
           ended = true;
           detachPointer();
           if (raf) cancelAnimationFrame(raf);
-          applyPos();
-          hideGuides();
+          if (dragging) {
+            applyPos();
+            hideGuides();
+            if (useZoneTextLayout() && id && !isImgSel(id) && !isFreeText) {
+              var st2 = getLayout().el[id];
+              var lbl2 = (MeishiLayout.ELS.find(function (e) { return e.id === id; }) || {}).label || id;
+              if (st2) applyElStyle(node, st2, getElText(id), lbl2, id);
+            }
+            saveLayout();
+          } else if (isFreeText && wasSelected) {
+            enterInlineEdit(node, st, false);
+          }
           cardEl.classList.remove("is-dragging");
           try {
             if (node.hasPointerCapture && node.hasPointerCapture(pid)) node.releasePointerCapture(pid);
           } catch (e) {}
-          if (useZoneTextLayout() && id && !isImgSel(id)) {
-            var st2 = getLayout().el[id];
-            var lbl2 = (MeishiLayout.ELS.find(function (e) { return e.id === id; }) || {}).label || id;
-            if (st2) applyElStyle(node, st2, getElText(id), lbl2, id);
-          }
-          saveLayout();
         }
+        if (isImage) ev.preventDefault();
+        else if (!isFreeText) ev.preventDefault();
         document.addEventListener("pointermove", mv, true);
         document.addEventListener("pointerup", up, true);
         document.addEventListener("pointercancel", up, true);
@@ -760,16 +907,66 @@
 
     function invalidate() {
       built = false;
+      editingId = null;
       elNodes = {};
       imgNodes = {};
+      textNodes = {};
       guideLayer = null;
       zoneLayer = null;
       cardEl.innerHTML = "";
     }
 
+    function isFixedEl(id) {
+      return !!(id && getLayout().el && getLayout().el[id] && MeishiLayout.ELS.some(function (e) { return e.id === id; }));
+    }
+
+    function getSelectedStyleTarget() {
+      if (!sel || isImgSel(sel)) return null;
+      if (textNodes[sel]) {
+        var layout = getLayout();
+        var st = (layout.texts || []).find(function (t) { return t.id === sel; });
+        if (!st) return null;
+        return { kind: "text", st: st, node: textNodes[sel] };
+      }
+      if (isFixedEl(sel)) {
+        var stEl = getLayout().el[sel];
+        var nodeEl = elNodes[sel];
+        if (!stEl || !nodeEl) return null;
+        return { kind: "el", st: stEl, node: nodeEl, id: sel };
+      }
+      return null;
+    }
+
+    function clampSize(n) {
+      return Math.max(SIZE_MIN, Math.min(SIZE_MAX, Math.round(n)));
+    }
+
+    function applySelectedStyle(patch) {
+      if (readOnly) return;
+      var hit = getSelectedStyleTarget();
+      if (!hit) return;
+      if (patch.size != null) patch.size = clampSize(patch.size);
+      Object.assign(hit.st, patch);
+      if (hit.kind === "text") {
+        applyFreeTextStyle(hit.node, hit.st, editingId === sel);
+      } else {
+        var lbl = (MeishiLayout.ELS.find(function (e) { return e.id === hit.id; }) || {}).label || hit.id;
+        applyElStyle(hit.node, hit.st, getElText(hit.id), lbl, hit.id);
+      }
+      saveLayout();
+      if (panelShowDesign) panelShowDesign();
+    }
+
+    function bumpSelectedSize(delta) {
+      var hit = getSelectedStyleTarget();
+      if (!hit) return;
+      applySelectedStyle({ size: clampSize((hit.st.size || 12) + delta) });
+    }
+
     function bindDesignPanel(panel) {
       if (!panel) return;
-      var desSize = panel.querySelector("#desSize");
+      var desSizeUp = panel.querySelector("#desSizeUp");
+      var desSizeDown = panel.querySelector("#desSizeDown");
       var desSizeV = panel.querySelector("#desSizeV");
       var desColor = panel.querySelector("#desColor");
       var desNorm = panel.querySelector("#desNorm");
@@ -777,18 +974,9 @@
       var desTarget = panel.querySelector("#desTarget");
       var designCtl = panel.querySelector("#designCtl");
       var designNone = panel.querySelector("#designNone");
-
-      function patchSelected(patch) {
-        if (readOnly) return;
-        if (!sel || isImgSel(sel)) return;
-        var st = getLayout().el[sel];
-        var node = elNodes[sel];
-        if (!st || !node) return;
-        Object.assign(st, patch);
-        var lbl = (MeishiLayout.ELS.find(function (e) { return e.id === sel; }) || {}).label || sel;
-        applyElStyle(node, st, getElText(sel), lbl, sel);
-        saveLayout();
-      }
+      var desShow = panel.querySelector("#desShow");
+      var desHide = panel.querySelector("#desHide");
+      var desShowRow = desShow ? desShow.closest(".des-row") : null;
 
       function showDesign() {
         if (!designCtl || !designNone) return;
@@ -796,66 +984,98 @@
           designCtl.style.display = "none";
           designNone.style.display = "";
           if (isImgSel(sel)) designNone.textContent = "画像が選択されています。右下の青い丸でサイズ変更、ドラッグで移動できます。";
-          else designNone.textContent = "名刺上の項目をクリックすると、ここで文字サイズ・色・太さ・配置を変更できます。";
+          else designNone.textContent = "項目またはテキストをクリックすると、ここで文字サイズ・書体・色などを変更できます。";
+          return;
+        }
+        var hit = getSelectedStyleTarget();
+        if (!hit) {
+          designCtl.style.display = "none";
+          designNone.style.display = "";
           return;
         }
         designNone.style.display = "none";
         designCtl.style.display = "";
-        var st = getLayout().el[sel];
-        var lbl = (MeishiLayout.ELS.find(function (e) { return e.id === sel; }) || {}).label || sel;
-        if (desTarget) desTarget.textContent = "対象: " + lbl;
-        if (desSize) desSize.value = st.size;
+        var st = hit.st;
+        if (desTarget) {
+          if (hit.kind === "text") desTarget.textContent = "対象: 自由テキスト";
+          else {
+            var lbl = (MeishiLayout.ELS.find(function (e) { return e.id === hit.id; }) || {}).label || hit.id;
+            desTarget.textContent = "対象: " + lbl;
+          }
+        }
         if (desSizeV) desSizeV.textContent = st.size + "px";
-        if (desColor) desColor.value = st.color.length === 7 ? st.color : "#222222";
+        if (desSizeUp) desSizeUp.disabled = st.size >= SIZE_MAX;
+        if (desSizeDown) desSizeDown.disabled = st.size <= SIZE_MIN;
+        if (desColor) desColor.value = st.color && st.color.length === 7 ? st.color : "#222222";
         if (desNorm) desNorm.classList.toggle("on", !st.bold);
         if (desBold) desBold.classList.toggle("on", !!st.bold);
+        panel.querySelectorAll("[data-font]").forEach(function (b) {
+          b.classList.toggle("on", (b.getAttribute("data-font") || "") === (st.font || ""));
+        });
         panel.querySelectorAll("[data-al]").forEach(function (b) {
           b.classList.toggle("on", b.getAttribute("data-al") === st.align);
         });
+        if (desShowRow) desShowRow.style.display = hit.kind === "el" ? "" : "none";
       }
 
-      if (desSize) desSize.addEventListener("input", function () {
-        if (!sel || isImgSel(sel)) return;
-        patchSelected({ size: +this.value });
-        if (desSizeV) desSizeV.textContent = this.value + "px";
-        showDesign();
+      panelShowDesign = showDesign;
+
+      if (desSizeUp) desSizeUp.addEventListener("click", function () {
+        bumpSelectedSize(SIZE_STEP);
+      });
+      if (desSizeDown) desSizeDown.addEventListener("click", function () {
+        bumpSelectedSize(-SIZE_STEP);
       });
       if (desColor) desColor.addEventListener("input", function () {
-        if (!sel || isImgSel(sel)) return;
-        patchSelected({ color: this.value });
+        applySelectedStyle({ color: this.value });
       });
       if (desNorm) desNorm.addEventListener("click", function () {
-        if (!sel || isImgSel(sel)) return;
-        patchSelected({ bold: 0 });
-        showDesign();
+        applySelectedStyle({ bold: 0 });
       });
       if (desBold) desBold.addEventListener("click", function () {
-        if (!sel || isImgSel(sel)) return;
-        patchSelected({ bold: 1 });
-        showDesign();
+        applySelectedStyle({ bold: 1 });
+      });
+      panel.querySelectorAll("[data-font]").forEach(function (b) {
+        b.addEventListener("click", function () {
+          applySelectedStyle({ font: this.getAttribute("data-font") || "" });
+        });
       });
       panel.querySelectorAll("[data-al]").forEach(function (b) {
         b.addEventListener("click", function () {
-          if (!sel || isImgSel(sel)) return;
-          patchSelected({ align: this.getAttribute("data-al") });
-          showDesign();
+          applySelectedStyle({ align: this.getAttribute("data-al") });
         });
       });
-      var desShow = panel.querySelector("#desShow");
-      var desHide = panel.querySelector("#desHide");
       if (desShow) desShow.addEventListener("click", function () {
-        if (!sel || isImgSel(sel)) return;
-        patchSelected({ hidden: false });
+        if (!getSelectedStyleTarget() || getSelectedStyleTarget().kind !== "el") return;
+        applySelectedStyle({ hidden: false });
       });
       if (desHide) desHide.addEventListener("click", function () {
-        if (!sel || isImgSel(sel)) return;
-        patchSelected({ hidden: true });
+        if (!getSelectedStyleTarget() || getSelectedStyleTarget().kind !== "el") return;
+        applySelectedStyle({ hidden: true });
       });
 
       return {
         showDesign: showDesign,
         clearSelection: function () { sel = null; updateSelectionHighlight(); showDesign(); },
       };
+    }
+
+    function editTextById(id, selectAll) {
+      var node = textNodes[id];
+      var layout = getLayout();
+      var st = (layout.texts || []).find(function (t) { return t.id === id; });
+      if (node && st) enterInlineEdit(node, st, selectAll !== false);
+    }
+
+    function addTextBlock() {
+      var layout = MeishiCatalog.normalizeLayout(getLayout());
+      layout.texts = layout.texts || [];
+      var block = MeishiLayout.defTextBlock(layout.texts.length);
+      layout.texts.push(block);
+      saveLayout();
+      renderCard();
+      editTextById(block.id, true);
+      return block;
     }
 
     return {
@@ -866,6 +1086,8 @@
       invalidate: invalidate,
       getSelection: function () { return sel; },
       setSelection: function (v) { sel = v; updateSelectionHighlight(); },
+      editTextById: editTextById,
+      addTextBlock: addTextBlock,
     };
   }
 
