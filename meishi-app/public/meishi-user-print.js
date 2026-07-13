@@ -5,6 +5,7 @@
 (function () {
   var DEFAULT_IDS = {
     selName: "selName",
+    selNameSearch: "selNameSearch",
     selCompany: "selCompany",
     selAff1: "selAff1",
     selAff2: "selAff2",
@@ -52,6 +53,8 @@
     var backCardUI = null;
     var previewSide = "front";
     var storeHooked = false;
+    var nameOptionsAll = [];
+    var nameSearchComposing = false;
 
     function reloadRecords() {
       records = MeishiStore.getMergedRecords();
@@ -81,6 +84,44 @@
       return "";
     }
 
+    function normalizeNameQuery(s) {
+      return String(s == null ? "" : s).trim().toLowerCase().replace(/\s+/g, "").replace(/　/g, "");
+    }
+
+    function nameMatchesQuery(name, query) {
+      if (!query) return true;
+      var n = String(name == null ? "" : name);
+      var q = String(query);
+      if (n.indexOf(q) >= 0) return true;
+      return normalizeNameQuery(n).indexOf(normalizeNameQuery(q)) >= 0;
+    }
+
+    function getNameSearchEl() {
+      var byId = el("selNameSearch");
+      if (byId) return byId;
+      var nameSel = el("selName");
+      if (!nameSel) return null;
+      var field = nameSel.closest(".field-name-search") || nameSel.closest(".field");
+      if (!field) return null;
+      return field.querySelector('input[type="search"], input.name-search, #pvSelNameSearch, #selNameSearch');
+    }
+
+    function fillNameSelect(values, placeholder, skipAutoPick) {
+      var selEl = el("selName");
+      if (!selEl) return false;
+      nameOptionsAll = uniq(values).sort(function (a, b) {
+        return String(a).localeCompare(String(b), "ja");
+      });
+      var searchEl = getNameSearchEl();
+      var query = searchEl ? String(searchEl.value || "") : "";
+      var filtered = nameOptionsAll.filter(function (v) { return nameMatchesQuery(v, query); });
+      // 選択中の氏名は検索で隠さない（見失い防止）
+      if (S.name && filtered.indexOf(S.name) < 0 && nameOptionsAll.indexOf(S.name) >= 0) {
+        filtered = [S.name].concat(filtered);
+      }
+      return fillSelect(selEl, filtered, placeholder || "氏名を選択", "name", skipAutoPick);
+    }
+
     function fillSelect(selEl, values, placeholder, stateKey, skipAutoPick) {
       var arr = uniq(values);
       var field = selEl.closest(".field");
@@ -90,6 +131,10 @@
         selEl.disabled = true;
         selEl.value = "";
         if (field) field.classList.add("field-disabled");
+        if (stateKey === "name") {
+          var ns = getNameSearchEl();
+          if (ns && !String(ns.value || "").trim()) { /* keep typed query */ }
+        }
         if (S[stateKey] !== "") { S[stateKey] = ""; changed = true; }
         return changed;
       }
@@ -259,7 +304,7 @@
       var changed = true;
       while (changed && guard++ < 20) {
         changed = false;
-        changed = fillSelect(el("selName"), filteredExcept("name").map(function (r) { return r.name; }).sort(), "氏名を選択", "name") || changed;
+        changed = fillNameSelect(filteredExcept("name").map(function (r) { return r.name; }), "氏名を選択") || changed;
         changed = fillSelect(el("selCompany"), filteredExcept("company").map(function (r) { return r.company; }), "会社・団体名", "company") || changed;
         changed = fillSelect(el("selAff1"), filteredExcept("aff1").map(function (r) { return r.aff1; }), "所属1", "aff1") || changed;
         changed = fillSelect(el("selAff2"), filteredExcept("aff2").map(function (r) { return r.aff2; }), "所属2", "aff2") || changed;
@@ -288,11 +333,72 @@
       node.addEventListener("change", function () {
         S[stateKey] = this.value;
         (resetKeys || []).forEach(function (k) { S[k] = ""; });
+        var searchEl = getNameSearchEl();
+        if (stateKey === "name" && searchEl && this.value) searchEl.value = this.value;
+        rebuild();
+      });
+    }
+
+    function applyNameSearchFilter(fromCompositionEnd) {
+      var selEl = el("selName");
+      var searchEl = getNameSearchEl();
+      if (!selEl) return;
+      var query = searchEl ? String(searchEl.value || "") : "";
+      var filtered = nameOptionsAll.filter(function (v) { return nameMatchesQuery(v, query); });
+      if (S.name && filtered.indexOf(S.name) < 0 && nameOptionsAll.indexOf(S.name) >= 0) {
+        filtered = [S.name].concat(filtered);
+      }
+      var prev = S.name;
+      fillSelect(selEl, filtered, "氏名を選択", "name", false);
+      if (prev && nameOptionsAll.indexOf(prev) >= 0) {
+        S.name = prev;
+        if (filtered.indexOf(prev) >= 0) selEl.value = prev;
+      }
+      if (fromCompositionEnd && filtered.length === 1 && !S.name) {
+        S.name = filtered[0];
+        selEl.value = filtered[0];
+        if (searchEl) searchEl.value = filtered[0];
+        rebuild();
+      }
+    }
+
+    function bindNameSearch() {
+      var searchEl = getNameSearchEl();
+      if (!searchEl || searchEl._mpBound) return;
+      searchEl._mpBound = true;
+      searchEl.addEventListener("compositionstart", function () { nameSearchComposing = true; });
+      searchEl.addEventListener("compositionend", function () {
+        nameSearchComposing = false;
+        applyNameSearchFilter(true);
+      });
+      searchEl.addEventListener("input", function () {
+        if (nameSearchComposing) return;
+        applyNameSearchFilter(false);
+      });
+      searchEl.addEventListener("keydown", function (ev) {
+        if (ev.key !== "Enter") return;
+        ev.preventDefault();
+        var selEl = el("selName");
+        if (!selEl || selEl.disabled) return;
+        var opts = Array.prototype.slice.call(selEl.options || []).map(function (o) { return o.value; }).filter(Boolean);
+        var q = String(searchEl.value || "").trim();
+        var pick = "";
+        if (opts.indexOf(q) >= 0) pick = q;
+        else if (opts.length === 1) pick = opts[0];
+        else {
+          var hits = opts.filter(function (v) { return nameMatchesQuery(v, q); });
+          if (hits.length === 1) pick = hits[0];
+        }
+        if (!pick) return;
+        S.name = pick;
+        selEl.value = pick;
+        searchEl.value = pick;
         rebuild();
       });
     }
 
     function bindInputs() {
+      bindNameSearch();
       bindSel("selName", "name", []);
       bindSel("selCompany", "company", []);
       bindSel("selAff1", "aff1", []);
@@ -361,6 +467,8 @@
 
     function clear() {
       S = { name: "", company: "", aff1: "", aff2: "", aff3: "", title: "", postal: "" };
+      var searchEl = getNameSearchEl();
+      if (searchEl) searchEl.value = "";
       ["inQual", "inAddress", "inTel", "inFax", "inMobile", "inEmail", "inUrl", "inKoji"].forEach(function (k) {
         var inp = el(k);
         if (inp) inp.value = "";
@@ -371,7 +479,7 @@
       var changed = true;
       while (changed && guard++ < 20) {
         changed = false;
-        changed = fillSelect(el("selName"), filteredExcept("name").map(function (r) { return r.name; }).sort(), "氏名を選択", "name", true) || changed;
+        changed = fillNameSelect(filteredExcept("name").map(function (r) { return r.name; }), "氏名を選択", true) || changed;
         changed = fillSelect(el("selCompany"), filteredExcept("company").map(function (r) { return r.company; }), "会社・団体名", "company", true) || changed;
         changed = fillSelect(el("selAff1"), filteredExcept("aff1").map(function (r) { return r.aff1; }), "所属1", "aff1", true) || changed;
         changed = fillSelect(el("selAff2"), filteredExcept("aff2").map(function (r) { return r.aff2; }), "所属2", "aff2", true) || changed;

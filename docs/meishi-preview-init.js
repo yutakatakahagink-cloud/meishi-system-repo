@@ -4,6 +4,7 @@
 (function () {
   var PREVIEW_IDS = {
     selName: "pvSelName",
+    selNameSearch: "pvSelNameSearch",
     selCompany: "pvSelCompany",
     selAff1: "pvSelAff1",
     selAff2: "pvSelAff2",

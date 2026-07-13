@@ -12,8 +12,10 @@ header h1{font-size:1.05rem;margin:0}.badge{font-size:.72rem;padding:3px 8px;bor
 h2{color:var(--brand-d);font-size:1.05rem;margin:0 0 12px}
 .field{margin-bottom:12px} label{display:block;font-size:.82rem;color:#54607a;margin-bottom:4px;font-weight:600}
 .field.field-disabled label{color:#9aa3b5}
-.field.field-disabled select{background:#eef1f6;color:#9aa3b5;cursor:not-allowed;border-color:#e2e7ef}
+.field.field-disabled select,.field.field-disabled input{background:#eef1f6;color:#9aa3b5;cursor:not-allowed;border-color:#e2e7ef}
 input,select,textarea{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;font-size:.92rem}
+.field-name-search input[type="search"]{margin-bottom:6px}
+.field-name-search input[type="search"]::-webkit-search-cancel-button{-webkit-appearance:searchfield-cancel-button}
 .field-ro input{background:#f3f6fb;color:#6b7280}
 .btn{border:none;border-radius:10px;cursor:pointer;font-size:.95rem;padding:10px 16px;font-weight:600;background:var(--brand);color:#fff;box-shadow:0 1px 2px rgba(0,0,0,.08)}
 .btn.sm{padding:7px 12px;font-size:.82rem}.btn.ghost{background:#fff;color:var(--brand);border:1px solid var(--line)}
