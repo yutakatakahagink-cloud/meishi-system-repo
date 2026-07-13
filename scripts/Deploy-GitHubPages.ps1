@@ -64,10 +64,13 @@ if ($copied -eq 0) {
 }
 
 # GitHub Pages 公開ルート（branch: main /docs → URL は /user.html 等）
-$publicSrc = Join-Path $SourceRoot "meishi-app\public"
+$publicSrc = Join-Path (Join-Path $SourceRoot "meishi-app") "public"
+if (-not (Test-Path -LiteralPath $publicSrc)) {
+  $publicSrc = Join-Path $SourceRoot "meishi-app\public"
+}
 $docsDest = Join-Path $RepoPath "docs"
 if (-not $RepoPath) { throw "RepoPath is empty." }
-if (-not $publicSrc -or -not (Test-Path -LiteralPath $publicSrc)) {
+if (-not (Test-Path -LiteralPath $publicSrc)) {
   Write-Warning "Skip docs sync (missing): $publicSrc"
 } elseif (-not $docsDest) {
   Write-Warning "Skip docs sync (docsDest empty)"

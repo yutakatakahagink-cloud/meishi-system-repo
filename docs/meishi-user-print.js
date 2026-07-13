@@ -63,21 +63,99 @@
       records = MeishiStore.getMergedRecords();
     }
 
-    function filteredExcept(skipKey) {
+    function filterRecords(opts) {
+      opts = opts || {};
       return records.filter(function (r) {
-        if (skipKey !== "name" && S.name && r.name !== S.name) return false;
-        if (skipKey !== "company" && S.company && r.company !== S.company) return false;
-        if (skipKey !== "aff1" && S.aff1 && (r.aff1 || "") !== S.aff1) return false;
-        if (skipKey !== "aff2" && S.aff2 && (r.aff2 || "") !== S.aff2) return false;
-        if (skipKey !== "aff3" && S.aff3 && (r.aff3 || "") !== S.aff3) return false;
-        if (skipKey !== "title" && S.title && (r.title || "") !== S.title) return false;
-        if (skipKey !== "postal" && S.postal && (r.postal || "") !== S.postal) return false;
+        if (!opts.skipName && S.name && r.name !== S.name) return false;
+        if (!opts.skipCompany && S.company && r.company !== S.company) return false;
+        if (!opts.skipAff1 && S.aff1 && (r.aff1 || "") !== S.aff1) return false;
+        if (!opts.skipAff2 && S.aff2 && (r.aff2 || "") !== S.aff2) return false;
+        if (!opts.skipAff3 && S.aff3 && (r.aff3 || "") !== S.aff3) return false;
+        if (!opts.skipTitle && S.title && (r.title || "") !== S.title) return false;
+        if (!opts.skipPostal && S.postal && (r.postal || "") !== S.postal) return false;
         return true;
       });
     }
 
+    /** 各セレクト用候補。氏名↔会社↔所属が互いに適切な広さで連動する */
+    function optionValuesFor(field) {
+      var rows;
+      if (field === "name") {
+        // 会社・所属1・所属2で絞る（氏名自身・役職・郵便は氏名候補に使わない）
+        rows = filterRecords({ skipName: true, skipTitle: true, skipPostal: true });
+        return uniq(rows.map(function (r) { return r.name; })).sort(function (a, b) {
+          return String(a).localeCompare(String(b), "ja");
+        });
+      }
+      if (field === "company") {
+        // 氏名だけで絞る（所属を無視 → その人の全会社が出る）
+        rows = filterRecords({
+          skipCompany: true, skipAff1: true, skipAff2: true, skipAff3: true,
+          skipTitle: true, skipPostal: true,
+        });
+        return uniq(rows.map(function (r) { return r.company; }));
+      }
+      if (field === "aff1") {
+        rows = filterRecords({
+          skipAff1: true, skipAff2: true, skipAff3: true,
+          skipTitle: true, skipPostal: true,
+        });
+        return uniq(rows.map(function (r) { return r.aff1; }));
+      }
+      if (field === "aff2") {
+        rows = filterRecords({
+          skipAff2: true, skipAff3: true,
+          skipTitle: true, skipPostal: true,
+        });
+        return uniq(rows.map(function (r) { return r.aff2; }));
+      }
+      if (field === "aff3") {
+        rows = filterRecords({ skipAff3: true, skipTitle: true, skipPostal: true });
+        return uniq(rows.map(function (r) { return r.aff3; }));
+      }
+      if (field === "title") {
+        rows = filterRecords({ skipTitle: true, skipPostal: true });
+        return uniq(rows.map(function (r) { return r.title; }));
+      }
+      if (field === "postal") {
+        rows = filterRecords({ skipPostal: true });
+        return uniq(rows.map(function (r) { return r.postal; }));
+      }
+      return [];
+    }
+
+    function filteredExcept(skipKey) {
+      var opts = {};
+      if (skipKey === "name") opts.skipName = true;
+      if (skipKey === "company") opts.skipCompany = true;
+      if (skipKey === "aff1") opts.skipAff1 = true;
+      if (skipKey === "aff2") opts.skipAff2 = true;
+      if (skipKey === "aff3") opts.skipAff3 = true;
+      if (skipKey === "title") opts.skipTitle = true;
+      if (skipKey === "postal") opts.skipPostal = true;
+      return filterRecords(opts);
+    }
+
     function filtered() {
-      return filteredExcept(null);
+      return filterRecords({});
+    }
+
+    function pruneSelectionToOptions() {
+      var changed = false;
+      function prune(key, values) {
+        if (!S[key]) return;
+        if (values.indexOf(S[key]) >= 0) return;
+        S[key] = "";
+        changed = true;
+      }
+      prune("name", optionValuesFor("name"));
+      prune("company", optionValuesFor("company"));
+      prune("aff1", optionValuesFor("aff1"));
+      prune("aff2", optionValuesFor("aff2"));
+      prune("aff3", optionValuesFor("aff3"));
+      prune("title", optionValuesFor("title"));
+      prune("postal", optionValuesFor("postal"));
+      return changed;
     }
 
     function firstNonEmpty(rows, key) {
@@ -155,6 +233,15 @@
       var prev = S.name;
       S.name = next;
       if (inp) inp.value = next;
+      // 氏名を選んだら下位条件をクリアし、その人に紐づく全会社・所属を選べるようにする
+      if (prev !== next) {
+        S.company = "";
+        S.aff1 = "";
+        S.aff2 = "";
+        S.aff3 = "";
+        S.title = "";
+        S.postal = "";
+      }
       setNameComboOpen(false);
       if (opts.skipRebuild) return;
       if (prev !== next || opts.forceRebuild) {
@@ -175,10 +262,8 @@
       var inp = el("selName");
       if (!inp) return false;
       var field = inp.closest(".field");
-      // プルダウンは常に全社員を候補にする
-      nameOptionsAll = uniq(records.map(function (r) { return r.name; })).sort(function (a, b) {
-        return String(a).localeCompare(String(b), "ja");
-      });
+      // 会社・所属1・所属2に紐づく氏名のみ
+      nameOptionsAll = optionValuesFor("name");
       var changed = false;
       if (!nameOptionsAll.length) {
         inp.disabled = true;
@@ -392,13 +477,14 @@
       var changed = true;
       while (changed && guard++ < 20) {
         changed = false;
-        changed = fillNameSelect(filteredExcept("name").map(function (r) { return r.name; }), "氏名を選択") || changed;
-        changed = fillSelect(el("selCompany"), filteredExcept("company").map(function (r) { return r.company; }), "会社・団体名", "company") || changed;
-        changed = fillSelect(el("selAff1"), filteredExcept("aff1").map(function (r) { return r.aff1; }), "所属1", "aff1") || changed;
-        changed = fillSelect(el("selAff2"), filteredExcept("aff2").map(function (r) { return r.aff2; }), "所属2", "aff2") || changed;
-        changed = fillSelect(el("selAff3"), filteredExcept("aff3").map(function (r) { return r.aff3; }), "所属3", "aff3") || changed;
-        changed = fillSelect(el("selTitle"), filteredExcept("title").map(function (r) { return r.title; }), "役職", "title") || changed;
-        changed = fillSelect(el("selPostal"), filteredExcept("postal").map(function (r) { return r.postal; }), "郵便番号", "postal") || changed;
+        changed = pruneSelectionToOptions() || changed;
+        changed = fillNameSelect(null, "氏名を選択") || changed;
+        changed = fillSelect(el("selCompany"), optionValuesFor("company"), "会社・団体名", "company") || changed;
+        changed = fillSelect(el("selAff1"), optionValuesFor("aff1"), "所属1", "aff1") || changed;
+        changed = fillSelect(el("selAff2"), optionValuesFor("aff2"), "所属2", "aff2") || changed;
+        changed = fillSelect(el("selAff3"), optionValuesFor("aff3"), "所属3", "aff3") || changed;
+        changed = fillSelect(el("selTitle"), optionValuesFor("title"), "役職", "title") || changed;
+        changed = fillSelect(el("selPostal"), optionValuesFor("postal"), "郵便番号", "postal") || changed;
       }
       var rows = filtered();
       el("inUrl").value = firstNonEmpty(rows, "url");
@@ -422,6 +508,15 @@
       node.addEventListener("change", function () {
         S[stateKey] = this.value;
         (resetKeys || []).forEach(function (k) { S[k] = ""; });
+        // 上位条件を変えたら、氏名が範囲外ならクリア
+        if (stateKey === "company" || stateKey === "aff1" || stateKey === "aff2") {
+          var names = optionValuesFor("name");
+          if (S.name && names.indexOf(S.name) < 0) {
+            S.name = "";
+            var nameInp = el("selName");
+            if (nameInp) nameInp.value = "";
+          }
+        }
         rebuild();
       });
     }
@@ -580,11 +675,11 @@
 
     function bindInputs() {
       bindNameCombo();
-      bindSel("selCompany", "company", []);
-      bindSel("selAff1", "aff1", []);
-      bindSel("selAff2", "aff2", []);
-      bindSel("selAff3", "aff3", []);
-      bindSel("selTitle", "title", []);
+      bindSel("selCompany", "company", ["aff1", "aff2", "aff3", "title", "postal"]);
+      bindSel("selAff1", "aff1", ["aff2", "aff3", "title", "postal"]);
+      bindSel("selAff2", "aff2", ["aff3", "title", "postal"]);
+      bindSel("selAff3", "aff3", ["title", "postal"]);
+      bindSel("selTitle", "title", ["postal"]);
       var sp = el("selPostal");
       if (sp && !sp._mpBound) {
         sp._mpBound = true;
@@ -661,12 +756,12 @@
       while (changed && guard++ < 20) {
         changed = false;
         changed = fillNameSelect(null, "氏名を選択", true) || changed;
-        changed = fillSelect(el("selCompany"), filteredExcept("company").map(function (r) { return r.company; }), "会社・団体名", "company", true) || changed;
-        changed = fillSelect(el("selAff1"), filteredExcept("aff1").map(function (r) { return r.aff1; }), "所属1", "aff1", true) || changed;
-        changed = fillSelect(el("selAff2"), filteredExcept("aff2").map(function (r) { return r.aff2; }), "所属2", "aff2", true) || changed;
-        changed = fillSelect(el("selAff3"), filteredExcept("aff3").map(function (r) { return r.aff3; }), "所属3", "aff3", true) || changed;
-        changed = fillSelect(el("selTitle"), filteredExcept("title").map(function (r) { return r.title; }), "役職", "title", true) || changed;
-        changed = fillSelect(el("selPostal"), filteredExcept("postal").map(function (r) { return r.postal; }), "郵便番号", "postal", true) || changed;
+        changed = fillSelect(el("selCompany"), optionValuesFor("company"), "会社・団体名", "company", true) || changed;
+        changed = fillSelect(el("selAff1"), optionValuesFor("aff1"), "所属1", "aff1", true) || changed;
+        changed = fillSelect(el("selAff2"), optionValuesFor("aff2"), "所属2", "aff2", true) || changed;
+        changed = fillSelect(el("selAff3"), optionValuesFor("aff3"), "所属3", "aff3", true) || changed;
+        changed = fillSelect(el("selTitle"), optionValuesFor("title"), "役職", "title", true) || changed;
+        changed = fillSelect(el("selPostal"), optionValuesFor("postal"), "郵便番号", "postal", true) || changed;
       }
       renderCard();
       if (previewSide === "back") renderBackCard();
