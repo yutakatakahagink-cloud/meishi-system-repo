@@ -21,7 +21,7 @@
     return JSON.parse(JSON.stringify(o));
   }
   function defLayout() {
-    var o = { el: {}, images: [], texts: [], centerShiftMm: 5 };
+    var o = { el: {}, images: [], texts: [], centerShiftMm: 5, centerDivider: true };
     ELS.forEach(function (e) { o.el[e.id] = clone(e.def); });
     return o;
   }
@@ -69,7 +69,7 @@
   }
 
   function defBackLayout() {
-    return { texts: [], images: [] };
+    return { texts: [], images: [], centerShiftMm: 5, centerDivider: false };
   }
 
   function isValidBackLayout(v) {

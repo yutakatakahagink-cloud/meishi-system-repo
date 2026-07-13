@@ -195,6 +195,8 @@
     if (typeof layout.centerShiftMm !== "number" || isNaN(layout.centerShiftMm)) {
       layout.centerShiftMm = 5;
     }
+    if (layout.centerDivider == null) layout.centerDivider = true;
+    else layout.centerDivider = !!layout.centerDivider;
     var def = MeishiLayout.defLayout();
     MeishiLayout.ELS.forEach(function (e) {
       if (!layout.el[e.id]) {
@@ -229,6 +231,11 @@
       if (!t.align) t.align = "left";
       return t;
     });
+    if (typeof layout.centerShiftMm !== "number" || isNaN(layout.centerShiftMm)) {
+      layout.centerShiftMm = 5;
+    }
+    if (layout.centerDivider == null) layout.centerDivider = false;
+    else layout.centerDivider = !!layout.centerDivider;
     return layout;
   }
 

@@ -534,6 +534,7 @@
     coUI.renderCard();
     if (coPanel) coPanel.showDesign();
     renderCoImgList();
+    syncCoFrontDividerBtn();
   }
 
   function ensureCoCenterShift() {
@@ -541,6 +542,25 @@
     coLayout.centerShiftMm = MeishiCardUI.clampCenterShiftMm(
       coLayout.centerShiftMm != null ? coLayout.centerShiftMm : 5
     );
+    if (coLayout.centerDivider == null) coLayout.centerDivider = true;
+  }
+
+  function syncDividerButton(btnId, isOn) {
+    var btn = document.getElementById(btnId);
+    if (!btn) return;
+    btn.textContent = isOn ? "中央線を削除" : "中央線を追加";
+  }
+
+  function syncCoFrontDividerBtn() {
+    syncDividerButton("btnCoFrontDivider", !!(coLayout && coLayout.centerDivider !== false));
+  }
+
+  function syncCoBackDividerBtn() {
+    syncDividerButton("btnCoBackDivider", !!(coLayoutBack && coLayoutBack.centerDivider));
+  }
+
+  function syncDeBackDividerBtn() {
+    syncDividerButton("btnDeBackDivider", !!(deLayoutBack && deLayoutBack.centerDivider));
   }
 
   function renderCoImgList() {
@@ -572,6 +592,7 @@
     coBackUI.renderCard();
     if (coBackPanel) coBackPanel.showDesign();
     renderCoBackImgList();
+    syncCoBackDividerBtn();
   }
 
   function renderCoBackImgList() {
@@ -874,6 +895,7 @@
         underline: "deBackDesUnderline",
         ctl: "deBackDesignCtl",
         none: "deBackDesignNone",
+        textDelete: "deBackDesTextDelete",
         alignAttr: "data-de-back-al",
         fontAttr: "data-de-back-font",
       });
@@ -882,6 +904,7 @@
     deBackUI.renderCard();
     if (deBackPanel) deBackPanel.showDesign();
     renderDeBackImgList();
+    syncDeBackDividerBtn();
   }
 
   function renderDeBackImgList() {
@@ -1216,6 +1239,16 @@
       if (coUI) coUI.invalidate();
       refreshCoDesign();
     };
+    document.getElementById("btnCoFrontDivider").onclick = function () {
+      if (!coLayout) coLayout = MeishiLayout.defLayout();
+      var next = coLayout.centerDivider === false;
+      if (coUI && coUI.setCenterDivider) coUI.setCenterDivider(next);
+      else {
+        coLayout.centerDivider = next;
+        refreshCoDesign();
+      }
+      syncCoFrontDividerBtn();
+    };
     document.getElementById("btnCoBackText").onclick = function () {
       if (!coLayoutBack) coLayoutBack = MeishiLayout.defBackLayout();
       coLayoutBack.texts = coLayoutBack.texts || [];
@@ -1224,6 +1257,16 @@
       if (coBackUI) coBackUI.invalidate();
       refreshCoBackDesign();
       if (coBackUI && coBackUI.editTextById) coBackUI.editTextById(block.id, true);
+    };
+    document.getElementById("btnCoBackDivider").onclick = function () {
+      if (!coLayoutBack) coLayoutBack = MeishiLayout.defBackLayout();
+      var next = !coLayoutBack.centerDivider;
+      if (coBackUI && coBackUI.setCenterDivider) coBackUI.setCenterDivider(next);
+      else {
+        coLayoutBack.centerDivider = next;
+        refreshCoBackDesign();
+      }
+      syncCoBackDividerBtn();
     };
     document.getElementById("btnCoBackImgPick").onclick = function () {
       if (!coLayoutBack) coLayoutBack = MeishiLayout.defBackLayout();
@@ -1278,6 +1321,20 @@
       if (deBackUI) deBackUI.invalidate();
       refreshDeptBackDesign();
       if (deBackUI && deBackUI.editTextById) deBackUI.editTextById(block.id, true);
+    };
+    document.getElementById("btnDeBackDivider").onclick = function () {
+      var pk = getDeptPickers();
+      pk.aff1 = document.getElementById("deAff1Pick").value;
+      if (!pk.co || !pk.aff1) return alert("会社と所属1を選択してください");
+      if (!deLayoutBack) loadDeptLayout();
+      if (!deLayoutBack) deLayoutBack = MeishiLayout.defBackLayout();
+      var next = !deLayoutBack.centerDivider;
+      if (deBackUI && deBackUI.setCenterDivider) deBackUI.setCenterDivider(next);
+      else {
+        deLayoutBack.centerDivider = next;
+        refreshDeptBackDesign();
+      }
+      syncDeBackDividerBtn();
     };
     document.getElementById("btnDeBackImgPick").onclick = function () {
       var pk = getDeptPickers();

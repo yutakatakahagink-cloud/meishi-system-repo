@@ -111,7 +111,7 @@
     var readOnly = !!opts.readOnly;
     var hideElements = !!opts.hideElements;
     var textFlow = !!opts.textFlow;
-    var zoneSplit = opts.zoneSplit !== false;
+    var zoneSplitForcedOff = opts.zoneSplit === false;
     var getImages = opts.getImages || function () {
       var layout = MeishiCatalog.normalizeLayout(getLayout());
       return (layout.images || []).filter(function (im) { return im && im.src; });
@@ -131,6 +131,13 @@
     var guideLayer = null;
     var zoneLayer = null;
     var panelShowDesign = null;
+
+    function isZoneSplitActive() {
+      if (zoneSplitForcedOff) return false;
+      var layout = getLayout();
+      if (layout && layout.centerDivider === false) return false;
+      return true;
+    }
 
     function getCenterShiftMm() {
       var layout = getLayout();
@@ -222,16 +229,16 @@
     }
 
     function zoneSnapEdges() {
-      if (!zoneSplit || readOnly) return null;
+      if (!isZoneSplitActive() || readOnly) return null;
       return getCardZones();
     }
 
     function useAutoWrap() {
-      return zoneSplit && (textFlow || !readOnly);
+      return isZoneSplitActive() && (textFlow || !readOnly);
     }
 
     function useZoneTextLayout() {
-      return zoneSplit && !hideElements;
+      return isZoneSplitActive() && !hideElements;
     }
 
     /** 左欄 or 右欄（中央2mm帯には文字を置かない） */
@@ -276,7 +283,7 @@
     }
 
     function ensureZoneLayer() {
-      if (!zoneSplit || readOnly || hideElements) return;
+      if (!isZoneSplitActive() || readOnly || hideElements) return;
       if (!zoneLayer || zoneLayer.parentNode !== cardEl) {
         zoneLayer = document.createElement("div");
         zoneLayer.className = "card-zone-layer";
@@ -288,6 +295,32 @@
         handle.title = "中央線をドラッグして左右に移動";
         zoneLayer.appendChild(handle);
         attachCenterLineDrag(handle);
+      }
+    }
+
+    function clearZoneLayer() {
+      if (zoneLayer) {
+        try { zoneLayer.remove(); } catch (e) {}
+        zoneLayer = null;
+      }
+    }
+
+    function syncZoneMode() {
+      if (!readOnly) cardEl.classList.add("design-mode");
+      else cardEl.classList.remove("design-mode");
+
+      var on = isZoneSplitActive() && !hideElements;
+      if (on) {
+        cardEl.classList.add("zone-split");
+        if (!readOnly) {
+          ensureZoneLayer();
+          updateZoneLayerVisual();
+        } else {
+          clearZoneLayer();
+        }
+      } else {
+        cardEl.classList.remove("zone-split");
+        clearZoneLayer();
       }
     }
 
@@ -357,7 +390,7 @@
     }
 
     function textMaxWidth(st) {
-      if (!zoneSplit) return Math.max(32, cardEl.clientWidth - st.x - FLOW_PAD);
+      if (!isZoneSplitActive()) return Math.max(32, cardEl.clientWidth - st.x - FLOW_PAD);
       var zones = getCardZones();
       var x = st.x;
       var pad = FLOW_PAD;
@@ -502,22 +535,13 @@
       cardEl.innerHTML = "";
       elNodes = {};
       textNodes = {};
+      zoneLayer = null;
       editingId = null;
       if (readOnly) cardEl.classList.add("print-readonly");
       else cardEl.classList.remove("print-readonly");
       if (textFlow) cardEl.classList.add("text-flow");
       else cardEl.classList.remove("text-flow");
-      if (zoneSplit && !hideElements) {
-        cardEl.classList.add("zone-split");
-        if (!readOnly) {
-          cardEl.classList.add("design-mode");
-          ensureZoneLayer();
-        } else {
-          cardEl.classList.remove("design-mode");
-        }
-      } else {
-        cardEl.classList.remove("design-mode", "zone-split");
-      }
+      syncZoneMode();
       if (!hideElements) {
         MeishiLayout.ELS.forEach(function (e) {
           var st = getLayout().el[e.id];
@@ -726,6 +750,7 @@
 
     function renderCard() {
       ensureBuilt();
+      syncZoneMode();
       var layout = getLayout();
       if (!hideElements) {
         if (textFlow) {
@@ -1053,6 +1078,22 @@
         if (!getSelectedStyleTarget() || getSelectedStyleTarget().kind !== "el") return;
         applySelectedStyle({ hidden: true });
       });
+      var desTextDel = panel.querySelector("#desTextDelete");
+      var desTextDelRow = desTextDel ? desTextDel.closest(".des-row") : null;
+      if (desTextDel) {
+        desTextDel.addEventListener("click", function () {
+          var hit = getSelectedStyleTarget();
+          if (!hit || hit.kind !== "text") return;
+          removeTextBlock(hit.st.id);
+        });
+      }
+      var _showDesignPrev = showDesign;
+      showDesign = function () {
+        _showDesignPrev();
+        var hit = getSelectedStyleTarget();
+        if (desTextDelRow) desTextDelRow.style.display = hit && hit.kind === "text" ? "" : "none";
+      };
+      panelShowDesign = showDesign;
 
       return {
         showDesign: showDesign,
@@ -1078,6 +1119,41 @@
       return block;
     }
 
+    function removeTextBlock(id) {
+      var layout = getLayout();
+      if (!layout || !Array.isArray(layout.texts) || !id) return false;
+      var next = layout.texts.filter(function (t) { return t.id !== id; });
+      if (next.length === layout.texts.length) return false;
+      layout.texts = next;
+      if (sel === id) sel = null;
+      if (editingId === id) editingId = null;
+      if (textNodes[id]) {
+        try { textNodes[id].remove(); } catch (e) {}
+        delete textNodes[id];
+      }
+      saveLayout();
+      renderCard();
+      if (panelShowDesign) panelShowDesign();
+      return true;
+    }
+
+    function setCenterDivider(on) {
+      var layout = getLayout();
+      if (!layout) return false;
+      layout.centerDivider = !!on;
+      if (layout.centerDivider && (typeof layout.centerShiftMm !== "number" || isNaN(layout.centerShiftMm))) {
+        layout.centerShiftMm = 5;
+      }
+      saveLayout();
+      syncZoneMode();
+      renderCard();
+      return layout.centerDivider;
+    }
+
+    function getCenterDivider() {
+      return isZoneSplitActive();
+    }
+
     return {
       renderCard: renderCard,
       selectEl: selectEl,
@@ -1088,6 +1164,9 @@
       setSelection: function (v) { sel = v; updateSelectionHighlight(); },
       editTextById: editTextById,
       addTextBlock: addTextBlock,
+      removeTextBlock: removeTextBlock,
+      setCenterDivider: setCenterDivider,
+      getCenterDivider: getCenterDivider,
     };
   }
 
