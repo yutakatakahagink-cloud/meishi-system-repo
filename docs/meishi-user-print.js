@@ -320,7 +320,8 @@
         if (S[stateKey] !== "") { S[stateKey] = ""; changed = true; }
         return changed;
       }
-      if (arr.length === 1) {
+      // 所属2・所属3は候補が1件でも自動選択しない（未選択のまま）
+      if (arr.length === 1 && stateKey !== "aff2" && stateKey !== "aff3") {
         if (S[stateKey] !== arr[0]) changed = true;
         S[stateKey] = arr[0];
         selEl.value = arr[0];
