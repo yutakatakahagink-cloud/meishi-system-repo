@@ -743,10 +743,18 @@
     var hasLib = getImageLibrary().length > 0;
     var hasPv = Object.keys(_previewPersonal || {}).length > 0;
     if (!hasCo && !hasDept && !hasLib && !hasPv && !(_records && _records.length)) return;
+    // 設定・レコードのみ。画像ライブラリの起動時フルアップロードは行わない（毎回数秒〜かかるため）
     persistCfg();
     persistRec();
-    if (hasLib) await persistImageLibraryStore(getImageLibrary());
-    if (hasPv) await persistPreviewPersonalStore();
+  }
+
+  function safeFbOnce(path) {
+    return _fbDb.ref(path).once("value").then(function (snap) {
+      return snap;
+    }).catch(function (e) {
+      console.warn("[Meishi] Firebase once failed: " + path, e);
+      return null;
+    });
   }
 
   async function syncAllToRemote() {
@@ -942,9 +950,13 @@
     return data;
   }
   async function loadRecords() {
-    var seed = await loadSeedRecords();
     var local = loadLocalRec();
-    _records = (local && local.length) ? local : seed;
+    if (local && local.length) {
+      _records = local;
+      return;
+    }
+    var seed = await loadSeedRecords();
+    _records = seed;
   }
 
   function buildProfileFromRaw(raw, companyName) {
@@ -1533,50 +1545,49 @@
 
     await ensureFirebaseAuth();
 
-    await loadAuthFromFirebase();
+    // auth / records / config / preview を並列取得（画像ライブラリは後追い）
+    var settled = await Promise.all([
+      loadAuthFromFirebase().catch(function (e) {
+        console.warn("[Meishi] auth load failed", e);
+      }),
+      safeFbOnce(FB_REC_PATH),
+      safeFbOnce(FB_CFG_PATH),
+      safeFbOnce(FB_PREVIEW_PERSONAL_PATH),
+    ]);
+    var snapRec = settled[1];
+    var snapCfg = settled[2];
+    var snapPv = settled[3];
 
     try {
-      var snapRec = await _fbDb.ref(FB_REC_PATH).once("value");
-      var rv = snapRec.val();
+      var rv = snapRec && snapRec.val();
       if (rv && Array.isArray(rv) && rv.length) {
         var localRec = loadLocalRec();
         if (shouldPreferRemoteData() || !localRec || !localRec.length) {
           _records = rv;
+          _mergedRecordsCache = null;
           try { localStorage.setItem(REC_KEY, JSON.stringify(_records)); } catch (e) {}
         }
       }
     } catch (e) {
-      console.warn("[Meishi] Firebase records read failed", e);
+      console.warn("[Meishi] Firebase records apply failed", e);
     }
 
     try {
-      var snap = await _fbDb.ref(FB_CFG_PATH).once("value");
-      var v = snap.val();
+      var v = snapCfg && snapCfg.val();
       if (v && typeof v === "object") {
         mergeConfigFromRemote(v);
         try { localStorage.setItem(CFG_KEY, JSON.stringify(configForMainStorage())); } catch (e) {}
       }
     } catch (e) {
-      console.warn("[Meishi] Firebase config read failed（hh_data/meishi_config）", e);
+      console.warn("[Meishi] Firebase config apply failed（hh_data/meishi_config）", e);
     }
 
-    var remoteImgLib = null;
     try {
-      var snapImg = await _fbDb.ref(FB_IMG_LIB_PATH).once("value");
-      remoteImgLib = snapImg.val();
+      var remotePv = snapPv ? snapPv.val() : null;
+      await applyPreviewPersonalWithRemote(remotePv);
     } catch (e) {
-      console.warn("[Meishi] Firebase image library read failed", e);
+      console.warn("[Meishi] Firebase preview personal apply failed", e);
     }
-    await applyImageLibraryWithRemote(remoteImgLib);
-
-    var remotePv = null;
-    try {
-      var snapPv = await _fbDb.ref(FB_PREVIEW_PERSONAL_PATH).once("value");
-      remotePv = snapPv.val();
-    } catch (e) {
-      console.warn("[Meishi] Firebase preview personal read failed", e);
-    }
-    await applyPreviewPersonalWithRemote(remotePv);
 
     try { _fbDb.ref(FB_CFG_PATH + "/imageLibrary").remove(); } catch (e) {}
 
@@ -1603,9 +1614,10 @@
     try {
       _fbDb.ref(FB_REC_PATH).on("value", function (snap) {
         if (_suppressRecRemote) return;
-        var v = snap.val();
-        if (v && Array.isArray(v)) {
-          _records = v;
+        var v2 = snap.val();
+        if (v2 && Array.isArray(v2)) {
+          _records = v2;
+          _mergedRecordsCache = null;
           try { localStorage.setItem(REC_KEY, JSON.stringify(_records)); } catch (e) {}
           fireRec();
         }
@@ -1622,6 +1634,8 @@
         void applyImageLibraryWithRemote(val).then(function () { fireCfg(); });
       });
     } catch (e) {}
+
+    // 画像ライブラリは .on("value") の初回コールで裏取得（巨大ペイロードを init で待たない）
   }
 
   async function init() {
@@ -1656,6 +1670,7 @@
       }
       throw new Error("名刺データを読み込めませんでした。\n" + msg);
     }
+    // ローカル画像を先に載せ、UI はすぐ開けるようにする
     await bootstrapLocalImageLibrary();
     await initFirebase();
     if (localAuth && String(localAuth.ownerId || "").trim()) {
