@@ -82,7 +82,7 @@ th{background:#f3f6fb;position:sticky;top:0}tr.sel{background:#e8eef8}tr:hover{b
 .meishi.design-mode.zone-split .el[data-text-wrapped="1"],.meishi.text-flow .el[data-text-wrapped="1"]{white-space:pre-wrap;word-break:break-word;overflow-wrap:anywhere}
 .meishi.design-mode.zone-split .el[data-id="telfax"],.meishi.text-flow .el[data-id="telfax"]{white-space:nowrap}
 .el.sel,.imgel.sel{border-color:#2f5597;background:rgba(47,85,151,.06)}
-.imgel img{width:100%;height:100%;object-fit:fill;pointer-events:none;display:block}
+.imgel img{width:100%;height:100%;object-fit:contain;pointer-events:none;display:block}
 .rs{position:absolute;right:-6px;bottom:-6px;width:12px;height:12px;background:#2f5597;border-radius:50%;cursor:se-resize}
 .meishi.is-dragging .el,.meishi.is-dragging .imgel{cursor:grabbing}
 .snap-guides{position:absolute;inset:0;pointer-events:none;z-index:900}
