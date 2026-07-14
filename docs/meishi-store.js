@@ -714,6 +714,8 @@
     var preferRemote = shouldPreferRemoteData();
     var localCo = _config.companySettings || {};
     var localDept = _config.deptSettings || {};
+    // 画像ライブラリは別パス管理。設定マージでメモリ上の画像を消さない
+    var keepLib = Array.isArray(_config.imageLibrary) ? _config.imageLibrary : null;
     _config = Object.assign({}, _config, v);
     if (v.ownerId != null && String(v.ownerId).trim() !== "") {
       _config.ownerId = String(v.ownerId).trim();
@@ -732,7 +734,11 @@
     if (v.deptSettings && typeof v.deptSettings === "object") {
       _config.deptSettings = mergeSettingsMaps(localDept, v.deptSettings, preferRemote);
     }
-    delete _config.imageLibrary;
+    if (keepLib && keepLib.length) {
+      _config.imageLibrary = keepLib;
+    } else {
+      delete _config.imageLibrary;
+    }
     _fbCfgLoaded = true;
   }
 
@@ -1545,7 +1551,7 @@
 
     await ensureFirebaseAuth();
 
-    // auth / records / config / preview を並列取得（画像ライブラリは後追い）
+    // auth / records / config / preview / imageLib を並列取得（RTT を重ねない）
     var settled = await Promise.all([
       loadAuthFromFirebase().catch(function (e) {
         console.warn("[Meishi] auth load failed", e);
@@ -1553,10 +1559,12 @@
       safeFbOnce(FB_REC_PATH),
       safeFbOnce(FB_CFG_PATH),
       safeFbOnce(FB_PREVIEW_PERSONAL_PATH),
+      safeFbOnce(FB_IMG_LIB_PATH),
     ]);
     var snapRec = settled[1];
     var snapCfg = settled[2];
     var snapPv = settled[3];
+    var snapImg = settled[4];
 
     try {
       var rv = snapRec && snapRec.val();
@@ -1580,6 +1588,18 @@
       }
     } catch (e) {
       console.warn("[Meishi] Firebase config apply failed（hh_data/meishi_config）", e);
+    }
+
+    // 設定マージ後もローカル画像を維持し、リモート画像を適用
+    if (!getImageLibrary().length) {
+      try { await applyLocalImageLibrary(); } catch (e) {}
+    }
+    try {
+      var remoteImgLib = snapImg ? snapImg.val() : null;
+      await applyImageLibraryWithRemote(remoteImgLib);
+    } catch (e) {
+      console.warn("[Meishi] Firebase image library apply failed", e);
+      try { await applyLocalImageLibrary(); } catch (e2) {}
     }
 
     try {
@@ -1634,8 +1654,6 @@
         void applyImageLibraryWithRemote(val).then(function () { fireCfg(); });
       });
     } catch (e) {}
-
-    // 画像ライブラリは .on("value") の初回コールで裏取得（巨大ペイロードを init で待たない）
   }
 
   async function init() {
