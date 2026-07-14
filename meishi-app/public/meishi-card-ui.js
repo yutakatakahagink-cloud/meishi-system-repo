@@ -5,7 +5,7 @@
  */
 (function () {
   var SNAP_THRESH = 6;
-  var FLOW_PAD = 6;
+  var FLOW_PAD = 0;
   var CARD_W_MM = 91;
   var CENTER_GAP_MM = 2;
   var DRAG_START = 5;
@@ -669,7 +669,7 @@
       if (MeishiLayout.applyTextBgStyle) MeishiLayout.applyTextBgStyle(node, st);
       node.style.whiteSpace = "pre-wrap";
       node.style.wordBreak = "break-word";
-      node.style.maxWidth = Math.max(40, cardInnerWidth() - st.x - 8) + "px";
+      node.style.maxWidth = Math.max(40, cardInnerWidth() - st.x) + "px";
     }
 
     function syncFreeTextContentFromNode(node, st) {
@@ -880,7 +880,7 @@
           node.style.left = nx + "px";
           node.style.top = ny + "px";
           if (isTextDrag) node.style.maxWidth = textMaxWidth(st) + "px";
-          if (isFreeText) node.style.maxWidth = Math.max(40, cardInnerWidth() - st.x - 8) + "px";
+          if (isFreeText) node.style.maxWidth = Math.max(40, cardInnerWidth() - st.x) + "px";
         }
         function mv(e2) {
           if (ended || e2.pointerId !== pid) return;

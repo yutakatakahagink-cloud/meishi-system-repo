@@ -306,7 +306,7 @@
       if (MeishiLayout.applyTextBgStyle) MeishiLayout.applyTextBgStyle(node, st);
       node.style.whiteSpace = "pre-wrap";
       node.style.wordBreak = "break-word";
-      node.style.maxWidth = Math.max(40, cardInnerWidth() - st.x - 8) + "px";
+      node.style.maxWidth = Math.max(40, cardInnerWidth() - st.x) + "px";
     }
 
     function syncTextContentFromNode(node, st) {
