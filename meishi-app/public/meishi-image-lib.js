@@ -89,8 +89,8 @@
     var out = {
       id: (prefix || "img") + Date.now() + i,
       src: itemUrl(item),
-      x: 20 + i * 10,
-      y: 8,
+      x: i * 12,
+      y: i * 12,
       w: 80,
       h: 44,
     };

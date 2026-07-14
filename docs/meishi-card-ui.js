@@ -633,7 +633,9 @@
         if (n._src !== nextSrc) {
           n._src = nextSrc;
           n.img.src = nextSrc;
+          raw.aspectFit = 0;
         }
+        ensureImageAspectFit(raw, n.img);
         var sized = clampSizeInCard(raw.x || 0, raw.y || 0, raw.w || 16, raw.h || 12);
         raw.w = sized.w;
         raw.h = sized.h;
@@ -686,6 +688,60 @@
         w: Math.max(16, Math.min(Math.round(w), Math.max(16, cw - left))),
         h: Math.max(12, Math.min(Math.round(h), Math.max(12, ch - top))),
       };
+    }
+
+    /** 枠内余白をなくすため、画像の縦横比に合わせてボックス寸法を合わせる（初回のみ） */
+    function fitImageBoxToNatural(raw, imgEl) {
+      if (!raw || !imgEl || raw.aspectFit) return false;
+      var nw = imgEl.naturalWidth;
+      var nh = imgEl.naturalHeight;
+      if (!nw || !nh) return false;
+      var boxW = Math.max(16, raw.w || 80);
+      var boxH = Math.max(12, raw.h || 44);
+      var imgAspect = nw / nh;
+      var boxAspect = boxW / boxH;
+      if (Math.abs(boxAspect - imgAspect) >= 0.015) {
+        if (imgAspect >= boxAspect) {
+          raw.w = boxW;
+          raw.h = Math.max(12, Math.round(boxW / imgAspect));
+        } else {
+          raw.h = boxH;
+          raw.w = Math.max(16, Math.round(boxH * imgAspect));
+        }
+      }
+      raw.aspectFit = 1;
+      return true;
+    }
+
+    function ensureImageAspectFit(raw, imgEl, after) {
+      if (!raw || !imgEl) return;
+      function run() {
+        if (fitImageBoxToNatural(raw, imgEl)) {
+          var sized = clampSizeInCard(raw.x || 0, raw.y || 0, raw.w || 16, raw.h || 12);
+          raw.w = sized.w;
+          raw.h = sized.h;
+          var pos = clampPosInCard(raw.x || 0, raw.y || 0, raw.w, raw.h);
+          raw.x = pos.x;
+          raw.y = pos.y;
+          if (typeof after === "function") after();
+          else if (imgNodes[raw.id]) {
+            var n = imgNodes[raw.id];
+            n.wrap.style.left = raw.x + "px";
+            n.wrap.style.top = raw.y + "px";
+            n.wrap.style.width = raw.w + "px";
+            n.wrap.style.height = raw.h + "px";
+          }
+        } else if (typeof after === "function") {
+          after();
+        }
+      }
+      if (imgEl.complete && imgEl.naturalWidth) run();
+      else {
+        imgEl.addEventListener("load", function onLoad() {
+          imgEl.removeEventListener("load", onLoad);
+          run();
+        });
+      }
     }
 
     function applyFreeTextStyle(node, st, skipContent) {
@@ -1015,6 +1071,7 @@
           var sized = clampSizeInCard(im.x, im.y, rawW, rawH);
           nw = sized.w;
           nh = sized.h;
+          im.aspectFit = 1;
           var guides = snapResizeBox(cardEl, wrap, im.x, im.y, nw, nh, zoneSnapEdges(), snapExtraCardEls);
           showDragGuides(guides, im.x, im.y, nw, nh, "br");
           if (!raf) raf = requestAnimationFrame(applySize);
