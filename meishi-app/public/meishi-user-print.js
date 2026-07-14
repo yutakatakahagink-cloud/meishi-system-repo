@@ -818,14 +818,21 @@
       if (btn && !btn._mpBound) {
         btn._mpBound = true;
         btn.addEventListener("click", function () {
+          if (cardUI && cardUI.commitAllTextEdits) cardUI.commitAllTextEdits();
+          if (backCardUI && backCardUI.commitAllTextEdits) backCardUI.commitAllTextEdits();
           if (cardUI) cardUI.clearSelection();
+          if (backCardUI && backCardUI.clearSelection) backCardUI.clearSelection();
           var printArea = document.getElementById("printArea") || document.getElementById("pvPrintArea");
           if (window.MeishiPrintSheet && typeof window.MeishiPrintSheet.printFromArea === "function") {
             window.MeishiPrintSheet.printFromArea(printArea, {
               beforePrint: function () {
+                if (cardUI && cardUI.commitAllTextEdits) cardUI.commitAllTextEdits();
+                if (backCardUI && backCardUI.commitAllTextEdits) backCardUI.commitAllTextEdits();
+                refreshLayoutFromStore();
                 if (typeof cfg.onBeforePrint === "function") cfg.onBeforePrint();
               },
               prepareRender: function () {
+                refreshLayoutFromStore();
                 renderCard();
                 renderBackCard();
                 if (typeof cfg.preparePrint === "function") cfg.preparePrint();
@@ -837,6 +844,7 @@
             });
           } else {
             if (typeof cfg.onBeforePrint === "function") cfg.onBeforePrint();
+            refreshLayoutFromStore();
             renderCard();
             renderBackCard();
             window.print();

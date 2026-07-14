@@ -787,6 +787,7 @@
       alert("会社と所属1を選択してください");
       return false;
     }
+    if (deBackUI && deBackUI.commitAllTextEdits) deBackUI.commitAllTextEdits();
     window._deptSaving = true;
     try {
       return MeishiStore.saveDeptSettings(pk.co, pk.aff1, pk.aff2, collectDeptProfile());
@@ -1228,6 +1229,8 @@
       }
     };
     document.getElementById("btnSaveCo").onclick = function () {
+      if (coUI && coUI.commitAllTextEdits) coUI.commitAllTextEdits();
+      if (coBackUI && coBackUI.commitAllTextEdits) coBackUI.commitAllTextEdits();
       syncCoCatalogToRecords(null);
       var pending = collectCoSaveMutations();
       MeishiStore.saveCompanyProfile(currentCo, collectCoProfile(), pending);

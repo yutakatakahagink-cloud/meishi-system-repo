@@ -806,8 +806,9 @@
       if (!skipContent && st.id !== editingId && document.activeElement !== node) {
         node.textContent = st.content || "";
       }
+      node.setAttribute("data-content", String(st.content || ""));
       node.style.fontSize = st.size + "px";
-      node.style.color = st.color;
+      node.style.color = st.color || "#222222";
       node.style.fontFamily = MeishiLayout.resolveBackFontFamily(st.font || "");
       node.style.fontWeight = st.bold ? "700" : "400";
       node.style.fontStyle = st.italic ? "italic" : "normal";
@@ -824,10 +825,12 @@
       st.y = pos.y;
       node.style.left = st.x + "px";
       node.style.top = st.y + "px";
+      node.style.zIndex = "5";
     }
 
     function syncFreeTextContentFromNode(node, st) {
       st.content = (node.innerText || "").replace(/\r\n/g, "\n");
+      if (node) node.setAttribute("data-content", String(st.content || ""));
     }
 
     function exitInlineEdit(node, st) {
@@ -837,6 +840,15 @@
       node.classList.remove("is-editing");
       editingId = null;
       saveLayout();
+    }
+
+    function commitAllTextEdits() {
+      if (!editingId) return;
+      var node = textNodes[editingId];
+      var layout = getLayout();
+      var st = ((layout && layout.texts) || []).find(function (t) { return t && t.id === editingId; });
+      if (node && st) exitInlineEdit(node, st);
+      else editingId = null;
     }
 
     function enterInlineEdit(node, st, selectAll) {
@@ -1573,6 +1585,7 @@
       editTextById: editTextById,
       addTextBlock: addTextBlock,
       removeTextBlock: removeTextBlock,
+      commitAllTextEdits: commitAllTextEdits,
       setCenterDivider: setCenterDivider,
       getCenterDivider: getCenterDivider,
     };

@@ -105,7 +105,7 @@ th{background:#f3f6fb;position:sticky;top:0}tr.sel{background:#e8eef8}tr:hover{b
 .size-step button:disabled{opacity:.35;cursor:default}
 .size-step span{min-width:38px;text-align:center;font-size:.8rem;color:#54607a}
 .card-side-toggle{margin:0 0 12px;width:fit-content}
-.btel{position:absolute;cursor:default;touch-action:none;border:1px dashed transparent;user-select:none;padding:0;line-height:1.3;box-sizing:border-box}
+.btel{position:absolute;cursor:default;touch-action:none;border:1px dashed transparent;user-select:none;padding:0;line-height:1.3;box-sizing:border-box;z-index:5}
 .meishi.design-mode .btel{cursor:default;border:none}
 .meishi.design-mode .btel.sel{cursor:grab;border:none;background:rgba(47,85,151,.08)}
 .meishi.design-mode .btel.is-editing{cursor:text;background:rgba(47,85,151,.12);outline:2px solid rgba(47,85,151,.45);outline-offset:1px}
@@ -166,9 +166,17 @@ th{background:#f3f6fb;position:sticky;top:0}tr.sel{background:#e8eef8}tr:hover{b
   #pvPrintArea .preview-scale-box[data-meishi-print-hidden]{display:none!important;visibility:hidden}
   #pvPrintArea .meishi-a4-print-overlay,#pvPrintArea .meishi-a4-print-bundle{display:block!important;visibility:visible}
   #pvPrintArea .meishi{box-shadow:none!important}
-  #pvPrintArea .el,#pvPrintArea .btel{border-color:transparent!important;background:transparent!important}
+  #pvPrintArea .el,#pvPrintArea .btel{border-color:transparent!important}
   #pvPrintArea .el.empty{display:none}
   #pvPrintArea .imgel{border-color:transparent!important}
+  #pvPrintArea .btel{
+    visibility:visible!important;
+    opacity:1!important;
+    -webkit-print-color-adjust:exact;
+    print-color-adjust:exact;
+    z-index:5!important;
+  }
+  #pvPrintArea .btel[data-has-bg="1"]{background-color:inherit}
 }
 .qr-modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:100;padding:16px}
 .qr-modal[hidden]{display:none!important}

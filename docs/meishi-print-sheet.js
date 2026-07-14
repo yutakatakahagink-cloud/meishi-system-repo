@@ -63,9 +63,24 @@
     if (!cards.length) return wrap;
     cards.forEach(function (card, i) {
       var c = card.cloneNode(true);
-      c.classList.remove("sel", "is-editing");
+      c.classList.remove("sel", "is-editing", "is-dragging", "design-mode");
       c.querySelectorAll(".sel, .is-editing").forEach(function (n) {
         n.classList.remove("sel", "is-editing");
+      });
+      c.querySelectorAll(".snap-guides, .card-zone-layer, .rs").forEach(function (n) {
+        try { n.remove(); } catch (e) {}
+      });
+      c.querySelectorAll(".btel").forEach(function (n) {
+        n.removeAttribute("contenteditable");
+        n.classList.remove("is-editing", "sel");
+        var stored = n.getAttribute("data-content");
+        if (stored != null && !String(n.textContent || "").trim() && String(stored).trim()) {
+          n.textContent = stored;
+        }
+        if (!n.style.color) n.style.color = "#222222";
+        n.style.zIndex = "5";
+        n.style.visibility = "visible";
+        n.style.opacity = "1";
       });
       if (i > 0) c.classList.add("meishi-overlay");
       c.querySelectorAll("img").forEach(preserveImgSrc);

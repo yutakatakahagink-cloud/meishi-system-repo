@@ -192,11 +192,17 @@
   .meishi-print-card-wrap .btel {
     position: absolute;
     box-sizing: border-box;
+    visibility: visible !important;
+    opacity: 1 !important;
+    z-index: 5 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 
   .meishi-print-card-wrap .imgel {
     position: absolute;
     box-sizing: border-box;
+    z-index: 1;
   }
 
   .meishi-print-card-wrap .imgel img {
@@ -218,9 +224,20 @@
   }
 
   .meishi-print-card-wrap .el,
-  .meishi-print-card-wrap .imgel,
+  .meishi-print-card-wrap .imgel {
+    border-color: transparent !important;
+  }
+
   .meishi-print-card-wrap .btel {
     border-color: transparent !important;
+  }
+
+  .meishi-print-card-wrap .btel[data-has-bg="1"] {
+    /* 背景色付きテキストは印刷でも背景を残す */
+  }
+
+  .meishi-print-card-wrap .el:not([data-has-bg="1"]),
+  .meishi-print-card-wrap .btel:not([data-has-bg="1"]) {
     background: transparent !important;
   }
 
