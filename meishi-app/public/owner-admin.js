@@ -109,10 +109,6 @@
       var el = document.getElementById(id);
       if (el) el.disabled = !can;
     });
-    ["btnCoApplyDesignText", "btnCoUndoDesignText"].forEach(function (id) {
-      var el = document.getElementById(id);
-      if (el) el.style.display = "none";
-    });
     var hint = document.getElementById("adminEditHint");
     if (hint) {
       hint.style.display = can || !currentCo ? "none" : "";
@@ -1488,101 +1484,6 @@
       afterCoSaveRefresh();
       alert("名刺データからマスタを取り込み、関連データを更新しました");
     };
-    document.getElementById("btnCoApplyDesignText").onclick = function () {
-      var src = "日新興業株式会社";
-      var others = MeishiStore.getCompanyList().filter(function (c) {
-        return MeishiFields.norm(c) !== MeishiFields.norm(src);
-      });
-      if (!others.length) return alert("適用先の会社・団体がありません（名刺データに他の会社が必要です）");
-      var modal = document.getElementById("applyDesignModal");
-      var list = document.getElementById("applyDesignList");
-      if (!modal || !list) return;
-      list.innerHTML = others.map(function (c, i) {
-        var id = "applyDesignChk" + i;
-        return (
-          '<label style="display:flex;gap:8px;align-items:flex-start;padding:4px 2px;cursor:pointer">' +
-          '<input type="checkbox" id="' + id + '" value="' + String(c).replace(/"/g, "&quot;") + '" />' +
-          '<span>' + String(c).replace(/</g, "&lt;") + "</span></label>"
-        );
-      }).join("");
-      modal.hidden = false;
-      function closeModal() { modal.hidden = true; }
-      document.getElementById("btnApplyDesignCancel").onclick = closeModal;
-      document.getElementById("btnApplyDesignAll").onclick = function () {
-        list.querySelectorAll('input[type="checkbox"]').forEach(function (el) { el.checked = true; });
-      };
-      document.getElementById("btnApplyDesignNone").onclick = function () {
-        list.querySelectorAll('input[type="checkbox"]').forEach(function (el) { el.checked = false; });
-      };
-      document.getElementById("btnApplyDesignOk").onclick = function () {
-        var targets = [];
-        list.querySelectorAll('input[type="checkbox"]:checked').forEach(function (el) {
-          targets.push(el.value);
-        });
-        if (!targets.length) return alert("適用先にチェックを付けてください");
-        if (
-          !confirm(
-            "「" + src + "」の名刺デザイン（画像以外）を\n" +
-              "次の " + targets.length + " 社へ適用しますか？\n\n・" + targets.join("\n・") +
-              "\n\n※適用前のデザインは「デザイン適用を取り消す」で戻せます"
-          )
-        ) {
-          return;
-        }
-        try {
-          if (MeishiFields.norm(currentCo) === MeishiFields.norm(src)) {
-            MeishiStore.saveCompanyProfile(currentCo, collectCoProfile(), collectCoSaveMutations());
-          }
-          var r = MeishiStore.applyCompanyDesignTextOnly(src, { targets: targets });
-          syncRemoteAfterSave();
-          fillCoPick();
-          fillCoPanel();
-          afterCoSaveRefresh();
-          refreshDesignUndoBtn();
-          closeModal();
-          alert("画像以外のデザインを " + (r.count || 0) + " 社へ適用しました。\n取り消す場合は「デザイン適用を取り消す」を押してください。");
-        } catch (e) {
-          alert(e.message || e);
-        }
-      };
-    };
-    function refreshDesignUndoBtn() {
-      var btn = document.getElementById("btnCoUndoDesignText");
-      if (!btn) return;
-      var info = MeishiStore.getDesignApplyUndoInfo && MeishiStore.getDesignApplyUndoInfo();
-      if (info && info.targets && info.targets.length) {
-        btn.hidden = false;
-        btn.title = "適用先: " + info.targets.join("、");
-      } else {
-        btn.hidden = true;
-      }
-    }
-    document.getElementById("btnCoUndoDesignText").onclick = function () {
-      var info = MeishiStore.getDesignApplyUndoInfo && MeishiStore.getDesignApplyUndoInfo();
-      if (!info || !info.targets || !info.targets.length) {
-        return alert("取り消せる適用記録がありません");
-      }
-      if (
-        !confirm(
-          "直前のデザイン適用を取り消し、次の会社を適用前のデザインに戻しますか？\n\n・" +
-            info.targets.join("\n・")
-        )
-      ) {
-        return;
-      }
-      try {
-        var r = MeishiStore.undoCompanyDesignTextApply();
-        syncRemoteAfterSave();
-        fillCoPick();
-        fillCoPanel();
-        afterCoSaveRefresh();
-        refreshDesignUndoBtn();
-        alert((r.count || 0) + " 社のデザインを適用前に戻しました。");
-      } catch (e) {
-        alert(e.message || e);
-      }
-    };
-    refreshDesignUndoBtn();
     document.getElementById("btnSaveCo").onclick = function () {
       if (coUI && coUI.commitAllTextEdits) coUI.commitAllTextEdits();
       if (coBackUI && coBackUI.commitAllTextEdits) coBackUI.commitAllTextEdits();

@@ -128,12 +128,10 @@
             <button type="button" class="btn sm ghost" id="btnCoRename">名称変更</button>
             <button type="button" class="btn sm danger" id="btnCoDel">削除</button>
             <button type="button" class="btn sm ghost" id="btnCoSyncCat">データからマスタ取込</button>
-            <button type="button" class="btn sm ghost" id="btnCoApplyDesignText">日新興業のデザインを他社へ（画像以外）</button>
-            <button type="button" class="btn sm ghost" id="btnCoUndoDesignText" hidden>デザイン適用を取り消す</button>
           </div>
-          <label class="hint" style="display:flex;gap:8px;align-items:center;margin-top:10px;cursor:pointer">
-            <input type="checkbox" id="coHiddenForUser" />
+          <label class="hint" style="display:inline-flex;gap:6px;align-items:center;margin-top:10px;cursor:pointer;width:fit-content">
             <span>この会社・団体を <strong>user（使用者）に非公開</strong>にする（一覧・印刷不可）</span>
+            <input type="checkbox" id="coHiddenForUser" />
           </label>
         </div>
         <div class="grid2">
@@ -383,22 +381,7 @@
         <button type="button" class="btn sm" id="btnQrClose">閉じる</button>
       </div>
     </div>
-    <div id="applyDesignModal" class="qr-modal" hidden>
-      <div class="qr-dialog" style="max-width:420px;text-align:left">
-        <h3>日新興業のデザインを適用</h3>
-        <p class="hint">適用したい会社・団体だけにチェックを付けてください（画像以外。各社の画像はそのまま残ります）。</p>
-        <div id="applyDesignList" style="max-height:280px;overflow:auto;border:1px solid #d6dde8;border-radius:8px;padding:8px;margin:10px 0"></div>
-        <div class="btn-row">
-          <button type="button" class="btn sm" id="btnApplyDesignAll">すべて選択</button>
-          <button type="button" class="btn sm ghost" id="btnApplyDesignNone">選択解除</button>
-        </div>
-        <div class="btn-row" style="margin-top:12px">
-          <button type="button" class="btn" id="btnApplyDesignOk">適用する</button>
-          <button type="button" class="btn sm ghost" id="btnApplyDesignCancel">キャンセル</button>
-        </div>
-      </div>
-    </div>
-    <script src="owner-admin.js?v=20250714ad"></script>
+    <script src="owner-admin.js?v=20250714ae"></script>
     <script>OwnerAdmin.initAdmin();</script>
   </body>
 </html>
