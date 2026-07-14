@@ -5,6 +5,7 @@
   var COLUMNS = [
     { key: "no", label: "番号" },
     { key: "name", label: "氏名" },
+    { key: "furigana", label: "ふりがな" },
     { key: "company", label: "会社・団体名" },
     { key: "aff1", label: "所属1" },
     { key: "aff2", label: "所属2" },

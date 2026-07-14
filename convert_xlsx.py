@@ -14,7 +14,7 @@ OUT = os.path.join(OUTDIR, 'meishi-records.json')
 OUT_JS = os.path.join(OUTDIR, 'meishi-records.js')
 
 KEYMAP = {
-    '番号': 'no', '氏名': 'name', '会社・団体名': 'company',
+    '番号': 'no', '氏名': 'name', 'ふりがな': 'furigana', '会社・団体名': 'company',
     '所属1': 'aff1', '所属2': 'aff2', '所属3': 'aff3',
     '役職': 'title', '資格': 'qual', '携帯': 'mobile', 'メール': 'email',
     '郵便番号': 'postal', '住所': 'address', 'TEL': 'tel', 'FAX': 'fax',

@@ -872,6 +872,7 @@
       renderCard: renderCard,
       renderBackCard: renderBackCard,
       setPreviewSide: setPreviewSide,
+      scheduleRenderCard: scheduleRenderCard,
       clear: clear,
     };
   }

@@ -6,7 +6,7 @@
   var copySourceRec = null;
   var recFilter = "";
 
-  var REC_TEXT_INPUT_KEYS = { name: 1, qual: 1, mobile: 1, email: 1 };
+  var REC_TEXT_INPUT_KEYS = { name: 1, furigana: 1, qual: 1, mobile: 1, email: 1 };
   var coUI = null;
   var coPanel = null;
   var coLayout = null;

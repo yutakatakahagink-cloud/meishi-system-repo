@@ -79,9 +79,11 @@
     function loadPreviewPersonalImages() {
       var idx = findPreviewRecordIndex();
       var hint = document.getElementById("pvPersonalHint");
+      var kojiEl = document.getElementById("pvInKoji");
       if (idx < 0) {
         pvPersonalLayout = newPersonalLayout();
         if (hint) hint.textContent = "氏名を選ぶと、その人専用の画像を設定できます。";
+        if (kojiEl && !kojiEl._kojiTyping) kojiEl.value = "";
       } else {
         var rec = MeishiStore.getRecords()[idx];
         pvPersonalLayout = newPersonalLayout();
@@ -90,9 +92,21 @@
           pvPersonalLayout.images = MeishiImageLib.resolveImages(pvPersonalLayout.images);
         }
         if (hint) hint.textContent = "編集中: #" + rec.no + " " + rec.name + " の個人画像";
+        if (kojiEl && !kojiEl._kojiTyping && MeishiStore.getPreviewKoji) {
+          kojiEl.value = MeishiStore.getPreviewKoji(rec.no) || "";
+        }
       }
       if (pvPersonalUI) pvPersonalUI.invalidate();
       refreshPreviewPersonal();
+    }
+
+    function savePreviewKojiForSelection() {
+      var idx = findPreviewRecordIndex();
+      var kojiEl = document.getElementById("pvInKoji");
+      if (!kojiEl || !MeishiStore.savePreviewKoji) return;
+      if (idx < 0) return;
+      var rec = MeishiStore.getRecords()[idx];
+      MeishiStore.savePreviewKoji(rec.no, kojiEl.value || "");
     }
 
     function savePreviewPersonalImages() {
@@ -149,6 +163,32 @@
           };
           var btnSave = document.getElementById("pvBtnSavePersonal");
           if (btnSave) btnSave.onclick = savePreviewPersonalImages;
+        }
+        var kojiEl = document.getElementById("pvInKoji");
+        if (kojiEl && !kojiEl._kojiBound) {
+          kojiEl._kojiBound = true;
+          var kojiSaveTimer = null;
+          function scheduleKojiSave() {
+            if (kojiSaveTimer) clearTimeout(kojiSaveTimer);
+            kojiSaveTimer = setTimeout(function () {
+              kojiEl._kojiTyping = false;
+              savePreviewKojiForSelection();
+            }, 400);
+          }
+          kojiEl.addEventListener("input", function () {
+            kojiEl._kojiTyping = true;
+            scheduleKojiSave();
+            if (userPrint && userPrint.scheduleRenderCard) userPrint.scheduleRenderCard();
+            else if (userPrint && userPrint.renderCard) userPrint.renderCard();
+          });
+          kojiEl.addEventListener("change", function () {
+            kojiEl._kojiTyping = false;
+            savePreviewKojiForSelection();
+          });
+          kojiEl.addEventListener("blur", function () {
+            kojiEl._kojiTyping = false;
+            savePreviewKojiForSelection();
+          });
         }
       }
       loadPreviewPersonalImages();

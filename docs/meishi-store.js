@@ -7,11 +7,13 @@
   const IMG_LIB_KEY = "meishi_image_library_v1";
   const IMG_LIB_BACKUP_KEY = "meishi_image_library_v1_backup";
   const PREVIEW_PERSONAL_KEY = "meishi_preview_personal_v1";
+  const PREVIEW_KOJI_KEY = "meishi_preview_koji_v1";
   const FB_CFG_PATH = "hh_data/meishi_config";
   const FB_AUTH_PATH = "hh_data/meishi_auth";
   const FB_REC_PATH = "hh_data/meishi_records";
   const FB_IMG_LIB_PATH = "hh_data/meishi_image_library";
   const FB_PREVIEW_PERSONAL_PATH = "hh_data/meishi_preview_personal";
+  const FB_PREVIEW_KOJI_PATH = "hh_data/meishi_preview_koji";
 
   let _records = [];
   let _config = {
@@ -38,8 +40,11 @@
   let _fireRecTimer = null;
   let _mergedRecordsCache = null;
   let _previewPersonal = {};
+  let _previewKoji = {};
   let _suppressImgLibRemote = false;
   let _suppressImgLibRemoteTimer = null;
+  let _suppressKojiRemote = false;
+  let _suppressKojiRemoteTimer = null;
   const IDB_NAME = "meishi_app_v1";
   const IDB_STORE = "kv";
   const IDB_IMG_LIB = "imageLibrary";
@@ -278,6 +283,22 @@
 
   function shouldPreferRemoteData() {
     return !window.MEISHI_OWNER_PAGE;
+  }
+
+  function recordsHaveFurigana(arr) {
+    return Array.isArray(arr) && arr.some(function (r) {
+      return r && String(r.furigana || "").trim();
+    });
+  }
+
+  function shouldUpgradeRecordsFromRemote(local, remote) {
+    if (!Array.isArray(remote) || !remote.length) return false;
+    if (!recordsHaveFurigana(remote)) return false;
+    if (!Array.isArray(local) || !local.length) return true;
+    if (!recordsHaveFurigana(local)) return true;
+    if (local.length !== remote.length) return true;
+    if (String(local[0].name || "") !== String(remote[0].name || "")) return true;
+    return false;
   }
 
   async function loadImageLibraryFromStorage() {
@@ -535,6 +556,10 @@
     }
     _previewPersonal = {};
     await savePreviewPersonalToStorage({});
+  }
+
+  function applyLocalPreviewKoji() {
+    _previewKoji = loadLocalPreviewKoji() || {};
   }
 
   function imageLibraryFingerprint(arr) {
@@ -977,11 +1002,16 @@
   }
   async function loadRecords() {
     var local = loadLocalRec();
+    var seed = await loadSeedRecords();
     if (local && local.length) {
+      if (shouldUpgradeRecordsFromRemote(local, seed)) {
+        _records = seed;
+        try { localStorage.setItem(REC_KEY, JSON.stringify(_records)); } catch (e) {}
+        return;
+      }
       _records = local;
       return;
     }
-    var seed = await loadSeedRecords();
     _records = seed;
   }
 
@@ -1579,16 +1609,18 @@
       safeFbOnce(FB_REC_PATH),
       safeFbOnce(FB_CFG_PATH),
       safeFbOnce(FB_PREVIEW_PERSONAL_PATH),
+      safeFbOnce(FB_PREVIEW_KOJI_PATH),
     ]);
     var snapRec = settled[1];
     var snapCfg = settled[2];
     var snapPv = settled[3];
+    var snapKoji = settled[4];
 
     try {
       var rv = snapRec && snapRec.val();
       if (rv && Array.isArray(rv) && rv.length) {
         var localRec = loadLocalRec();
-        if (shouldPreferRemoteData() || !localRec || !localRec.length) {
+        if (shouldPreferRemoteData() || !localRec || !localRec.length || shouldUpgradeRecordsFromRemote(localRec, rv)) {
           _records = rv;
           _mergedRecordsCache = null;
           try { localStorage.setItem(REC_KEY, JSON.stringify(_records)); } catch (e) {}
@@ -1618,6 +1650,23 @@
       await applyPreviewPersonalWithRemote(remotePv);
     } catch (e) {
       console.warn("[Meishi] Firebase preview personal apply failed", e);
+    }
+
+    try {
+      var remoteKoji = snapKoji ? snapKoji.val() : null;
+      if (remoteKoji && typeof remoteKoji === "object") {
+        if (shouldPreferRemoteData() || !Object.keys(_previewKoji || {}).length) {
+          _previewKoji = remoteKoji;
+          try { localStorage.setItem(PREVIEW_KOJI_KEY, JSON.stringify(_previewKoji)); } catch (e) {}
+        } else {
+          Object.keys(remoteKoji).forEach(function (k) {
+            if (!_previewKoji[k] && remoteKoji[k]) _previewKoji[k] = remoteKoji[k];
+          });
+          try { localStorage.setItem(PREVIEW_KOJI_KEY, JSON.stringify(_previewKoji)); } catch (e) {}
+        }
+      }
+    } catch (e) {
+      console.warn("[Meishi] Firebase preview koji apply failed", e);
     }
 
     try { _fbDb.ref(FB_CFG_PATH + "/imageLibrary").remove(); } catch (e) {}
@@ -1669,6 +1718,17 @@
       });
     } catch (e) {}
 
+    try {
+      _fbDb.ref(FB_PREVIEW_KOJI_PATH).on("value", function (snap) {
+        if (_suppressKojiRemote) return;
+        var val = snap.val();
+        if (val && typeof val === "object") {
+          _previewKoji = val;
+          try { localStorage.setItem(PREVIEW_KOJI_KEY, JSON.stringify(_previewKoji)); } catch (e) {}
+        }
+      });
+    } catch (e) {}
+
     // ローカルに画像が無く、使用者画面などリモート必須のときだけ初回取得を待機
     if (!getImageLibrary().length && shouldPreferRemoteData()) {
       try {
@@ -1714,6 +1774,7 @@
     }
     // ローカル画像を先に載せ、UI はすぐ開けるようにする
     await bootstrapLocalImageLibrary();
+    applyLocalPreviewKoji();
     await initFirebase();
     if (localAuth && String(localAuth.ownerId || "").trim()) {
       var localOid = String(localAuth.ownerId).trim();
@@ -1764,6 +1825,44 @@
     if (!k) return false;
     _previewPersonal[k] = clone(images) || [];
     return persistPreviewPersonalStore();
+  }
+
+  function loadLocalPreviewKoji() {
+    try {
+      var raw = localStorage.getItem(PREVIEW_KOJI_KEY);
+      if (!raw) return {};
+      var o = JSON.parse(raw);
+      return o && typeof o === "object" ? o : {};
+    } catch (e) {
+      return {};
+    }
+  }
+
+  function persistPreviewKojiStore() {
+    try { localStorage.setItem(PREVIEW_KOJI_KEY, JSON.stringify(_previewKoji || {})); } catch (e) {}
+    if (_useFirebase && _fbDb && !_suppress) {
+      _suppressKojiRemote = true;
+      if (_suppressKojiRemoteTimer) clearTimeout(_suppressKojiRemoteTimer);
+      _suppressKojiRemoteTimer = setTimeout(function () { _suppressKojiRemote = false; }, 8000);
+      try { _fbDb.ref(FB_PREVIEW_KOJI_PATH).set(_previewKoji || {}); } catch (e) {}
+    }
+    return true;
+  }
+
+  function getPreviewKoji(recordNo) {
+    var k = previewPersonalKey(recordNo);
+    if (!k) return "";
+    return String((_previewKoji && _previewKoji[k]) || "").trim();
+  }
+
+  function savePreviewKoji(recordNo, text) {
+    var k = previewPersonalKey(recordNo);
+    if (!k) return false;
+    var v = String(text || "").trim();
+    if (!_previewKoji || typeof _previewKoji !== "object") _previewKoji = {};
+    if (v) _previewKoji[k] = v;
+    else delete _previewKoji[k];
+    return persistPreviewKojiStore();
   }
 
   async function addToImageLibrary(items) {
@@ -1825,6 +1924,8 @@
     removeFromImageLibrary: removeFromImageLibrary,
     getPreviewPersonalImages: getPreviewPersonalImages,
     savePreviewPersonalImages: savePreviewPersonalImages,
+    getPreviewKoji: getPreviewKoji,
+    savePreviewKoji: savePreviewKoji,
     getCompanyProfile: getCompanyProfile,
     getCompanyProfileForEdit: getCompanyProfileForEdit,
     saveCompanyProfile: saveCompanyProfile,
