@@ -61,12 +61,14 @@
     var previewSide = "front";
     var storeHooked = false;
     var nameOptionsAll = [];
-    /** 所属などとは独立。氏名検索用の全氏名一覧 */
+    /** 所属などとは独立。氏名の手入力検索用の全氏名一覧 */
     var nameOptionsUniverse = [];
     var nameFuriganaMap = Object.create(null);
     var nameSearchComposing = false;
     var nameComboOpen = false;
     var nameComboActiveIndex = -1;
+    /** "cascade"=プルダウン（会社・所属該当） / "search"=手入力で全氏名検索 */
+    var nameListMode = "cascade";
     var selectSig = {};
     var rebuildRaf = 0;
     var renderCardRaf = 0;
@@ -288,10 +290,16 @@
       return wrap ? wrap.querySelector(".name-combo-toggle") : null;
     }
 
-    function filteredNameOptions(query, forceAll) {
-      var q = forceAll ? "" : String(query || "");
-      // 入力検索時は所属・会社の選択に関係なく全氏名を対象にする
-      var source = nameOptionsUniverse.length ? nameOptionsUniverse : nameOptionsAll;
+    function filteredNameOptions(query) {
+      var q = String(query || "");
+      var source;
+      if (nameListMode === "search") {
+        // 手入力検索: 全氏名
+        source = nameOptionsUniverse.length ? nameOptionsUniverse : nameOptionsAll;
+      } else {
+        // プルダウン: 会社・所属などカスケード該当の氏名（未選択時は全氏名）
+        source = nameOptionsAll.length ? nameOptionsAll : nameOptionsUniverse;
+      }
       return source.filter(function (v) { return nameMatchesQuery(v, q); });
     }
 
@@ -305,12 +313,12 @@
       else list.hidden = true;
     }
 
-    function renderNameComboList(forceAll) {
+    function renderNameComboList() {
       var inp = el("selName");
       var list = getNameListEl();
       if (!inp || !list) return;
-      var query = forceAll ? "" : String(inp.value || "");
-      var items = filteredNameOptions(query, !!forceAll);
+      var query = nameListMode === "search" ? String(inp.value || "") : "";
+      var items = filteredNameOptions(query);
       nameComboActiveIndex = -1;
       if (!items.length) {
         list.innerHTML = '<li class="is-empty">（該当なし）</li>';
@@ -328,16 +336,19 @@
       var prev = S.name;
       S.name = next;
       if (inp) inp.value = next;
-      // 氏名を選んだら下位条件をクリアし、その人に紐づく全会社・所属を選べるようにする
+      // カスケード候補内の氏名なら会社・所属を維持。全検索で別の人を選んだときだけクリア
       if (prev !== next) {
-        S.company = "";
-        S.aff1 = "";
-        S.aff2 = "";
-        S.aff3 = "";
-        S.title = "";
-        S.postal = "";
-        S.mobile = "";
+        if (nameOptionsAll.indexOf(next) < 0) {
+          S.company = "";
+          S.aff1 = "";
+          S.aff2 = "";
+          S.aff3 = "";
+          S.title = "";
+          S.postal = "";
+          S.mobile = "";
+        }
       }
+      nameListMode = "cascade";
       setNameComboOpen(false);
       if (opts.skipRebuild) return;
       if (prev !== next || opts.forceRebuild) {
@@ -358,16 +369,15 @@
       var inp = el("selName");
       if (!inp) return false;
       var field = inp.closest(".field");
-      // カスケード用（会社・所属に紐づく氏名）。検索候補は nameOptionsUniverse を使う
       nameOptionsAll = Array.isArray(nameValues) ? nameValues.slice() : optionValuesFor("name");
       var changed = false;
-      // 氏名欄は常に入力・検索可能（所属選択中でも全氏名を検索できる）
       inp.disabled = false;
       if (field) field.classList.remove("field-disabled");
       if (skipAutoPick) {
         if (S.name !== "") { S.name = ""; changed = true; }
         inp.value = "";
-        renderNameComboList(true);
+        nameListMode = "cascade";
+        renderNameComboList();
         return changed;
       }
       // 氏名未選択かつカスケード候補が1件だけのときだけ自動選択
@@ -379,7 +389,7 @@
       if (!(document.activeElement === inp && nameComboOpen)) {
         inp.value = S.name || "";
       }
-      if (nameComboOpen) renderNameComboList(!String(inp.value || "").trim());
+      if (nameComboOpen) renderNameComboList();
       return changed;
     }
 
@@ -649,10 +659,11 @@
       }
     }
 
-    function openNameCombo(forceAll) {
+    function openNameCombo(mode) {
       var inp = el("selName");
       if (!inp || inp.disabled) return;
-      renderNameComboList(!!forceAll);
+      nameListMode = mode === "search" ? "search" : "cascade";
+      renderNameComboList();
       setNameComboOpen(true);
       highlightNameComboItem(-1);
     }
@@ -665,7 +676,7 @@
       inp._mpNameComboBound = true;
 
       function pickFromActiveOrQuery() {
-        var items = filteredNameOptions(inp.value, false);
+        var items = filteredNameOptions(nameListMode === "search" ? inp.value : "");
         if (nameComboActiveIndex >= 0 && items[nameComboActiveIndex]) {
           commitNameValue(items[nameComboActiveIndex]);
           return;
@@ -683,31 +694,27 @@
       }
 
       inp.addEventListener("focus", function () {
-        openNameCombo(!String(inp.value || "").trim());
+        openNameCombo("cascade");
       });
       inp.addEventListener("click", function () {
-        openNameCombo(!String(inp.value || "").trim());
+        openNameCombo("cascade");
       });
       inp.addEventListener("compositionstart", function () { nameSearchComposing = true; });
       inp.addEventListener("compositionend", function () {
         nameSearchComposing = false;
-        openNameCombo(false);
+        openNameCombo("search");
       });
       inp.addEventListener("input", function () {
         if (nameSearchComposing) return;
-        // 入力中は確定氏名をいったん外し、候補を下に表示
+        // 入力中は確定氏名をいったん外し、全氏名から候補を表示
         if (S.name && String(inp.value || "") !== S.name) S.name = "";
-        openNameCombo(false);
+        openNameCombo("search");
       });
       inp.addEventListener("keydown", function (ev) {
         if (ev.key === "ArrowDown") {
           ev.preventDefault();
-          if (!nameComboOpen) openNameCombo(!String(inp.value || "").trim());
-          var itemsDown = filteredNameOptions(inp.value, false);
-          if (!itemsDown.length && !String(inp.value || "").trim()) {
-            openNameCombo(true);
-            itemsDown = filteredNameOptions("", true);
-          }
+          if (!nameComboOpen) openNameCombo(String(inp.value || "").trim() ? "search" : "cascade");
+          var itemsDown = filteredNameOptions(nameListMode === "search" ? inp.value : "");
           if (!itemsDown.length) return;
           highlightNameComboItem(Math.min(itemsDown.length - 1, nameComboActiveIndex + 1));
           return;
@@ -725,32 +732,40 @@
         }
         if (ev.key === "Escape") {
           setNameComboOpen(false);
+          nameListMode = "cascade";
           if (S.name) inp.value = S.name;
           return;
         }
       });
       inp.addEventListener("blur", function () {
         setTimeout(function () {
-          if (!nameComboOpen) return;
+          if (!nameComboOpen) {
+            nameListMode = "cascade";
+            return;
+          }
           setNameComboOpen(false);
           var q = String(inp.value || "").trim();
           if (!q) {
             if (S.name) commitNameValue("", { forceRebuild: true });
+            nameListMode = "cascade";
             return;
           }
           var universe = nameOptionsUniverse.length ? nameOptionsUniverse : nameOptionsAll;
           if (universe.indexOf(q) >= 0) {
             if (q !== S.name) commitNameValue(q);
             else inp.value = q;
+            nameListMode = "cascade";
             return;
           }
-          var hits = filteredNameOptions(q, false);
+          var hits = filteredNameOptions(q);
           if (hits.length === 1) {
             commitNameValue(hits[0]);
+            nameListMode = "cascade";
             return;
           }
           // 未確定入力は選択値へ戻す
           inp.value = S.name || "";
+          nameListMode = "cascade";
         }, 150);
       });
 
@@ -762,10 +777,11 @@
           if (inp.disabled) return;
           if (nameComboOpen) {
             setNameComboOpen(false);
+            nameListMode = "cascade";
             return;
           }
           inp.focus();
-          openNameCombo(true);
+          openNameCombo("cascade");
         });
       }
 
