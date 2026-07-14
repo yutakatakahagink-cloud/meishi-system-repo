@@ -13,7 +13,7 @@
     <script src="meishi-catalog.js?v=20250714q"></script>
     <script src="meishi-catalog-sync.js?v=20250615c"></script>
     <script src="meishi-catalog-editor.js?v=20250617r"></script>
-    <script src="meishi-store.js?v=20250714p"></script>
+    <script src="meishi-store.js?v=20250714ab"></script>
     <script src="meishi-layout.js?v=20250714q"></script>
     <script src="meishi-image-lib.js?v=20250714v"></script>
     <script src="meishi-card-ui.js?v=20250714z"></script>
@@ -92,6 +92,7 @@
             <button type="button" class="btn sm danger" id="btnCoDel">削除</button>
             <button type="button" class="btn sm ghost" id="btnCoSyncCat">データからマスタ取込</button>
             <button type="button" class="btn sm ghost" id="btnCoApplyDesignText">日新興業のデザインを他社へ（画像以外）</button>
+            <button type="button" class="btn sm ghost" id="btnCoUndoDesignText" hidden>デザイン適用を取り消す</button>
           </div>
         </div>
         <div class="grid2">
@@ -341,7 +342,22 @@
         <button type="button" class="btn sm" id="btnQrClose">閉じる</button>
       </div>
     </div>
-    <script src="owner-admin.js?v=20250714z"></script>
+    <div id="applyDesignModal" class="qr-modal" hidden>
+      <div class="qr-dialog" style="max-width:420px;text-align:left">
+        <h3>日新興業のデザインを適用</h3>
+        <p class="hint">適用したい会社・団体だけにチェックを付けてください（画像以外。各社の画像はそのまま残ります）。</p>
+        <div id="applyDesignList" style="max-height:280px;overflow:auto;border:1px solid #d6dde8;border-radius:8px;padding:8px;margin:10px 0"></div>
+        <div class="btn-row">
+          <button type="button" class="btn sm" id="btnApplyDesignAll">すべて選択</button>
+          <button type="button" class="btn sm ghost" id="btnApplyDesignNone">選択解除</button>
+        </div>
+        <div class="btn-row" style="margin-top:12px">
+          <button type="button" class="btn" id="btnApplyDesignOk">適用する</button>
+          <button type="button" class="btn sm ghost" id="btnApplyDesignCancel">キャンセル</button>
+        </div>
+      </div>
+    </div>
+    <script src="owner-admin.js?v=20250714ab"></script>
     <script>OwnerAdmin.init();</script>
   </body>
 </html>

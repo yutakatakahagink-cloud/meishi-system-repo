@@ -3,6 +3,7 @@
  */
 (function () {
   const CFG_KEY = "meishi_config_v1";
+  const DESIGN_APPLY_UNDO_KEY = "meishi_design_apply_undo_v1";
   const REC_KEY = "meishi_records_v1";
   const IMG_LIB_KEY = "meishi_image_library_v1";
   const IMG_LIB_BACKUP_KEY = "meishi_image_library_v1_backup";
@@ -1345,9 +1346,63 @@
     return base;
   }
 
+  function loadDesignApplyUndo() {
+    try {
+      var s = localStorage.getItem(DESIGN_APPLY_UNDO_KEY);
+      if (!s) return null;
+      var v = JSON.parse(s);
+      if (!v || typeof v !== "object" || !v.companies || typeof v.companies !== "object") return null;
+      return v;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function saveDesignApplyUndo(snap) {
+    try {
+      if (!snap) {
+        localStorage.removeItem(DESIGN_APPLY_UNDO_KEY);
+        return;
+      }
+      localStorage.setItem(DESIGN_APPLY_UNDO_KEY, JSON.stringify(snap));
+    } catch (e) {
+      console.warn("[Meishi] design apply undo save failed", e);
+    }
+  }
+
+  function snapshotCompanyDesigns(keys) {
+    var companies = {};
+    (keys || []).forEach(function (key) {
+      var k = MeishiFields.norm(key);
+      if (!k) return;
+      var existing = getCompanyProfileForEdit(k);
+      companies[k] = {
+        layout: existing.layout ? clone(existing.layout) : null,
+        layoutBack: existing.layoutBack ? clone(existing.layoutBack) : null,
+      };
+    });
+    return companies;
+  }
+
+  function hasDesignApplyUndo() {
+    var u = loadDesignApplyUndo();
+    return !!(u && u.companies && Object.keys(u.companies).length);
+  }
+
+  function getDesignApplyUndoInfo() {
+    var u = loadDesignApplyUndo();
+    if (!u || !u.companies) return null;
+    return {
+      at: u.at || 0,
+      source: u.source || "",
+      targets: Object.keys(u.companies),
+    };
+  }
+
   /**
    * sourceCompany の表・裏デザインから画像以外（文字位置・書式・裏面テキスト等）を
-   * 他の会社・団体へ適用する。各社の既存画像は残す。
+   * 指定した会社・団体へ適用する。各社の既存画像は残す。
+   * 適用前デザインは取り消し用に保存する（targets 必須）。
    * @returns {{ ok: boolean, count: number, source: string, targets: string[] }}
    */
   function applyCompanyDesignTextOnly(sourceCompany, opts) {
@@ -1358,17 +1413,25 @@
     if (!src.layout || !MeishiLayout.isValidLayout(src.layout)) {
       throw new Error("「" + srcKey + "」に名刺デザイン（表）がありません。先に会社共通を保存してください。");
     }
+    if (!Array.isArray(opts.targets) || !opts.targets.length) {
+      throw new Error("適用先の会社・団体を1社以上選んでください");
+    }
     var frontText = layoutTextOnlyFrom(src.layout);
     var backText =
       src.layoutBack && MeishiLayout.isValidBackLayout(src.layoutBack)
         ? backLayoutTextOnlyFrom(src.layoutBack)
         : MeishiLayout.defBackLayout();
 
-    var targets = Array.isArray(opts.targets) && opts.targets.length
-      ? opts.targets.map(function (c) { return MeishiFields.norm(c); }).filter(Boolean)
-      : getCompanyList().map(function (c) { return MeishiFields.norm(c); }).filter(function (c) {
-          return c && c !== srcKey;
-        });
+    var targets = opts.targets.map(function (c) { return MeishiFields.norm(c); }).filter(function (c) {
+      return c && c !== srcKey;
+    });
+    if (!targets.length) throw new Error("適用先の会社・団体を1社以上選んでください");
+
+    saveDesignApplyUndo({
+      at: Date.now(),
+      source: srcKey,
+      companies: snapshotCompanyDesigns(targets),
+    });
 
     _config.companySettings = _config.companySettings || {};
     var applied = [];
@@ -1398,6 +1461,43 @@
       fireCfg();
     }
     return { ok: true, count: applied.length, source: srcKey, targets: applied };
+  }
+
+  /**
+   * 「日新興業のデザインを他社へ」の直前スナップショットへ戻す。
+   * @returns {{ ok: boolean, count: number, targets: string[] }}
+   */
+  function undoCompanyDesignTextApply() {
+    var u = loadDesignApplyUndo();
+    if (!u || !u.companies || !Object.keys(u.companies).length) {
+      throw new Error("取り消せる「デザイン適用」の記録がありません（ブラウザに残っていません）");
+    }
+    _config.companySettings = _config.companySettings || {};
+    var restored = [];
+    Object.keys(u.companies).forEach(function (key) {
+      var snap = u.companies[key];
+      if (!snap || typeof snap !== "object") return;
+      var existing = getCompanyProfileForEdit(key);
+      var layout = snap.layout && MeishiLayout.isValidLayout(snap.layout)
+        ? MeishiCatalog.normalizeLayout(clone(snap.layout))
+        : null;
+      var layoutBack = snap.layoutBack && MeishiLayout.isValidBackLayout(snap.layoutBack)
+        ? MeishiCatalog.normalizeBackLayout(clone(snap.layoutBack))
+        : null;
+      _config.companySettings[key] = {
+        company: key,
+        catalog: clone(existing.catalog) || MeishiCatalog.emptyCatalog(),
+        layout: layout ? compactLayoutForStore(layout) : existing.layout || null,
+        layoutBack: layoutBack ? compactBackLayoutForStore(layoutBack) : existing.layoutBack || null,
+      };
+      restored.push(key);
+    });
+    saveDesignApplyUndo(null);
+    if (restored.length) {
+      persistCfg();
+      fireCfg();
+    }
+    return { ok: true, count: restored.length, targets: restored };
   }
 
   function getMergedRecords() {
@@ -1944,6 +2044,9 @@
     deleteCompany: deleteCompany,
     addCompany: addCompany,
     applyCompanyDesignTextOnly: applyCompanyDesignTextOnly,
+    undoCompanyDesignTextApply: undoCompanyDesignTextApply,
+    hasDesignApplyUndo: hasDesignApplyUndo,
+    getDesignApplyUndoInfo: getDesignApplyUndoInfo,
     getDeptSettings: getDeptSettings,
     getDeptSettingsForEdit: getDeptSettingsForEdit,
     saveDeptSettings: saveDeptSettings,
