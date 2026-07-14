@@ -678,15 +678,27 @@
           out[k] = mergeDeptSettingsEntry(lv, rv, false);
         } else {
           out[k] = Object.assign({}, rv, lv);
-          if (lv.layout && MeishiLayout.isValidLayout(lv.layout)) {
-            out[k].layout = clone(lv.layout);
-          } else if (rv.layout && MeishiLayout.isValidLayout(rv.layout)) {
-            out[k].layout = clone(rv.layout);
-          }
-          if (lv.layoutBack && MeishiLayout.isValidBackLayout(lv.layoutBack)) {
-            out[k].layoutBack = clone(lv.layoutBack);
-          } else if (rv.layoutBack && MeishiLayout.isValidBackLayout(rv.layoutBack)) {
-            out[k].layoutBack = clone(rv.layoutBack);
+          if (rv.forceLayoutFromRemote) {
+            if (rv.layout && MeishiLayout.isValidLayout(rv.layout)) {
+              out[k].layout = clone(rv.layout);
+            }
+            if (rv.layoutBack && MeishiLayout.isValidBackLayout(rv.layoutBack)) {
+              out[k].layoutBack = clone(rv.layoutBack);
+            } else if (rv.layoutBack && typeof rv.layoutBack === "object") {
+              out[k].layoutBack = clone(rv.layoutBack);
+            }
+            delete out[k].forceLayoutFromRemote;
+          } else {
+            if (lv.layout && MeishiLayout.isValidLayout(lv.layout)) {
+              out[k].layout = clone(lv.layout);
+            } else if (rv.layout && MeishiLayout.isValidLayout(rv.layout)) {
+              out[k].layout = clone(rv.layout);
+            }
+            if (lv.layoutBack && MeishiLayout.isValidBackLayout(lv.layoutBack)) {
+              out[k].layoutBack = clone(lv.layoutBack);
+            } else if (rv.layoutBack && MeishiLayout.isValidBackLayout(rv.layoutBack)) {
+              out[k].layoutBack = clone(rv.layoutBack);
+            }
           }
         }
       } else {
