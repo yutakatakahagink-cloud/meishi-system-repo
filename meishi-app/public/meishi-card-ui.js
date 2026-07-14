@@ -174,12 +174,13 @@
       }
     }
 
-    function setCenterShiftMm(mm) {
+    function setCenterShiftMm(mm, opts) {
+      opts = opts || {};
       var layout = getLayout();
       if (!layout) return;
       layout.centerShiftMm = clampCenterShiftMm(mm);
       updateZoneLayerVisual();
-      applyZoneChangeToText();
+      if (!opts.visualOnly) applyZoneChangeToText();
       onCenterShiftChange(layout.centerShiftMm);
     }
 
@@ -212,7 +213,7 @@
           return clampCenterShiftMm(startShift - deltaMm);
         }
         function mv(e2) {
-          setCenterShiftMm(shiftFromDelta(pxFromEvent(e2).clientX));
+          setCenterShiftMm(shiftFromDelta(pxFromEvent(e2).clientX), { visualOnly: true });
         }
         function up(e2) {
           cardEl.classList.remove("is-dragging-center");
@@ -220,6 +221,7 @@
           handle.removeEventListener("pointermove", mv);
           handle.removeEventListener("pointerup", up);
           handle.removeEventListener("pointercancel", up);
+          applyZoneChangeToText();
           saveLayout();
         }
         handle.addEventListener("pointermove", mv);
@@ -372,6 +374,14 @@
 
     function saveLayout() {
       if (typeof opts.onLayoutChange === "function") opts.onLayoutChange(getLayout());
+    }
+    var saveLayoutTimer = null;
+    function saveLayoutSoon() {
+      if (saveLayoutTimer) clearTimeout(saveLayoutTimer);
+      saveLayoutTimer = setTimeout(function () {
+        saveLayoutTimer = null;
+        saveLayout();
+      }, 100);
     }
 
     function imgSelId(id) { return "__img:" + id; }
@@ -618,7 +628,11 @@
           node.st = raw;
         }
         var n = imgNodes[raw.id];
-        n.img.src = display.src || "";
+        var nextSrc = display.src || "";
+        if (n._src !== nextSrc) {
+          n._src = nextSrc;
+          n.img.src = nextSrc;
+        }
         n.wrap.style.left = raw.x + "px";
         n.wrap.style.top = raw.y + "px";
         n.wrap.style.width = raw.w + "px";
@@ -697,7 +711,7 @@
       node.addEventListener("input", function () {
         if (editingId !== st.id) return;
         syncFreeTextContentFromNode(node, st);
-        saveLayout();
+        saveLayoutSoon();
       });
       node.addEventListener("keydown", function (ev) {
         if (editingId !== st.id) return;

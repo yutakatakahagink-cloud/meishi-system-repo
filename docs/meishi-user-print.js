@@ -28,10 +28,16 @@
   };
 
   function uniq(arr) {
+    var seen = Object.create(null);
     var s = [];
-    arr.forEach(function (x) {
-      if (x != null && String(x).trim() !== "" && s.indexOf(x) < 0) s.push(x);
-    });
+    for (var i = 0; i < arr.length; i++) {
+      var x = arr[i];
+      if (x == null) continue;
+      var str = String(x);
+      if (!str.trim() || seen[str]) continue;
+      seen[str] = 1;
+      s.push(x);
+    }
     return s;
   }
 
@@ -58,9 +64,99 @@
     var nameSearchComposing = false;
     var nameComboOpen = false;
     var nameComboActiveIndex = -1;
+    var selectSig = {};
+    var rebuildRaf = 0;
+    var renderCardRaf = 0;
 
     function reloadRecords() {
       records = MeishiStore.getMergedRecords();
+      selectSig = {};
+    }
+
+    function collectField(matchFn, field) {
+      var seen = Object.create(null);
+      var out = [];
+      for (var i = 0; i < records.length; i++) {
+        var r = records[i];
+        if (!matchFn(r)) continue;
+        var v = field === "name" ? r.name
+          : field === "company" ? r.company
+          : field === "aff1" ? r.aff1
+          : field === "aff2" ? r.aff2
+          : field === "aff3" ? r.aff3
+          : field === "title" ? r.title
+          : r.postal;
+        if (v == null || String(v).trim() === "") continue;
+        var key = String(v);
+        if (seen[key]) continue;
+        seen[key] = 1;
+        out.push(v);
+      }
+      return out;
+    }
+
+    /** 氏名／会社／所属などの候補を一度に算出（フィルタ規則は従来どおり） */
+    function computeCascadeOptions() {
+      var name = S.name;
+      var company = S.company;
+      var aff1 = S.aff1;
+      var aff2 = S.aff2;
+      var aff3 = S.aff3;
+      var title = S.title;
+      return {
+        name: collectField(function (r) {
+          if (company && r.company !== company) return false;
+          if (aff1 && (r.aff1 || "") !== aff1) return false;
+          if (aff2 && (r.aff2 || "") !== aff2) return false;
+          if (aff3 && (r.aff3 || "") !== aff3) return false;
+          return true;
+        }, "name").sort(function (a, b) {
+          return String(a).localeCompare(String(b), "ja");
+        }),
+        company: collectField(function (r) {
+          if (name && r.name !== name) return false;
+          return true;
+        }, "company"),
+        aff1: collectField(function (r) {
+          if (name && r.name !== name) return false;
+          if (company && r.company !== company) return false;
+          return true;
+        }, "aff1"),
+        aff2: collectField(function (r) {
+          if (name && r.name !== name) return false;
+          if (company && r.company !== company) return false;
+          if (aff1 && (r.aff1 || "") !== aff1) return false;
+          return true;
+        }, "aff2"),
+        aff3: collectField(function (r) {
+          if (name && r.name !== name) return false;
+          if (company && r.company !== company) return false;
+          if (aff1 && (r.aff1 || "") !== aff1) return false;
+          if (aff2 && (r.aff2 || "") !== aff2) return false;
+          return true;
+        }, "aff3"),
+        title: collectField(function (r) {
+          if (name && r.name !== name) return false;
+          if (company && r.company !== company) return false;
+          if (aff1 && (r.aff1 || "") !== aff1) return false;
+          if (aff2 && (r.aff2 || "") !== aff2) return false;
+          if (aff3 && (r.aff3 || "") !== aff3) return false;
+          return true;
+        }, "title"),
+        postal: collectField(function (r) {
+          if (name && r.name !== name) return false;
+          if (company && r.company !== company) return false;
+          if (aff1 && (r.aff1 || "") !== aff1) return false;
+          if (aff2 && (r.aff2 || "") !== aff2) return false;
+          if (aff3 && (r.aff3 || "") !== aff3) return false;
+          if (title && (r.title || "") !== title) return false;
+          return true;
+        }, "postal"),
+      };
+    }
+
+    function optionValuesFor(field) {
+      return computeCascadeOptions()[field] || [];
     }
 
     function filterRecords(opts) {
@@ -75,53 +171,6 @@
         if (!opts.skipPostal && S.postal && (r.postal || "") !== S.postal) return false;
         return true;
       });
-    }
-
-    /** 各セレクト用候補。氏名↔会社↔所属が互いに適切な広さで連動する */
-    function optionValuesFor(field) {
-      var rows;
-      if (field === "name") {
-        // 会社・所属1・所属2で絞る（氏名自身・役職・郵便は氏名候補に使わない）
-        rows = filterRecords({ skipName: true, skipTitle: true, skipPostal: true });
-        return uniq(rows.map(function (r) { return r.name; })).sort(function (a, b) {
-          return String(a).localeCompare(String(b), "ja");
-        });
-      }
-      if (field === "company") {
-        // 氏名だけで絞る（所属を無視 → その人の全会社が出る）
-        rows = filterRecords({
-          skipCompany: true, skipAff1: true, skipAff2: true, skipAff3: true,
-          skipTitle: true, skipPostal: true,
-        });
-        return uniq(rows.map(function (r) { return r.company; }));
-      }
-      if (field === "aff1") {
-        rows = filterRecords({
-          skipAff1: true, skipAff2: true, skipAff3: true,
-          skipTitle: true, skipPostal: true,
-        });
-        return uniq(rows.map(function (r) { return r.aff1; }));
-      }
-      if (field === "aff2") {
-        rows = filterRecords({
-          skipAff2: true, skipAff3: true,
-          skipTitle: true, skipPostal: true,
-        });
-        return uniq(rows.map(function (r) { return r.aff2; }));
-      }
-      if (field === "aff3") {
-        rows = filterRecords({ skipAff3: true, skipTitle: true, skipPostal: true });
-        return uniq(rows.map(function (r) { return r.aff3; }));
-      }
-      if (field === "title") {
-        rows = filterRecords({ skipTitle: true, skipPostal: true });
-        return uniq(rows.map(function (r) { return r.title; }));
-      }
-      if (field === "postal") {
-        rows = filterRecords({ skipPostal: true });
-        return uniq(rows.map(function (r) { return r.postal; }));
-      }
-      return [];
     }
 
     function filteredExcept(skipKey) {
@@ -140,21 +189,22 @@
       return filterRecords({});
     }
 
-    function pruneSelectionToOptions() {
+    function pruneAgainst(opts) {
       var changed = false;
-      function prune(key, values) {
+      function prune(key) {
         if (!S[key]) return;
+        var values = opts[key] || [];
         if (values.indexOf(S[key]) >= 0) return;
         S[key] = "";
         changed = true;
       }
-      prune("name", optionValuesFor("name"));
-      prune("company", optionValuesFor("company"));
-      prune("aff1", optionValuesFor("aff1"));
-      prune("aff2", optionValuesFor("aff2"));
-      prune("aff3", optionValuesFor("aff3"));
-      prune("title", optionValuesFor("title"));
-      prune("postal", optionValuesFor("postal"));
+      prune("name");
+      prune("company");
+      prune("aff1");
+      prune("aff2");
+      prune("aff3");
+      prune("title");
+      prune("postal");
       return changed;
     }
 
@@ -258,12 +308,12 @@
       }
     }
 
-    function fillNameSelect(_values, _placeholder, skipAutoPick) {
+    function fillNameSelect(nameValues, _placeholder, skipAutoPick) {
       var inp = el("selName");
       if (!inp) return false;
       var field = inp.closest(".field");
       // 会社・所属1・所属2に紐づく氏名のみ
-      nameOptionsAll = optionValuesFor("name");
+      nameOptionsAll = Array.isArray(nameValues) ? nameValues.slice() : optionValuesFor("name");
       var changed = false;
       if (!nameOptionsAll.length) {
         inp.disabled = true;
@@ -303,36 +353,41 @@
       var arr = uniq(values);
       var field = selEl.closest(".field");
       var changed = false;
+      var nextVal = "";
+      if (skipAutoPick) {
+        nextVal = "";
+        if (S[stateKey] !== "") { S[stateKey] = ""; changed = true; }
+      } else if (arr.length === 1 && stateKey !== "aff2" && stateKey !== "aff3") {
+        if (S[stateKey] !== arr[0]) changed = true;
+        S[stateKey] = arr[0];
+        nextVal = arr[0];
+      } else if (S[stateKey] && arr.indexOf(S[stateKey]) >= 0) {
+        nextVal = S[stateKey];
+      } else {
+        if (S[stateKey] !== "") { S[stateKey] = ""; changed = true; }
+        nextVal = "";
+      }
+      var sig = (skipAutoPick ? "1" : "0") + "|" + arr.join("\u0001") + "|" + nextVal;
+      if (selectSig[stateKey] === sig) {
+        if (arr.length === 0) {
+          selEl.disabled = true;
+          if (field) field.classList.add("field-disabled");
+        }
+        return changed;
+      }
+      selectSig[stateKey] = sig;
       if (arr.length === 0) {
         selEl.innerHTML = "<option value=\"\">（該当なし）</option>";
         selEl.disabled = true;
         selEl.value = "";
         if (field) field.classList.add("field-disabled");
-        if (S[stateKey] !== "") { S[stateKey] = ""; changed = true; }
         return changed;
       }
       selEl.disabled = false;
       if (field) field.classList.remove("field-disabled");
       selEl.innerHTML = "<option value=\"\">" + esc(placeholder || "（選択）") + "</option>" +
         arr.map(function (v) { return "<option>" + esc(v) + "</option>"; }).join("");
-      if (skipAutoPick) {
-        selEl.value = "";
-        if (S[stateKey] !== "") { S[stateKey] = ""; changed = true; }
-        return changed;
-      }
-      // 所属2・所属3は候補が1件でも自動選択しない（未選択のまま）
-      if (arr.length === 1 && stateKey !== "aff2" && stateKey !== "aff3") {
-        if (S[stateKey] !== arr[0]) changed = true;
-        S[stateKey] = arr[0];
-        selEl.value = arr[0];
-        return changed;
-      }
-      if (S[stateKey] && arr.indexOf(S[stateKey]) >= 0) {
-        selEl.value = S[stateKey];
-        return false;
-      }
-      if (S[stateKey] !== "") { S[stateKey] = ""; changed = true; }
-      selEl.value = "";
+      selEl.value = nextVal;
       return changed;
     }
 
@@ -473,19 +528,34 @@
       }
     }
 
+    function scheduleRenderCard() {
+      if (renderCardRaf) return;
+      renderCardRaf = requestAnimationFrame(function () {
+        renderCardRaf = 0;
+        renderCard();
+      });
+    }
+
+    function applyCascadeOptions(opts, skipAutoPick) {
+      var changed = false;
+      changed = fillNameSelect(opts.name, "氏名を選択", skipAutoPick) || changed;
+      changed = fillSelect(el("selCompany"), opts.company, "会社・団体名", "company", skipAutoPick) || changed;
+      changed = fillSelect(el("selAff1"), opts.aff1, "所属1", "aff1", skipAutoPick) || changed;
+      changed = fillSelect(el("selAff2"), opts.aff2, "所属2", "aff2", skipAutoPick) || changed;
+      changed = fillSelect(el("selAff3"), opts.aff3, "所属3", "aff3", skipAutoPick) || changed;
+      changed = fillSelect(el("selTitle"), opts.title, "役職", "title", skipAutoPick) || changed;
+      changed = fillSelect(el("selPostal"), opts.postal, "郵便番号", "postal", skipAutoPick) || changed;
+      return changed;
+    }
+
     function rebuild() {
-      var guard = 0;
-      var changed = true;
-      while (changed && guard++ < 20) {
-        changed = false;
-        changed = pruneSelectionToOptions() || changed;
-        changed = fillNameSelect(null, "氏名を選択") || changed;
-        changed = fillSelect(el("selCompany"), optionValuesFor("company"), "会社・団体名", "company") || changed;
-        changed = fillSelect(el("selAff1"), optionValuesFor("aff1"), "所属1", "aff1") || changed;
-        changed = fillSelect(el("selAff2"), optionValuesFor("aff2"), "所属2", "aff2") || changed;
-        changed = fillSelect(el("selAff3"), optionValuesFor("aff3"), "所属3", "aff3") || changed;
-        changed = fillSelect(el("selTitle"), optionValuesFor("title"), "役職", "title") || changed;
-        changed = fillSelect(el("selPostal"), optionValuesFor("postal"), "郵便番号", "postal") || changed;
+      var opts = computeCascadeOptions();
+      if (pruneAgainst(opts)) opts = computeCascadeOptions();
+      if (applyCascadeOptions(opts, false)) {
+        // 自動選択で S が変わった場合だけもう1回
+        opts = computeCascadeOptions();
+        pruneAgainst(opts);
+        applyCascadeOptions(opts, false);
       }
       var rows = filtered();
       el("inUrl").value = firstNonEmpty(rows, "url");
@@ -499,6 +569,14 @@
       refreshLayoutFromStore();
       if (previewSide === "back") renderBackCard();
       else renderCard();
+    }
+
+    function scheduleRebuild() {
+      if (rebuildRaf) return;
+      rebuildRaf = requestAnimationFrame(function () {
+        rebuildRaf = 0;
+        rebuild();
+      });
     }
 
     function bindSel(idKey, stateKey, resetKeys) {
@@ -690,7 +768,7 @@
         var inp2 = el(k);
         if (inp2 && !inp2._mpBound) {
           inp2._mpBound = true;
-          inp2.addEventListener("input", renderCard);
+          inp2.addEventListener("input", scheduleRenderCard);
         }
       });
       var btn = el("btnPrint");
@@ -743,6 +821,7 @@
 
     function clear() {
       S = { name: "", company: "", aff1: "", aff2: "", aff3: "", title: "", postal: "" };
+      selectSig = {};
       var nameInp = el("selName");
       if (nameInp) nameInp.value = "";
       setNameComboOpen(false);
@@ -752,18 +831,7 @@
       });
       layout = MeishiCatalog.normalizeLayout(MeishiLayout.defLayout());
       if (cardUI) cardUI.invalidate();
-      var guard = 0;
-      var changed = true;
-      while (changed && guard++ < 20) {
-        changed = false;
-        changed = fillNameSelect(null, "氏名を選択", true) || changed;
-        changed = fillSelect(el("selCompany"), optionValuesFor("company"), "会社・団体名", "company", true) || changed;
-        changed = fillSelect(el("selAff1"), optionValuesFor("aff1"), "所属1", "aff1", true) || changed;
-        changed = fillSelect(el("selAff2"), optionValuesFor("aff2"), "所属2", "aff2", true) || changed;
-        changed = fillSelect(el("selAff3"), optionValuesFor("aff3"), "所属3", "aff3", true) || changed;
-        changed = fillSelect(el("selTitle"), optionValuesFor("title"), "役職", "title", true) || changed;
-        changed = fillSelect(el("selPostal"), optionValuesFor("postal"), "郵便番号", "postal", true) || changed;
-      }
+      applyCascadeOptions(computeCascadeOptions(), true);
       renderCard();
       if (previewSide === "back") renderBackCard();
       if (typeof cfg.onClear === "function") cfg.onClear();
@@ -775,16 +843,16 @@
       MeishiStore.onConfigChange(function () {
         reloadRecords();
         if (cfg.isActive && cfg.isActive()) {
-          rebuild();
+          scheduleRebuild();
         } else {
           refreshLayoutFromStore();
           if (previewSide === "back") renderBackCard();
-          else if (layout) renderCard();
+          else if (layout) scheduleRenderCard();
         }
       });
       MeishiStore.onRecordsChange(function () {
         reloadRecords();
-        if (cfg.isActive && cfg.isActive()) rebuild();
+        if (cfg.isActive && cfg.isActive()) scheduleRebuild();
       });
     }
 

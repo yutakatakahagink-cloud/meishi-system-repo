@@ -34,6 +34,9 @@
   let _suppressCfgRemoteTimer = null;
   let _cfgListeners = [];
   let _recListeners = [];
+  let _fireCfgTimer = null;
+  let _fireRecTimer = null;
+  let _mergedRecordsCache = null;
   let _previewPersonal = {};
   let _suppressImgLibRemote = false;
   let _suppressImgLibRemoteTimer = null;
@@ -42,8 +45,37 @@
   const IDB_IMG_LIB = "imageLibrary";
   const IDB_PREVIEW_PERSONAL = "previewPersonal";
 
-  function fireCfg() { _cfgListeners.forEach(function (cb) { try { cb(getConfig()); } catch (e) {} }); }
-  function fireRec() { _recListeners.forEach(function (cb) { try { cb(getRecords()); } catch (e) {} }); }
+  function fireCfgNow() {
+    if (_fireCfgTimer) {
+      clearTimeout(_fireCfgTimer);
+      _fireCfgTimer = null;
+    }
+    _cfgListeners.forEach(function (cb) { try { cb(getConfig()); } catch (e) {} });
+  }
+  function fireRecNow() {
+    if (_fireRecTimer) {
+      clearTimeout(_fireRecTimer);
+      _fireRecTimer = null;
+    }
+    _mergedRecordsCache = null;
+    _recListeners.forEach(function (cb) { try { cb(getRecords()); } catch (e) {} });
+  }
+  function fireCfg() {
+    if (_fireCfgTimer) clearTimeout(_fireCfgTimer);
+    _fireCfgTimer = setTimeout(function () {
+      _fireCfgTimer = null;
+      _mergedRecordsCache = null;
+      _cfgListeners.forEach(function (cb) { try { cb(getConfig()); } catch (e) {} });
+    }, 60);
+  }
+  function fireRec() {
+    if (_fireRecTimer) clearTimeout(_fireRecTimer);
+    _fireRecTimer = setTimeout(function () {
+      _fireRecTimer = null;
+      _mergedRecordsCache = null;
+      _recListeners.forEach(function (cb) { try { cb(getRecords()); } catch (e) {} });
+    }, 60);
+  }
 
   function assetUrl(relPath) {
     var rel = String(relPath || "").replace(/^\//, "");
@@ -1301,23 +1333,31 @@
   }
 
   function getMergedRecords() {
+    if (_mergedRecordsCache) return _mergedRecordsCache;
     var cs = {};
     var ds = _config.deptSettings || {};
+    var companyCache = Object.create(null);
     _records.forEach(function (r) {
-      var p = getCompanyProfileForEdit(r.company);
-      var cat = p.catalog || {};
-      var loc = (cat.locations && cat.locations[0]) || {};
-      cs[MeishiFields.norm(r.company)] = {
-        url: (cat.urls && cat.urls[0]) || p.url || "",
-        postal: loc.postal || p.postal || "",
-        address: loc.address || p.address || "",
-        tel: loc.tel || p.tel || "",
-        fax: loc.fax || p.fax || "",
-      };
+      var ck = MeishiFields.norm(r.company);
+      if (!ck) return;
+      if (!companyCache[ck]) {
+        var p = getCompanyProfileForEdit(r.company);
+        var cat = p.catalog || {};
+        var loc = (cat.locations && cat.locations[0]) || {};
+        companyCache[ck] = {
+          url: (cat.urls && cat.urls[0]) || p.url || "",
+          postal: loc.postal || p.postal || "",
+          address: loc.address || p.address || "",
+          tel: loc.tel || p.tel || "",
+          fax: loc.fax || p.fax || "",
+        };
+      }
+      cs[ck] = companyCache[ck];
     });
-    return _records.map(function (r) {
+    _mergedRecordsCache = _records.map(function (r) {
       return MeishiFields.mergeRecord(r, cs, ds);
     });
+    return _mergedRecordsCache;
   }
 
   function getDeptSettingsRaw(company, aff1, aff2) {
@@ -1382,7 +1422,6 @@
     void persistImageLibraryStore(getImageLibrary());
     if (!ok) return false;
     fireCfg();
-    fireRec();
     return true;
   }
 

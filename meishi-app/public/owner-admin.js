@@ -584,7 +584,7 @@
       coBackUI = MeishiBackCardUI.createBackCardUI({
         cardEl: document.getElementById("coDesCardBack"),
         getLayout: function () { return coLayoutBack; },
-        onLayoutChange: function () { renderCoBackImgList(); },
+        onLayoutChange: function () {},
         onSelect: function () { if (coBackPanel) coBackPanel.showDesign(); },
       });
       coBackPanel = coBackUI.bindBackDesignPanel(document.getElementById("coBackDesignPanel"));
@@ -819,7 +819,7 @@
         },
         hideElements: true,
         snapExtraCardEl: document.getElementById("deCoBaseCard"),
-        onLayoutChange: function () { renderDeImgList(); },
+        onLayoutChange: function () {},
         onSelect: function () {
           var none = document.getElementById("deDesignNone");
           var ctl = document.getElementById("deDesignCtl");
@@ -875,7 +875,7 @@
         cardEl: document.getElementById("deDesCardBack"),
         getLayout: function () { return deLayoutBack; },
         snapExtraCardEl: document.getElementById("deCoBaseCardBack"),
-        onLayoutChange: function () { renderDeBackImgList(); },
+        onLayoutChange: function () {},
         onSelect: function () {
           var none = document.getElementById("deBackDesignNone");
           var ctl = document.getElementById("deBackDesignCtl");
@@ -1354,7 +1354,11 @@
       if (deBackUI) deBackUI.invalidate();
       refreshDeptBackDesign();
     };
-    document.getElementById("recSearch").oninput = function () { recFilter = this.value; renderRecTable(); };
+    document.getElementById("recSearch").oninput = function () {
+      recFilter = this.value;
+      if (window._recSearchTimer) clearTimeout(window._recSearchTimer);
+      window._recSearchTimer = setTimeout(function () { renderRecTable(); }, 150);
+    };
     document.querySelector("#recTbl tbody").addEventListener("click", function (e) {
       var tr = e.target.closest("tr[data-i]");
       if (tr) openRecForm(+tr.getAttribute("data-i"));

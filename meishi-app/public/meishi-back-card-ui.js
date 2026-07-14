@@ -86,6 +86,14 @@
     function saveLayout() {
       onLayoutChange(getLayout());
     }
+    var saveLayoutTimer = null;
+    function saveLayoutSoon() {
+      if (saveLayoutTimer) clearTimeout(saveLayoutTimer);
+      saveLayoutTimer = setTimeout(function () {
+        saveLayoutTimer = null;
+        saveLayout();
+      }, 100);
+    }
 
     function isZoneSplitActive() {
       if (opts.zoneSplit === false) return false;
@@ -135,12 +143,13 @@
       }
     }
 
-    function setCenterShiftMm(mm) {
+    function setCenterShiftMm(mm, opts) {
+      opts = opts || {};
       var layout = getLayout();
       if (!layout) return;
       layout.centerShiftMm = clampShift(mm);
       updateZoneLayerVisual();
-      onCenterShiftChange(layout.centerShiftMm);
+      if (!opts.visualOnly) onCenterShiftChange(layout.centerShiftMm);
     }
 
     function attachCenterLineDrag(handle) {
@@ -157,7 +166,7 @@
         function mv(e2) {
           var deltaPx = pxFromEvent(e2).clientX - startX;
           var deltaMm = deltaPx * CARD_W_MM / cardW;
-          setCenterShiftMm(startShift - deltaMm);
+          setCenterShiftMm(startShift - deltaMm, { visualOnly: true });
         }
         function up(e2) {
           cardEl.classList.remove("is-dragging-center");
@@ -165,6 +174,7 @@
           handle.removeEventListener("pointermove", mv);
           handle.removeEventListener("pointerup", up);
           handle.removeEventListener("pointercancel", up);
+          onCenterShiftChange(getCenterShiftMm());
           saveLayout();
         }
         handle.addEventListener("pointermove", mv);
@@ -335,7 +345,7 @@
       node.addEventListener("input", function () {
         if (editingId !== st.id) return;
         syncTextContentFromNode(node, st);
-        saveLayout();
+        saveLayoutSoon();
       });
       node.addEventListener("keydown", function (ev) {
         if (editingId !== st.id) return;
@@ -602,7 +612,11 @@
             n.st = raw;
           }
           n = imgNodes[raw.id];
-          n.img.src = display.src || "";
+          var nextSrc = display.src || "";
+          if (n._src !== nextSrc) {
+            n._src = nextSrc;
+            n.img.src = nextSrc;
+          }
           n.wrap.style.left = raw.x + "px";
           n.wrap.style.top = raw.y + "px";
           n.wrap.style.width = raw.w + "px";
