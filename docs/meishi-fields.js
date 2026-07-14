@@ -23,9 +23,20 @@
   ];
   var SHARED_KEYS = ["company", "url", "postal", "address", "tel", "fax"];
   var DEPT_KEYS = ["postal", "address", "tel", "fax", "logo"];
+  /** 所属1が空の名刺用。部署共通設定の選択値・保存キーに使う */
+  var UNAFFILIATED_AFF1 = "無所属";
 
   function deptKey(company, aff1, aff2) {
     return [company, aff1, aff2].map(function (v) { return String(v || "").trim(); }).join("|");
+  }
+  /** 部署設定の lookup 用。空の所属1は「無所属」に寄せる */
+  function deptAff1Key(aff1) {
+    var a = norm(aff1);
+    return a || UNAFFILIATED_AFF1;
+  }
+  function isUnaffiliatedAff1(aff1) {
+    var a = norm(aff1);
+    return !a || a === UNAFFILIATED_AFF1;
   }
   function emptyRecord() {
     var o = {};
@@ -62,7 +73,10 @@
     COLUMNS: COLUMNS,
     SHARED_KEYS: SHARED_KEYS,
     DEPT_KEYS: DEPT_KEYS,
+    UNAFFILIATED_AFF1: UNAFFILIATED_AFF1,
     deptKey: deptKey,
+    deptAff1Key: deptAff1Key,
+    isUnaffiliatedAff1: isUnaffiliatedAff1,
     emptyRecord: emptyRecord,
     mergeRecord: mergeRecord,
     overlay: overlay,

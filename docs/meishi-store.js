@@ -1456,6 +1456,7 @@
 
   /** 印刷・プレビュー用（所属1共通＋所属2個別を合成） */
   function getDeptSettings(company, aff1, aff2) {
+    aff1 = MeishiFields.deptAff1Key(aff1);
     aff2 = MeishiFields.norm(aff2);
     var specific = getDeptSettingsRaw(company, aff1, aff2);
     if (!aff2) return specific;
@@ -1465,10 +1466,12 @@
 
   /** 所有者画面の編集用（保存キーそのもの） */
   function getDeptSettingsForEdit(company, aff1, aff2) {
+    aff1 = MeishiFields.deptAff1Key(aff1);
     return getDeptSettingsRaw(company, aff1, aff2);
   }
 
   function saveDeptSettings(company, aff1, aff2, data) {
+    aff1 = MeishiFields.deptAff1Key(aff1);
     var k = MeishiFields.deptKey(company, aff1, aff2);
     _config.deptSettings = _config.deptSettings || {};
     var out = {

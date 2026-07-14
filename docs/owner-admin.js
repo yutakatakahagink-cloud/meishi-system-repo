@@ -631,12 +631,19 @@
   function fillDeptAff1() {
     var pk = getDeptPickers();
     var curA1 = pk.aff1;
-    var affs = MeishiStore.getAff1List(pk.co);
+    var unaff = MeishiFields.UNAFFILIATED_AFF1;
+    var affs = MeishiStore.getAff1List(pk.co).filter(function (v) {
+      return MeishiFields.norm(v) && MeishiFields.norm(v) !== unaff;
+    });
+    // 所属なしの氏名用デザイン設定
+    affs = [unaff].concat(affs);
     var sel = document.getElementById("deAff1Pick");
-    sel.innerHTML = affs.length
-      ? affs.map(function (v) { return "<option>" + esc(v) + "</option>"; }).join("")
-      : '<option value="">（なし）</option>';
+    sel.innerHTML = affs.map(function (v) {
+      var label = v === unaff ? "無所属（所属1なし）" : v;
+      return "<option value='" + esc(v) + "'>" + esc(label) + "</option>";
+    }).join("");
     if (curA1 && affs.indexOf(curA1) >= 0) sel.value = curA1;
+    else if (MeishiFields.isUnaffiliatedAff1(curA1)) sel.value = unaff;
     fillDeptAff2();
   }
 
@@ -677,9 +684,13 @@
       "<div><strong>選択:</strong> " + esc(pk.co) + " / " + esc(pk.aff1 || "—") + " / " + esc(aff2Label) + "</div>";
     if (!pk.aff2 && pk.aff1) {
       var aff2list = MeishiCatalog.getAff2List(cat, pk.aff1);
-      summary.innerHTML += "<div class='hint'>この設定は「" + esc(pk.aff1) + "」配下の所属2";
-      if (aff2list.length) summary.innerHTML += "（" + esc(aff2list.join("、")) + "）";
-      summary.innerHTML += "すべてに適用されます。</div>";
+      if (MeishiFields.isUnaffiliatedAff1(pk.aff1)) {
+        summary.innerHTML += "<div class='hint'>「無所属」は名刺データの所属1が空の人に適用されます。</div>";
+      } else {
+        summary.innerHTML += "<div class='hint'>この設定は「" + esc(pk.aff1) + "」配下の所属2";
+        if (aff2list.length) summary.innerHTML += "（" + esc(aff2list.join("、")) + "）";
+        summary.innerHTML += "すべてに適用されます。</div>";
+      }
     }
     summary.innerHTML +=
       "<div><strong>URL:</strong> " + esc(d.url || "—") + "</div>" +
