@@ -707,8 +707,8 @@
       var designNone = q("none", "backDesignNone");
       var textDelete = q("textDelete", "backDesTextDelete");
       var textDeleteRow = textDelete ? textDelete.closest(".des-row") : null;
+      var backDesFont = q("font", "backDesFont");
       var alignAttr = panelIds.alignAttr || "data-back-al";
-      var fontAttr = panelIds.fontAttr || "data-back-font";
 
       function showDesign() {
         if (!designCtl || !designNone) return;
@@ -733,9 +733,7 @@
         if (backDesBold) backDesBold.classList.toggle("on", !!st.bold);
         if (backDesItalic) backDesItalic.classList.toggle("on", !!st.italic);
         if (backDesUnderline) backDesUnderline.classList.toggle("on", !!st.underline);
-        panel.querySelectorAll("[" + fontAttr + "]").forEach(function (b) {
-          b.classList.toggle("on", (b.getAttribute(fontAttr) || "") === (st.font || ""));
-        });
+        if (MeishiLayout.fillFontSelect) MeishiLayout.fillFontSelect(backDesFont, st.font || "");
         panel.querySelectorAll("[" + alignAttr + "]").forEach(function (b) {
           b.classList.toggle("on", b.getAttribute(alignAttr) === st.align);
         });
@@ -772,12 +770,14 @@
         if (hit) patchSelectedText({ underline: hit.st.underline ? 0 : 1 });
         showDesign();
       });
-      panel.querySelectorAll("[" + fontAttr + "]").forEach(function (b) {
-        b.addEventListener("click", function () {
-          patchSelectedText({ font: this.getAttribute(fontAttr) || "" });
+      if (backDesFont && !backDesFont._meishiBound) {
+        backDesFont._meishiBound = true;
+        if (MeishiLayout.fillFontSelect) MeishiLayout.fillFontSelect(backDesFont, "");
+        backDesFont.addEventListener("change", function () {
+          patchSelectedText({ font: this.value || "" });
           showDesign();
         });
-      });
+      }
       panel.querySelectorAll("[" + alignAttr + "]").forEach(function (b) {
         b.addEventListener("click", function () {
           patchSelectedText({ align: this.getAttribute(alignAttr) });

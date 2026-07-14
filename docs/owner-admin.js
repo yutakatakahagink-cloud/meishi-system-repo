@@ -896,6 +896,7 @@
         ctl: "deBackDesignCtl",
         none: "deBackDesignNone",
         textDelete: "deBackDesTextDelete",
+        font: "deBackDesFont",
         alignAttr: "data-de-back-al",
         fontAttr: "data-de-back-font",
       });

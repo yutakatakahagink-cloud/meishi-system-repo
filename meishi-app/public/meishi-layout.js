@@ -60,12 +60,90 @@
     { id: "", label: "標準" },
     { id: "gothic", label: "ゴシック" },
     { id: "mincho", label: "明朝" },
+    { id: "yu-gothic", label: "游ゴシック" },
+    { id: "yu-mincho", label: "游明朝" },
+    { id: "meiryo", label: "メイリオ" },
+    { id: "meiryo-ui", label: "Meiryo UI" },
+    { id: "yu-gothic-ui", label: "Yu Gothic UI" },
+    { id: "ms-gothic", label: "ＭＳ ゴシック" },
+    { id: "ms-mincho", label: "ＭＳ 明朝" },
+    { id: "ms-pgothic", label: "ＭＳ Ｐゴシック" },
+    { id: "ms-pmincho", label: "ＭＳ Ｐ明朝" },
+    { id: "biz-udgothic", label: "BIZ UDゴシック" },
+    { id: "biz-udmincho", label: "BIZ UD明朝" },
+    { id: "ud-digi", label: "UDデジタル教科書体" },
+    { id: "hiragino-sans", label: "ヒラギノ角ゴ" },
+    { id: "hiragino-mincho", label: "ヒラギノ明朝" },
+    { id: "arial", label: "Arial" },
+    { id: "arial-black", label: "Arial Black" },
+    { id: "helvetica", label: "Helvetica" },
+    { id: "times", label: "Times New Roman" },
+    { id: "georgia", label: "Georgia" },
+    { id: "courier", label: "Courier New" },
+    { id: "consolas", label: "Consolas" },
+    { id: "segoe", label: "Segoe UI" },
+    { id: "verdana", label: "Verdana" },
+    { id: "tahoma", label: "Tahoma" },
+    { id: "trebuchet", label: "Trebuchet MS" },
+    { id: "impact", label: "Impact" },
   ];
 
+  var FONT_FAMILY_MAP = {
+    "": '"Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif',
+    gothic: '"Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif',
+    mincho: '"Hiragino Mincho ProN", "Yu Mincho", "MS PMincho", serif',
+    "yu-gothic": '"Yu Gothic", "YuGothic", "Hiragino Sans", "Meiryo", sans-serif',
+    "yu-mincho": '"Yu Mincho", "YuMincho", "Hiragino Mincho ProN", "MS PMincho", serif',
+    meiryo: 'Meiryo, "メイリオ", "Hiragino Sans", sans-serif',
+    "meiryo-ui": '"Meiryo UI", Meiryo, "メイリオ", sans-serif',
+    "yu-gothic-ui": '"Yu Gothic UI", "Yu Gothic", "Meiryo UI", sans-serif',
+    "ms-gothic": '"MS Gothic", "ＭＳ ゴシック", "MS PGothic", monospace',
+    "ms-mincho": '"MS Mincho", "ＭＳ 明朝", "MS PMincho", serif',
+    "ms-pgothic": '"MS PGothic", "ＭＳ Ｐゴシック", "MS Gothic", sans-serif',
+    "ms-pmincho": '"MS PMincho", "ＭＳ Ｐ明朝", "MS Mincho", serif',
+    "biz-udgothic": '"BIZ UDGothic", "BIZ UDPGothic", "Yu Gothic", sans-serif',
+    "biz-udmincho": '"BIZ UDMincho", "BIZ UDPMincho", "Yu Mincho", serif',
+    "ud-digi": '"UD Digi Kyokasho N-R", "UD Digi Kyokasho NK-R", "Yu Gothic", sans-serif',
+    "hiragino-sans": '"Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif',
+    "hiragino-mincho": '"Hiragino Mincho ProN", "Hiragino Mincho Pro", "Yu Mincho", serif',
+    arial: 'Arial, Helvetica, sans-serif',
+    "arial-black": '"Arial Black", Arial, sans-serif',
+    helvetica: 'Helvetica, Arial, sans-serif',
+    times: '"Times New Roman", Times, serif',
+    georgia: 'Georgia, "Times New Roman", serif',
+    courier: '"Courier New", Courier, monospace',
+    consolas: 'Consolas, "Courier New", monospace',
+    segoe: '"Segoe UI", Tahoma, sans-serif',
+    verdana: 'Verdana, Geneva, sans-serif',
+    tahoma: 'Tahoma, "Segoe UI", sans-serif',
+    trebuchet: '"Trebuchet MS", Tahoma, sans-serif',
+    impact: 'Impact, Haettenschweiler, sans-serif',
+  };
+
   function resolveBackFontFamily(fontId) {
-    if (fontId === "mincho") return '"Hiragino Mincho ProN", "Yu Mincho", serif';
-    if (fontId === "gothic") return '"Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif';
-    return '"Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif';
+    var key = fontId == null ? "" : String(fontId);
+    if (Object.prototype.hasOwnProperty.call(FONT_FAMILY_MAP, key)) {
+      return FONT_FAMILY_MAP[key];
+    }
+    return FONT_FAMILY_MAP[""];
+  }
+
+  function fillFontSelect(sel, currentId) {
+    if (!sel) return;
+    var cur = currentId == null ? "" : String(currentId);
+    if (!sel._meishiFontsFilled) {
+      sel.innerHTML = BACK_FONTS.map(function (f) {
+        return '<option value="' + String(f.id).replace(/"/g, "&quot;") + '">' + f.label + "</option>";
+      }).join("");
+      sel._meishiFontsFilled = true;
+    }
+    if (cur && !BACK_FONTS.some(function (f) { return f.id === cur; })) {
+      var opt = document.createElement("option");
+      opt.value = cur;
+      opt.textContent = cur;
+      sel.appendChild(opt);
+    }
+    sel.value = cur;
   }
 
   function defBackLayout() {
@@ -85,6 +163,7 @@
     defTextBlock: defTextBlock,
     BACK_FONTS: BACK_FONTS,
     resolveBackFontFamily: resolveBackFontFamily,
+    fillFontSelect: fillFontSelect,
     loadLocal: loadLocal,
     saveLocal: saveLocal,
     isValidLayout: isValidLayout,

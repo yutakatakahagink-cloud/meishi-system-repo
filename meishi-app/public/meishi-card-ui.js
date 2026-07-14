@@ -1052,6 +1052,7 @@
       var desShow = panel.querySelector("#desShow");
       var desHide = panel.querySelector("#desHide");
       var desShowRow = desShow ? desShow.closest(".des-row") : null;
+      var desFont = panel.querySelector("#desFont");
 
       function showDesign() {
         if (!designCtl || !designNone) return;
@@ -1084,9 +1085,7 @@
         if (desColor) desColor.value = st.color && st.color.length === 7 ? st.color : "#222222";
         if (desNorm) desNorm.classList.toggle("on", !st.bold);
         if (desBold) desBold.classList.toggle("on", !!st.bold);
-        panel.querySelectorAll("[data-font]").forEach(function (b) {
-          b.classList.toggle("on", (b.getAttribute("data-font") || "") === (st.font || ""));
-        });
+        if (MeishiLayout.fillFontSelect) MeishiLayout.fillFontSelect(desFont, st.font || "");
         panel.querySelectorAll("[data-al]").forEach(function (b) {
           b.classList.toggle("on", b.getAttribute("data-al") === st.align);
         });
@@ -1110,11 +1109,13 @@
       if (desBold) desBold.addEventListener("click", function () {
         applySelectedStyle({ bold: 1 });
       });
-      panel.querySelectorAll("[data-font]").forEach(function (b) {
-        b.addEventListener("click", function () {
-          applySelectedStyle({ font: this.getAttribute("data-font") || "" });
+      if (desFont && !desFont._meishiBound) {
+        desFont._meishiBound = true;
+        if (MeishiLayout.fillFontSelect) MeishiLayout.fillFontSelect(desFont, "");
+        desFont.addEventListener("change", function () {
+          applySelectedStyle({ font: this.value || "" });
         });
-      });
+      }
       panel.querySelectorAll("[data-al]").forEach(function (b) {
         b.addEventListener("click", function () {
           applySelectedStyle({ align: this.getAttribute("data-al") });
