@@ -13,11 +13,11 @@
     selAff3: "selAff3",
     selTitle: "selTitle",
     selPostal: "selPostal",
+    selMobile: "selMobile",
     inQual: "inQual",
     inAddress: "inAddress",
     inTel: "inTel",
     inFax: "inFax",
-    inMobile: "inMobile",
     inEmail: "inEmail",
     inUrl: "inUrl",
     inKoji: "inKoji",
@@ -53,7 +53,7 @@
     function el(key) { return document.getElementById(ids[key]); }
 
     var records = [];
-    var S = { name: "", company: "", aff1: "", aff2: "", aff3: "", title: "", postal: "" };
+    var S = { name: "", company: "", aff1: "", aff2: "", aff3: "", title: "", postal: "", mobile: "" };
     var layout = null;
     var layoutBack = null;
     var cardUI = null;
@@ -114,6 +114,7 @@
           : field === "aff2" ? r.aff2
           : field === "aff3" ? r.aff3
           : field === "title" ? r.title
+          : field === "mobile" ? r.mobile
           : r.postal;
         if (v == null || String(v).trim() === "") continue;
         var key = String(v);
@@ -181,6 +182,15 @@
           if (title && (r.title || "") !== title) return false;
           return true;
         }, "postal"),
+        mobile: collectField(function (r) {
+          if (name && r.name !== name) return false;
+          if (company && r.company !== company) return false;
+          if (aff1 && (r.aff1 || "") !== aff1) return false;
+          if (aff2 && (r.aff2 || "") !== aff2) return false;
+          if (aff3 && (r.aff3 || "") !== aff3) return false;
+          if (title && (r.title || "") !== title) return false;
+          return true;
+        }, "mobile"),
       };
     }
 
@@ -234,6 +244,7 @@
       prune("aff3");
       prune("title");
       prune("postal");
+      prune("mobile");
       return changed;
     }
 
@@ -325,6 +336,7 @@
         S.aff3 = "";
         S.title = "";
         S.postal = "";
+        S.mobile = "";
       }
       setNameComboOpen(false);
       if (opts.skipRebuild) return;
@@ -385,6 +397,13 @@
         if (S[stateKey] !== arr[0]) changed = true;
         S[stateKey] = arr[0];
         nextVal = arr[0];
+      } else if (stateKey === "mobile" && arr.length >= 1) {
+        // 複数ある場合は先頭を初期選択しつつ、ドロップダウンで切替可能
+        if (!S[stateKey] || arr.indexOf(S[stateKey]) < 0) {
+          if (S[stateKey] !== arr[0]) changed = true;
+          S[stateKey] = arr[0];
+        }
+        nextVal = S[stateKey];
       } else if (S[stateKey] && arr.indexOf(S[stateKey]) >= 0) {
         nextVal = S[stateKey];
       } else {
@@ -475,7 +494,8 @@
         return [t ? "TEL " + t : "", f ? "FAX " + f : ""].filter(Boolean).join("\u3000");
       }
       if (id === "mobile") {
-        var m = el("inMobile").value;
+        var mEl = el("selMobile");
+        var m = mEl ? mEl.value : "";
         return m ? "携帯 " + m : "";
       }
       if (id === "email") return el("inEmail").value;
@@ -569,6 +589,7 @@
       changed = fillSelect(el("selAff3"), opts.aff3, "所属3", "aff3", skipAutoPick) || changed;
       changed = fillSelect(el("selTitle"), opts.title, "役職", "title", skipAutoPick) || changed;
       changed = fillSelect(el("selPostal"), opts.postal, "郵便番号", "postal", skipAutoPick) || changed;
+      changed = fillSelect(el("selMobile"), opts.mobile, "携帯", "mobile", skipAutoPick) || changed;
       return changed;
     }
 
@@ -583,7 +604,6 @@
       }
       var rows = filtered();
       el("inUrl").value = firstNonEmpty(rows, "url");
-      el("inMobile").value = firstNonEmpty(rows, "mobile");
       el("inEmail").value = firstNonEmpty(rows, "email");
       el("inQual").value = firstNonEmpty(rows, "qual");
       var locRows = S.postal ? rows.filter(function (r) { return (r.postal || "") === S.postal; }) : rows;
@@ -772,17 +792,22 @@
 
     function bindInputs() {
       bindNameCombo();
-      bindSel("selCompany", "company", ["aff1", "aff2", "aff3", "title", "postal"]);
-      bindSel("selAff1", "aff1", ["aff2", "aff3", "title", "postal"]);
-      bindSel("selAff2", "aff2", ["aff3", "title", "postal"]);
-      bindSel("selAff3", "aff3", ["title", "postal"]);
-      bindSel("selTitle", "title", ["postal"]);
+      bindSel("selCompany", "company", ["aff1", "aff2", "aff3", "title", "postal", "mobile"]);
+      bindSel("selAff1", "aff1", ["aff2", "aff3", "title", "postal", "mobile"]);
+      bindSel("selAff2", "aff2", ["aff3", "title", "postal", "mobile"]);
+      bindSel("selAff3", "aff3", ["title", "postal", "mobile"]);
+      bindSel("selTitle", "title", ["postal", "mobile"]);
       var sp = el("selPostal");
       if (sp && !sp._mpBound) {
         sp._mpBound = true;
         sp.addEventListener("change", function () { S.postal = this.value; rebuild(); });
       }
-      ["inQual", "inAddress", "inTel", "inFax", "inMobile", "inEmail", "inUrl", "inKoji"].forEach(function (k) {
+      var sm = el("selMobile");
+      if (sm && !sm._mpBound) {
+        sm._mpBound = true;
+        sm.addEventListener("change", function () { S.mobile = this.value; rebuild(); });
+      }
+      ["inQual", "inAddress", "inTel", "inFax", "inEmail", "inUrl", "inKoji"].forEach(function (k) {
         var inp2 = el(k);
         if (inp2 && !inp2._mpBound) {
           inp2._mpBound = true;
@@ -838,12 +863,12 @@
     }
 
     function clear() {
-      S = { name: "", company: "", aff1: "", aff2: "", aff3: "", title: "", postal: "" };
+      S = { name: "", company: "", aff1: "", aff2: "", aff3: "", title: "", postal: "", mobile: "" };
       selectSig = {};
       var nameInp = el("selName");
       if (nameInp) nameInp.value = "";
       setNameComboOpen(false);
-      ["inQual", "inAddress", "inTel", "inFax", "inMobile", "inEmail", "inUrl", "inKoji"].forEach(function (k) {
+      ["inQual", "inAddress", "inTel", "inFax", "inEmail", "inUrl", "inKoji"].forEach(function (k) {
         var inp = el(k);
         if (inp) inp.value = "";
       });

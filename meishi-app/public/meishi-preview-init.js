@@ -16,7 +16,7 @@
     inAddress: "pvInAddress",
     inTel: "pvInTel",
     inFax: "pvInFax",
-    inMobile: "pvInMobile",
+    selMobile: "pvSelMobile",
     inEmail: "pvInEmail",
     inUrl: "pvInUrl",
     inKoji: "pvInKoji",
