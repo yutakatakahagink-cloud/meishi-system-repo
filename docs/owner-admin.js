@@ -1716,8 +1716,33 @@
       applyPreviewOnlyMode();
     },
     initAdmin: async function () {
+      var ADMIN_REMEMBER_KEY = "meishi_admin_saved_login";
       var loginView = document.getElementById("adminLoginView");
       var mainView = document.getElementById("adminMainView");
+      function restoreAdminSavedLogin() {
+        try {
+          var raw = localStorage.getItem(ADMIN_REMEMBER_KEY);
+          if (!raw) return;
+          var d = JSON.parse(raw);
+          if (!d || typeof d !== "object") return;
+          var idEl = document.getElementById("adminLoginId");
+          var pwEl = document.getElementById("adminLoginPass");
+          var chk = document.getElementById("adminLoginRemember");
+          if (idEl) idEl.value = d.id || "";
+          if (pwEl) pwEl.value = d.pw || "";
+          if (chk) chk.checked = true;
+        } catch (e) {}
+      }
+      function persistAdminRemember(id, pass) {
+        var chk = document.getElementById("adminLoginRemember");
+        if (chk && chk.checked) {
+          try {
+            localStorage.setItem(ADMIN_REMEMBER_KEY, JSON.stringify({ id: id, pw: pass }));
+          } catch (e) {}
+        } else {
+          try { localStorage.removeItem(ADMIN_REMEMBER_KEY); } catch (e2) {}
+        }
+      }
       function revealMain() {
         if (loginView) loginView.hidden = true;
         if (mainView) mainView.hidden = false;
@@ -1725,6 +1750,7 @@
         refreshAdminWho();
         showTab("company");
       }
+      restoreAdminSavedLogin();
       try { await MeishiStore.init(); } catch (e) {
         alert(e.message || e);
         return;
@@ -1758,6 +1784,7 @@
             if (err) err.textContent = "ID またはパスワードが違います";
             return;
           }
+          persistAdminRemember(id, pass);
           MeishiStore.setAdminSession(r.account);
           if (err) err.textContent = "";
           bindEvents();
@@ -1775,6 +1802,12 @@
           revealMain();
           applyAdminUiLocks();
         };
+      }
+      var passEl = document.getElementById("adminLoginPass");
+      if (passEl) {
+        passEl.addEventListener("keydown", function (e) {
+          if (e.key === "Enter" && btn) btn.click();
+        });
       }
     },
   };

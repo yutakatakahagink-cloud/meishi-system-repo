@@ -43,6 +43,10 @@
           <p id="loginStatus" class="hint" style="margin-top:0">設定を読み込み中…</p>
           <div class="field"><label>ID</label><input id="loginId" type="text" autocomplete="username" disabled /></div>
           <div class="field"><label>パスワード</label><input id="loginPass" type="password" autocomplete="current-password" disabled /></div>
+          <label class="hint" style="display:inline-flex;gap:6px;align-items:center;margin:8px 0 12px;cursor:pointer;width:fit-content">
+            <input type="checkbox" id="loginRemember" />
+            <span>IDとパスワードを保存する</span>
+          </label>
           <button class="btn" style="width:100%" id="btnLogin" disabled>ログイン</button>
         </div>
       </section>
@@ -133,6 +137,7 @@
       }
 
       var SK = "meishi_user_login";
+      var REMEMBER_KEY = "meishi_user_saved_login";
       var loginReady = false;
 
       function setLoginEnabled(on) {
@@ -146,6 +151,30 @@
         if (el) el.textContent = msg || "";
       }
 
+      function restoreSavedLogin() {
+        try {
+          var raw = localStorage.getItem(REMEMBER_KEY);
+          if (!raw) return;
+          var d = JSON.parse(raw);
+          if (!d || typeof d !== "object") return;
+          document.getElementById("loginId").value = d.id || "";
+          document.getElementById("loginPass").value = d.pw || "";
+          var chk = document.getElementById("loginRemember");
+          if (chk) chk.checked = true;
+        } catch (e) {}
+      }
+
+      function persistLoginRemember(id, pw) {
+        var chk = document.getElementById("loginRemember");
+        if (chk && chk.checked) {
+          try {
+            localStorage.setItem(REMEMBER_KEY, JSON.stringify({ id: id, pw: pw }));
+          } catch (e) {}
+        } else {
+          try { localStorage.removeItem(REMEMBER_KEY); } catch (e2) {}
+        }
+      }
+
       function doLogin() {
         if (!loginReady || !MeishiStore.ready) {
           alert("設定を読み込み中です。少し待ってから再度お試しください。");
@@ -155,6 +184,7 @@
         var pw = document.getElementById("loginPass").value;
         var attempt = function () {
           if (MeishiStore.verifyUserLogin(id, pw)) {
+            persistLoginRemember(id, pw);
             sessionStorage.setItem(SK, "1");
             document.getElementById("btnLogout").style.display = "";
             openEditor();
@@ -188,6 +218,7 @@
         sessionStorage.removeItem(SK);
         this.style.display = "none";
         show("login");
+        restoreSavedLogin();
       });
 
       function setBadge() {
@@ -207,6 +238,7 @@
       (async function () {
         setLoginEnabled(false);
         setLoginStatus("設定を読み込み中…");
+        restoreSavedLogin();
         try { await MeishiStore.init(); } catch (e) { alert(e.message || e); }
         loginReady = true;
         setLoginEnabled(true);

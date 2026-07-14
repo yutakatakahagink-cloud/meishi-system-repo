@@ -36,6 +36,10 @@
         <p class="hint">所有者から付与された ID / パスワードでログインしてください。</p>
         <div class="field"><label>ログインID</label><input id="adminLoginId" autocomplete="username" /></div>
         <div class="field"><label>パスワード</label><input id="adminLoginPass" type="password" autocomplete="current-password" /></div>
+        <label class="hint" style="display:inline-flex;gap:6px;align-items:center;margin:8px 0 12px;cursor:pointer;width:fit-content">
+          <input type="checkbox" id="adminLoginRemember" />
+          <span>IDとパスワードを保存する</span>
+        </label>
         <button type="button" class="btn" id="btnAdminLogin">ログイン</button>
         <p class="hint" id="adminLoginErr" style="color:#b3261e"></p>
       </div>
@@ -381,7 +385,7 @@
         <button type="button" class="btn sm" id="btnQrClose">閉じる</button>
       </div>
     </div>
-    <script src="owner-admin.js?v=20250714af"></script>
+    <script src="owner-admin.js?v=20250714ah"></script>
     <script>OwnerAdmin.initAdmin();</script>
   </body>
 </html>
