@@ -61,6 +61,9 @@
     var previewSide = "front";
     var storeHooked = false;
     var nameOptionsAll = [];
+    /** 所属などとは独立。氏名検索用の全氏名一覧 */
+    var nameOptionsUniverse = [];
+    var nameFuriganaMap = Object.create(null);
     var nameSearchComposing = false;
     var nameComboOpen = false;
     var nameComboActiveIndex = -1;
@@ -68,9 +71,35 @@
     var rebuildRaf = 0;
     var renderCardRaf = 0;
 
+    function rebuildNameUniverse() {
+      var kana = Object.create(null);
+      var seen = Object.create(null);
+      var names = [];
+      for (var i = 0; i < records.length; i++) {
+        var r = records[i];
+        var n = r && r.name != null ? String(r.name).trim() : "";
+        if (!n || seen[n]) {
+          if (n && r.furigana && !kana[n]) kana[n] = String(r.furigana).trim();
+          continue;
+        }
+        seen[n] = 1;
+        names.push(n);
+        if (r.furigana) kana[n] = String(r.furigana).trim();
+      }
+      names.sort(function (a, b) {
+        var ka = kana[a] || a;
+        var kb = kana[b] || b;
+        var c = String(ka).localeCompare(String(kb), "ja");
+        return c || String(a).localeCompare(String(b), "ja");
+      });
+      nameOptionsUniverse = names;
+      nameFuriganaMap = kana;
+    }
+
     function reloadRecords() {
       records = MeishiStore.getMergedRecords();
       selectSig = {};
+      rebuildNameUniverse();
     }
 
     function collectField(matchFn, field) {
@@ -198,7 +227,7 @@
         S[key] = "";
         changed = true;
       }
-      prune("name");
+      // 氏名は所属・会社の絞り込みで消さない（検索で全氏名を選べる）
       prune("company");
       prune("aff1");
       prune("aff2");
@@ -224,7 +253,10 @@
       var n = String(name == null ? "" : name);
       var q = String(query);
       if (n.indexOf(q) >= 0) return true;
-      return normalizeNameQuery(n).indexOf(normalizeNameQuery(q)) >= 0;
+      if (normalizeNameQuery(n).indexOf(normalizeNameQuery(q)) >= 0) return true;
+      var f = nameFuriganaMap[n] || "";
+      if (f && (f.indexOf(q) >= 0 || normalizeNameQuery(f).indexOf(normalizeNameQuery(q)) >= 0)) return true;
+      return false;
     }
 
     function getNameListEl() {
@@ -247,7 +279,9 @@
 
     function filteredNameOptions(query, forceAll) {
       var q = forceAll ? "" : String(query || "");
-      return nameOptionsAll.filter(function (v) { return nameMatchesQuery(v, q); });
+      // 入力検索時は所属・会社の選択に関係なく全氏名を対象にする
+      var source = nameOptionsUniverse.length ? nameOptionsUniverse : nameOptionsAll;
+      return source.filter(function (v) { return nameMatchesQuery(v, q); });
     }
 
     function setNameComboOpen(open) {
@@ -312,18 +346,10 @@
       var inp = el("selName");
       if (!inp) return false;
       var field = inp.closest(".field");
-      // 会社・所属1・所属2に紐づく氏名のみ
+      // カスケード用（会社・所属に紐づく氏名）。検索候補は nameOptionsUniverse を使う
       nameOptionsAll = Array.isArray(nameValues) ? nameValues.slice() : optionValuesFor("name");
       var changed = false;
-      if (!nameOptionsAll.length) {
-        inp.disabled = true;
-        inp.value = "";
-        if (field) field.classList.add("field-disabled");
-        if (S.name !== "") { S.name = ""; changed = true; }
-        renderNameComboList(true);
-        setNameComboOpen(false);
-        return changed;
-      }
+      // 氏名欄は常に入力・検索可能（所属選択中でも全氏名を検索できる）
       inp.disabled = false;
       if (field) field.classList.remove("field-disabled");
       if (skipAutoPick) {
@@ -332,18 +358,16 @@
         renderNameComboList(true);
         return changed;
       }
+      // 氏名未選択かつカスケード候補が1件だけのときだけ自動選択
       if (nameOptionsAll.length === 1 && !S.name) {
         S.name = nameOptionsAll[0];
         changed = true;
       }
-      if (S.name && nameOptionsAll.indexOf(S.name) < 0) {
-        S.name = "";
-        changed = true;
-      }
-      if (!(document.activeElement === inp && !S.name && nameComboOpen)) {
+      // 入力中は入力内容を壊さない。それ以外は確定氏名を表示
+      if (!(document.activeElement === inp && nameComboOpen)) {
         inp.value = S.name || "";
       }
-      if (nameComboOpen) renderNameComboList(false);
+      if (nameComboOpen) renderNameComboList(!String(inp.value || "").trim());
       return changed;
     }
 
@@ -587,15 +611,7 @@
       node.addEventListener("change", function () {
         S[stateKey] = this.value;
         (resetKeys || []).forEach(function (k) { S[k] = ""; });
-        // 上位条件を変えたら、氏名が範囲外ならクリア
-        if (stateKey === "company" || stateKey === "aff1" || stateKey === "aff2") {
-          var names = optionValuesFor("name");
-          if (S.name && names.indexOf(S.name) < 0) {
-            S.name = "";
-            var nameInp = el("selName");
-            if (nameInp) nameInp.value = "";
-          }
-        }
+        // 会社・所属を変えても氏名はクリアしない（氏名欄から全氏名を再検索できる）
         rebuild();
       });
     }
@@ -635,7 +651,8 @@
           return;
         }
         var q = String(inp.value || "").trim();
-        if (nameOptionsAll.indexOf(q) >= 0) {
+        var universe = nameOptionsUniverse.length ? nameOptionsUniverse : nameOptionsAll;
+        if (universe.indexOf(q) >= 0) {
           commitNameValue(q);
           return;
         }
@@ -701,7 +718,8 @@
             if (S.name) commitNameValue("", { forceRebuild: true });
             return;
           }
-          if (nameOptionsAll.indexOf(q) >= 0) {
+          var universe = nameOptionsUniverse.length ? nameOptionsUniverse : nameOptionsAll;
+          if (universe.indexOf(q) >= 0) {
             if (q !== S.name) commitNameValue(q);
             else inp.value = q;
             return;
