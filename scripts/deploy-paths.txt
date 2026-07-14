@@ -14,6 +14,7 @@ meishi-app/public/index.html
 meishi-app/public/user.html
 meishi-app/public/user-app.html
 meishi-app/public/owner.html
+meishi-app/public/admin.html
 meishi-app/public/owner-app.html
 meishi-app/public/meishi-page-boot.js
 meishi-app/public/start.bat

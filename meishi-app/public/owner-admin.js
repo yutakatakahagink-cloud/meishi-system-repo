@@ -75,20 +75,116 @@
     document.querySelectorAll(".panel").forEach(function (p) {
       p.classList.toggle("on", p.id === "panel-" + id);
     });
+    if (window.MEISHI_ADMIN_PAGE && (id === "company" || id === "dept" || id === "records")) {
+      refreshCoPickOptions();
+    }
     if (id === "company") {
       if (coSide === "back") refreshCoBackDesign();
       else refreshCoDesign();
+      applyAdminUiLocks();
     }
     if (id === "dept") {
       fillDeptPanel();
       if (deSide === "back") refreshDeptBackDesign(true);
       else refreshDeptDesign(true);
+      applyAdminUiLocks();
     }
     if (id === "preview") initPreviewPanel();
     if (id === "records") {
       renderRecTable();
       refreshRecFormIfOpen();
+      applyAdminUiLocks();
     }
+  }
+
+  function applyAdminUiLocks() {
+    if (!window.MEISHI_ADMIN_PAGE) return;
+    var can = !!(currentCo && MeishiStore.adminCanEditCompany && MeishiStore.adminCanEditCompany(currentCo));
+    [
+      "btnSaveCo", "btnCoAdd", "btnCoRename", "btnCoDel", "btnCoSyncCat",
+      "btnCoFrontText", "btnCoImgPick", "btnCoFrontDivider", "btnCoDesReset",
+      "btnCoBackText", "btnCoBackImgPick", "btnCoBackDivider", "btnCoBackDesReset",
+      "btnSaveDept", "btnRecSave", "btnRecDel", "btnRecAdd"
+    ].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.disabled = !can;
+    });
+    ["btnCoApplyDesignText", "btnCoUndoDesignText"].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.style.display = "none";
+    });
+    var hint = document.getElementById("adminEditHint");
+    if (hint) {
+      hint.style.display = can || !currentCo ? "none" : "";
+      hint.textContent = "この会社は担当外です。編集は担当会社のみ可能です。他社の印刷は「プレビュー」タブから行えます。";
+    }
+  }
+
+  function setupAdminShell() {
+    if (!window.MEISHI_ADMIN_PAGE) return;
+    var basic = document.getElementById("panel-basic");
+    if (basic) {
+      basic.innerHTML =
+        '<div class="card"><h2>担当者メニュー</h2>' +
+        '<p class="hint" id="adminWho"></p>' +
+        '<p class="hint">担当会社のデザイン・データは「会社共通」「部署共通」「名刺データ」で編集できます。' +
+        '担当外の会社は「プレビュー」から選択して印刷のみ可能です。</p>' +
+        '<p class="hint" id="adminEditHint" style="display:none;color:#b3261e"></p>' +
+        '<button type="button" class="btn sm danger" id="btnAdminLogout">ログアウト</button></div>' +
+        '<div class="card"><h2>画像保存ボックス（担当会社）</h2>' +
+        '<p class="hint">担当会社ごとの画像を登録します。</p>' +
+        '<div class="btn-row">' +
+        '<select id="imgLibCoPick" style="max-width:280px"></select>' +
+        '<button type="button" class="btn sm" id="btnImgLibAdd">＋ 追加</button>' +
+        '<button type="button" class="btn sm ghost" id="btnImgLibRecover">画像を復元</button>' +
+        '<input type="file" id="imgLibFileInput" accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml" multiple hidden />' +
+        "</div>" +
+        '<div id="imgLibBox" class="img-lib-box empty">（未登録）</div></div>';
+      var btn = document.getElementById("btnAdminLogout");
+      if (btn) {
+        btn.onclick = function () {
+          MeishiStore.clearAdminSession();
+          location.reload();
+        };
+      }
+      var imgLibCoPick = document.getElementById("imgLibCoPick");
+      if (imgLibCoPick) {
+        imgLibCoPick.onchange = function () {
+          getImgLibCompany();
+          renderImgLibBox();
+        };
+      }
+      var addBtn = document.getElementById("btnImgLibAdd");
+      if (addBtn) addBtn.onclick = addImagesToLibrary;
+      var recBtn = document.getElementById("btnImgLibRecover");
+      if (recBtn) recBtn.onclick = recoverImagesFromBackup;
+      var fileInp = document.getElementById("imgLibFileInput");
+      if (fileInp) fileInp.onchange = onImgLibFilesSelected;
+      fillImgLibCoPick();
+      // 担当会社のみ
+      if (MeishiStore.adminCanEditCompany) {
+        var sel = document.getElementById("imgLibCoPick");
+        if (sel) {
+          [].slice.call(sel.options).forEach(function (opt) {
+            if (!MeishiStore.adminCanEditCompany(opt.value)) opt.remove();
+          });
+        }
+      }
+      renderImgLibBox();
+    }
+    var hid = document.getElementById("coHiddenForUser");
+    if (hid) {
+      var lab = hid.closest("label");
+      if (lab) lab.style.display = "none";
+    }
+  }
+
+  function refreshAdminWho() {
+    var el = document.getElementById("adminWho");
+    if (!el || !MeishiStore.getAdminSession) return;
+    var s = MeishiStore.getAdminSession();
+    if (!s) { el.textContent = ""; return; }
+    el.textContent = "ログイン中: " + (s.label || s.id) + " ／ 担当: " + (s.companies || []).join("、");
   }
 
   function showSyncStatus(msg) {
@@ -121,7 +217,7 @@
         layout.images.push(MeishiImageLib.createDefaultImage(item, i, prefix));
       });
       if (typeof done === "function") done();
-    });
+    }, { company: currentCo || MeishiStore.getImageLibraryContext() });
   }
 
   function pickImagesIntoBackLayout(layout, prefix, done) {
@@ -168,17 +264,40 @@
     document.getElementById("ownerId").value = c.ownerId || "";
     document.getElementById("ownerPass").value = c.ownerPass || "";
     refreshUserUrlFields();
+    fillImgLibCoPick();
     renderImgLibBox();
+    renderAdminAccountsUi();
+  }
+
+  function getImgLibCompany() {
+    var sel = document.getElementById("imgLibCoPick");
+    var v = sel && sel.value ? sel.value : (currentCo || "日新興業株式会社");
+    if (MeishiStore.setImageLibraryContext) MeishiStore.setImageLibraryContext(v);
+    return v;
+  }
+
+  function fillImgLibCoPick() {
+    var sel = document.getElementById("imgLibCoPick");
+    if (!sel) return;
+    var cur = sel.value || currentCo || "日新興業株式会社";
+    var list = MeishiStore.getCompanyList();
+    sel.innerHTML = list.map(function (c) {
+      return '<option value="' + String(c).replace(/"/g, "&quot;") + '">' + String(c).replace(/</g, "&lt;") + "</option>";
+    }).join("");
+    if (list.indexOf(cur) >= 0) sel.value = cur;
+    else if (list.length) sel.value = list[0];
+    getImgLibCompany();
   }
 
   function renderImgLibBox() {
     var box = document.getElementById("imgLibBox");
     if (!box) return;
-    var lib = MeishiStore.getImageLibrary();
+    var co = getImgLibCompany();
+    var lib = MeishiStore.getImageLibrary(co);
     box.innerHTML = "";
     if (!lib.length) {
       box.className = "img-lib-box empty";
-      box.textContent = "（未登録）「＋ 追加」からエクスプローラーで画像を選んで登録してください。";
+      box.textContent = "（未登録）「＋ 追加」から「" + co + "」用の画像を登録してください。";
       return;
     }
     box.className = "img-lib-box";
@@ -196,8 +315,8 @@
       var span = document.createElement("span");
       span.textContent = item.label || item.file || item.id;
       del.onclick = function () {
-        if (!confirm("画像保存ボックスから削除しますか？\n（名刺に設定済みの画像は表示されなくなる場合があります）")) return;
-        MeishiStore.removeFromImageLibrary(item.id).then(function () {
+        if (!confirm("「" + co + "」の画像保存ボックスから削除しますか？")) return;
+        MeishiStore.removeFromImageLibrary(item.id, co).then(function () {
           renderImgLibBox();
         });
       };
@@ -269,12 +388,13 @@
       alert("読み込める画像がありませんでした");
       return;
     }
-    MeishiStore.addToImageLibrary(batch).then(function (n) {
+    var co = getImgLibCompany();
+    MeishiStore.addToImageLibrary(batch, co).then(function (n) {
       renderImgLibBox();
       if (n > 0) syncRemoteAfterSave();
-      if (n > 0) alert(n + " 件を画像保存ボックスに追加しました");
+      if (n > 0) alert(n + " 件を「" + co + "」の画像保存ボックスに追加しました");
       else alert("選択した画像は既に登録済みです");
-      if (n > 0 && !MeishiStore.getImageLibrary().length) {
+      if (n > 0 && !MeishiStore.getImageLibrary(co).length) {
         alert("画像の保存に失敗した可能性があります。ファイルサイズを小さくして再度お試しください。");
       }
     });
@@ -289,6 +409,83 @@
     document.getElementById("userUrl").value = userUrl;
     var ownerInp = document.getElementById("ownerUrl");
     if (ownerInp) ownerInp.value = MeishiStore.ownerUrl();
+    var adminInp = document.getElementById("adminUrl");
+    if (adminInp) {
+      adminInp.value = MeishiStore.publicPageUrl
+        ? MeishiStore.publicPageUrl("admin.html")
+        : String(userUrl).replace(/user\.html.*/, "admin.html");
+    }
+  }
+
+  function renderAdminCompaniesChecks(selected) {
+    var box = document.getElementById("adminAccCompanies");
+    if (!box) return;
+    selected = selected || [];
+    var selMap = {};
+    selected.forEach(function (c) { selMap[MeishiFields.norm(c)] = true; });
+    var list = MeishiStore.getCompanyList();
+    if (!list.length) {
+      box.innerHTML = '<span class="hint">会社がありません</span>';
+      return;
+    }
+    box.innerHTML = list.map(function (c, i) {
+      var id = "adminAccCo" + i;
+      var checked = selMap[MeishiFields.norm(c)] ? " checked" : "";
+      return (
+        '<label style="display:flex;gap:8px;align-items:center;padding:3px 0;cursor:pointer">' +
+        '<input type="checkbox" id="' + id + '" value="' + String(c).replace(/"/g, "&quot;") + '"' + checked + " />" +
+        "<span>" + String(c).replace(/</g, "&lt;") + "</span></label>"
+      );
+    }).join("");
+  }
+
+  function collectAdminCompanyChecks() {
+    var box = document.getElementById("adminAccCompanies");
+    if (!box) return [];
+    var out = [];
+    box.querySelectorAll('input[type="checkbox"]:checked').forEach(function (el) {
+      out.push(el.value);
+    });
+    return out;
+  }
+
+  function renderAdminAccountsUi() {
+    var listEl = document.getElementById("adminAccountsList");
+    if (!listEl) return;
+    var accounts = MeishiStore.getAdminAccounts ? MeishiStore.getAdminAccounts() : [];
+    renderAdminCompaniesChecks([]);
+    if (!accounts.length) {
+      listEl.className = "img-lib-box empty";
+      listEl.textContent = "（未登録）下のフォームから追加してください。";
+      return;
+    }
+    listEl.className = "img-lib-box";
+    listEl.innerHTML = accounts.map(function (a) {
+      return (
+        '<div class="img-lib-item" style="width:100%;max-width:100%;align-items:flex-start;flex-direction:row;justify-content:space-between">' +
+        "<div><strong>" + String(a.label || a.id).replace(/</g, "&lt;") + "</strong>" +
+        "（ID: " + String(a.id).replace(/</g, "&lt;") + "）<br /><span class=\"hint\">" +
+        (a.companies || []).map(function (c) { return String(c).replace(/</g, "&lt;"); }).join("、") +
+        "</span></div>" +
+        '<button type="button" class="btn sm danger" data-admin-del="' + String(a.id).replace(/"/g, "&quot;") + '">削除</button></div>'
+      );
+    }).join("");
+    listEl.querySelectorAll("[data-admin-del]").forEach(function (btn) {
+      btn.onclick = function () {
+        var id = btn.getAttribute("data-admin-del");
+        if (!confirm("管理者アカウント「" + id + "」を削除しますか？")) return;
+        var next = (MeishiStore.getAdminAccounts() || []).filter(function (a) { return a.id !== id; });
+        MeishiStore.saveAdminAccounts(next);
+        syncRemoteAfterSave();
+        renderAdminAccountsUi();
+      };
+    });
+  }
+
+  function syncCoHiddenCheckbox() {
+    var el = document.getElementById("coHiddenForUser");
+    if (!el || !currentCo) return;
+    el.checked = !!(MeishiStore.isCompanyHidden && MeishiStore.isCompanyHidden(currentCo));
   }
 
   function copyTextToClipboard(text, okMsg) {
@@ -349,11 +546,19 @@
 
   function refreshCoPickOptions() {
     var list = MeishiStore.getCompanyList();
+    if (window.MEISHI_ADMIN_PAGE && MeishiStore.adminCanEditCompany) {
+      // 会社共通・部署・データ編集は担当会社のみ
+      var tab = document.querySelector(".tabs button.on");
+      var tabId = tab ? tab.getAttribute("data-tab") : "company";
+      if (tabId !== "preview") {
+        list = list.filter(function (c) { return MeishiStore.adminCanEditCompany(c); });
+      }
+    }
     var sel = document.getElementById("coPick");
     var cur = sel.value || currentCo;
     sel.innerHTML = list.length
       ? list.map(function (v) { return "<option>" + esc(v) + "</option>"; }).join("")
-      : '<option value="">（会社なし）</option>';
+      : '<option value="">（担当会社なし）</option>';
     if (cur && list.indexOf(cur) >= 0) sel.value = cur;
     else if (list.length) sel.value = list[0];
     currentCo = sel.value;
@@ -408,6 +613,15 @@
     }
     if (coSide === "back") refreshCoBackDesign();
     else refreshCoDesign();
+    if (MeishiStore.setImageLibraryContext) MeishiStore.setImageLibraryContext(currentCo);
+    var imgSel = document.getElementById("imgLibCoPick");
+    if (imgSel && currentCo) {
+      if ([].some.call(imgSel.options, function (o) { return o.value === currentCo; })) {
+        imgSel.value = currentCo;
+      }
+      renderImgLibBox();
+    }
+    syncCoHiddenCheckbox();
   }
 
   function renderCatalogEditor(cat) {
@@ -621,6 +835,9 @@
 
   function fillDeptPanel() {
     var list = MeishiStore.getCompanyList();
+    if (window.MEISHI_ADMIN_PAGE && MeishiStore.adminCanEditCompany) {
+      list = list.filter(function (c) { return MeishiStore.adminCanEditCompany(c); });
+    }
     var coSel = document.getElementById("deCoPick");
     var curCo = coSel.value;
     coSel.innerHTML = list.map(function (v) { return "<option>" + esc(v) + "</option>"; }).join("");
@@ -940,14 +1157,19 @@
 
   function renderRecTable() {
     var recs = MeishiStore.getRecords();
+    if (window.MEISHI_ADMIN_PAGE && MeishiStore.adminCanEditCompany) {
+      recs = recs.filter(function (r) { return MeishiStore.adminCanEditCompany(r.company); });
+    }
     document.getElementById("recCount").textContent = recs.length + " 件";
     document.querySelector("#recTbl thead").innerHTML =
       "<tr>" + MeishiFields.COLUMNS.map(function (c) { return "<th>" + c.label + "</th>"; }).join("") + "</tr>";
     var q = recFilter.toLowerCase();
     document.querySelector("#recTbl tbody").innerHTML = recs.map(function (r, i) {
+      var realIdx = MeishiStore.getRecords().indexOf(r);
+      if (realIdx < 0) realIdx = i;
       var txt = MeishiFields.COLUMNS.map(function (c) { return r[c.key] || ""; }).join(" ");
       if (q && txt.toLowerCase().indexOf(q) < 0) return "";
-      return "<tr data-i='" + i + "' class='" + (i === editRecIdx ? "sel" : "") + "'>" +
+      return "<tr data-i='" + realIdx + "' class='" + (realIdx === editRecIdx ? "sel" : "") + "'>" +
         MeishiFields.COLUMNS.map(function (c) { return "<td>" + esc(r[c.key] || "") + "</td>"; }).join("") + "</tr>";
     }).join("");
   }
@@ -1150,15 +1372,82 @@
     var btnCopyOwner = document.getElementById("btnCopyOwner");
     if (btnCopyOwner) {
       btnCopyOwner.onclick = function () {
-        var inp = document.getElementById("ownerUrl");
-        copyTextToClipboard((inp && inp.value) || MeishiStore.ownerUrl(), "所有者URLをコピーしました");
+        copyTextToClipboard(document.getElementById("ownerUrl").value || MeishiStore.ownerUrl(), "所有者URLをコピーしました");
       };
     }
     var btnOpenOwner = document.getElementById("btnOpenOwner");
     if (btnOpenOwner) {
       btnOpenOwner.onclick = function () {
-        var inp = document.getElementById("ownerUrl");
-        openPageUrl((inp && inp.value) || MeishiStore.ownerUrl());
+        openPageUrl(document.getElementById("ownerUrl").value || MeishiStore.ownerUrl());
+      };
+    }
+    var btnCopyAdmin = document.getElementById("btnCopyAdmin");
+    if (btnCopyAdmin) {
+      btnCopyAdmin.onclick = function () {
+        copyTextToClipboard(
+          document.getElementById("adminUrl").value || MeishiStore.adminUrl(),
+          "admin URLをコピーしました"
+        );
+      };
+    }
+    var btnOpenAdmin = document.getElementById("btnOpenAdmin");
+    if (btnOpenAdmin) {
+      btnOpenAdmin.onclick = function () {
+        openPageUrl(document.getElementById("adminUrl").value || MeishiStore.adminUrl());
+      };
+    }
+    var imgLibCoPick = document.getElementById("imgLibCoPick");
+    if (imgLibCoPick) {
+      imgLibCoPick.onchange = function () {
+        getImgLibCompany();
+        renderImgLibBox();
+      };
+    }
+    var coHidden = document.getElementById("coHiddenForUser");
+    if (coHidden) {
+      coHidden.onchange = function () {
+        if (!currentCo) return;
+        var list = MeishiStore.getHiddenCompanies ? MeishiStore.getHiddenCompanies() : [];
+        var key = MeishiFields.norm(currentCo);
+        if (coHidden.checked) {
+          if (list.indexOf(key) < 0) list.push(key);
+        } else {
+          list = list.filter(function (c) { return MeishiFields.norm(c) !== key; });
+        }
+        MeishiStore.setHiddenCompanies(list);
+        syncRemoteAfterSave();
+      };
+    }
+    var btnAdminAccAdd = document.getElementById("btnAdminAccAdd");
+    if (btnAdminAccAdd) {
+      btnAdminAccAdd.onclick = function () {
+        var id = (document.getElementById("adminAccId").value || "").trim();
+        var pass = document.getElementById("adminAccPass").value || "";
+        var label = (document.getElementById("adminAccLabel").value || "").trim() || id;
+        var companies = collectAdminCompanyChecks();
+        if (!id) return alert("ログインIDを入力してください");
+        if (!pass) return alert("パスワードを入力してください");
+        if (!companies.length) return alert("担当会社を1つ以上選んでください");
+        var accounts = MeishiStore.getAdminAccounts() || [];
+        if (accounts.some(function (a) { return a.id === id; })) {
+          return alert("同じIDのアカウントが既にあります");
+        }
+        accounts.push({ id: id, pass: pass, label: label, companies: companies });
+        MeishiStore.saveAdminAccounts(accounts);
+        syncRemoteAfterSave();
+        document.getElementById("adminAccId").value = "";
+        document.getElementById("adminAccPass").value = "";
+        document.getElementById("adminAccLabel").value = "";
+        renderAdminAccountsUi();
+        alert("管理者アカウントを追加しました");
+      };
+    }
+    var btnAdminAccSave = document.getElementById("btnAdminAccSave");
+    if (btnAdminAccSave) {
+      btnAdminAccSave.onclick = function () {
+        MeishiStore.saveAdminAccounts(MeishiStore.getAdminAccounts() || []);
+        syncRemoteAfterSave();
+        alert("管理者アカウント設定を保存しました");
       };
     }
     document.getElementById("btnImgLibAdd").onclick = addImagesToLibrary;
@@ -1523,6 +1812,68 @@
           "<option value=''>行番号で選択</option>" + nos2.map(function (n) { return "<option>" + esc(n) + "</option>"; }).join("");
       });
       applyPreviewOnlyMode();
+    },
+    initAdmin: async function () {
+      var loginView = document.getElementById("adminLoginView");
+      var mainView = document.getElementById("adminMainView");
+      function revealMain() {
+        if (loginView) loginView.hidden = true;
+        if (mainView) mainView.hidden = false;
+        setupAdminShell();
+        refreshAdminWho();
+        showTab("company");
+      }
+      try { await MeishiStore.init(); } catch (e) {
+        alert(e.message || e);
+        return;
+      }
+      var sess = MeishiStore.getAdminSession && MeishiStore.getAdminSession();
+      if (sess) {
+        bindEvents();
+        setBadge();
+        fillCoPick();
+        fillDeptPanel();
+        renderRecTable();
+        MeishiStore.onConfigChange(function () {
+          refreshAdminWho();
+          setBadge();
+          refreshCoPickOptions();
+          applyAdminUiLocks();
+        });
+        MeishiStore.onRecordsChange(function () { renderRecTable(); });
+        revealMain();
+        applyAdminUiLocks();
+        return;
+      }
+      var btn = document.getElementById("btnAdminLogin");
+      if (btn) {
+        btn.onclick = function () {
+          var id = (document.getElementById("adminLoginId").value || "").trim();
+          var pass = document.getElementById("adminLoginPass").value || "";
+          var r = MeishiStore.verifyAdminLogin(id, pass);
+          var err = document.getElementById("adminLoginErr");
+          if (!r || !r.ok) {
+            if (err) err.textContent = "ID またはパスワードが違います";
+            return;
+          }
+          MeishiStore.setAdminSession(r.account);
+          if (err) err.textContent = "";
+          bindEvents();
+          setBadge();
+          fillCoPick();
+          fillDeptPanel();
+          renderRecTable();
+          MeishiStore.onConfigChange(function () {
+            refreshAdminWho();
+            setBadge();
+            refreshCoPickOptions();
+            applyAdminUiLocks();
+          });
+          MeishiStore.onRecordsChange(function () { renderRecTable(); });
+          revealMain();
+          applyAdminUiLocks();
+        };
+      }
     },
   };
 })();

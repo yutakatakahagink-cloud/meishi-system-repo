@@ -3,11 +3,11 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>名刺印刷システム｜所有者設定</title>
+    <title>名刺印刷システム｜担当者（admin）</title>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-    <script>window.MEISHI_OWNER_PAGE = true;</script>
+    <script>window.MEISHI_ADMIN_PAGE = true;</script>
     <script src="config.js" onerror="console.info('[Meishi] config.js なし')"></script>
     <script src="meishi-fields.js?v=20250714p"></script>
     <script src="meishi-catalog.js?v=20250714q"></script>
@@ -26,12 +26,24 @@
   </head>
   <body>
     <header>
-      <h1>名刺印刷システム — 所有者設定</h1>
+      <h1>名刺印刷システム — 担当者設定</h1>
       <span class="badge" id="syncBadge">…</span>
     </header>
-    <div class="wrap">
+    
+    <div id="adminLoginView" class="wrap">
+      <div class="card" style="max-width:420px;margin:8vh auto">
+        <h2>担当者ログイン</h2>
+        <p class="hint">所有者から付与された ID / パスワードでログインしてください。</p>
+        <div class="field"><label>ログインID</label><input id="adminLoginId" autocomplete="username" /></div>
+        <div class="field"><label>パスワード</label><input id="adminLoginPass" type="password" autocomplete="current-password" /></div>
+        <button type="button" class="btn" id="btnAdminLogin">ログイン</button>
+        <p class="hint" id="adminLoginErr" style="color:#b3261e"></p>
+      </div>
+    </div>
+
+    <div class="wrap" id="adminMainView" hidden>
       <nav class="tabs" id="tabs">
-        <button type="button" data-tab="basic" class="on">基本・URL</button>
+        <button type="button" data-tab="basic" class="on">ログアウト・案内</button>
         <button type="button" data-tab="company">会社共通設定</button>
         <button type="button" data-tab="dept">部署共通設定</button>
         <button type="button" data-tab="preview">プレビュー</button>
@@ -387,6 +399,6 @@
       </div>
     </div>
     <script src="owner-admin.js?v=20250714ad"></script>
-    <script>OwnerAdmin.init();</script>
+    <script>OwnerAdmin.initAdmin();</script>
   </body>
 </html>

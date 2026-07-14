@@ -1,5 +1,5 @@
 /**
- * 画像フォルダ（images/）と画像保存ボックス（config.imageLibrary）の選択・URL解決
+ * 画像フォルダ（images/）と会社別画像保存ボックスの選択・URL解決
  */
 (function () {
   var manifest = null;
@@ -20,11 +20,31 @@
     });
   }
 
-  function libraryItemById(libId) {
+  function activeCompany(opts) {
+    opts = opts || {};
+    if (opts.company) return opts.company;
+    if (window.MeishiStore && MeishiStore.getImageLibraryContext) {
+      return MeishiStore.getImageLibraryContext();
+    }
+    return "";
+  }
+
+  function libraryItemById(libId, company) {
     if (!libId || !window.MeishiStore) return null;
-    var lib = MeishiStore.getImageLibrary();
+    var lib = MeishiStore.getImageLibrary(company || activeCompany());
     for (var i = 0; i < lib.length; i++) {
       if (lib[i] && lib[i].id === libId) return lib[i];
+    }
+    // 他社も含めて libId 検索（印刷時のフォールバック）
+    if (MeishiStore.getImageLibraries) {
+      var map = MeishiStore.getImageLibraries() || {};
+      var keys = Object.keys(map);
+      for (var k = 0; k < keys.length; k++) {
+        var arr = map[keys[k]] || [];
+        for (var j = 0; j < arr.length; j++) {
+          if (arr[j] && arr[j].id === libId) return arr[j];
+        }
+      }
     }
     return null;
   }
@@ -32,7 +52,7 @@
   function itemUrl(item) {
     if (!item) return "";
     if (item.libId) {
-      var linked = libraryItemById(item.libId);
+      var linked = libraryItemById(item.libId, item.company);
       if (linked) return itemUrl(linked);
     }
     var src = String(item.src || "");
@@ -65,12 +85,12 @@
     return assetUrl("images/" + String(item.file || "").replace(/^\//, ""));
   }
 
-  function resolveImages(images) {
+  function resolveImages(images, company) {
     return (images || []).map(function (im) {
       if (!im) return null;
       var o = Object.assign({}, im);
       if (o.libId) {
-        var linked = libraryItemById(o.libId);
+        var linked = libraryItemById(o.libId, company || o.company);
         if (linked) {
           o.src = itemUrl(linked);
           if (o.src) return o;
@@ -95,6 +115,7 @@
       h: 44,
     };
     if (item.id) out.libId = item.id;
+    if (item.company) out.company = item.company;
     if (item.path) out.path = item.path;
     else if (item.file && String(item.src || "").indexOf("data:") !== 0) {
       out.path = "images/" + String(item.file).replace(/^\//, "").replace(/^images\//, "");
@@ -178,29 +199,32 @@
     modalEl.hidden = false;
   }
 
-  /** 画像保存ボックスに登録済みの画像のみ（名刺設定用） */
-  function pick(callback) {
+  /** 指定会社（未指定時はコンテキスト会社）の画像保存ボックスから選択 */
+  function pick(callback, opts) {
     if (!window.MeishiStore) return;
-    var items = MeishiStore.getImageLibrary();
+    opts = opts || {};
+    var co = activeCompany(opts);
+    if (co && MeishiStore.setImageLibraryContext) MeishiStore.setImageLibraryContext(co);
+    var items = MeishiStore.getImageLibrary(co);
     if (!items.length) {
-      alert("画像保存ボックスに画像がありません。\n\n基本・URL タブの「画像保存ボックス」で、images フォルダから追加してください。");
+      alert("この会社・団体の画像保存ボックスに画像がありません。\n\n先に「＋ 追加」で画像を登録してください。");
       return;
     }
     openPicker(items, {
-      title: "名刺に使う画像を選択",
-      hint: "画像保存ボックスに登録済みの画像です。",
+      title: "名刺に使う画像を選択" + (co ? "（" + co + "）" : ""),
+      hint: "この会社・団体の画像保存ボックスに登録済みの画像です。",
       okLabel: "名刺に追加",
     }, callback);
   }
 
-  /** images フォルダから選択（保存ボックスへの登録用） */
   function pickFromFolder(callback, opts) {
     opts = opts || {};
+    var co = activeCompany(opts);
     loadManifest().then(function (m) {
       var items = (m.items || []).slice();
       if (opts.excludeRegistered && window.MeishiStore) {
         var reg = {};
-        MeishiStore.getImageLibrary().forEach(function (x) {
+        MeishiStore.getImageLibrary(co).forEach(function (x) {
           reg[x.path] = true;
           reg[x.id] = true;
           reg[x.file] = true;
@@ -215,7 +239,7 @@
         hint: opts.hint || "PC の images フォルダに置いた画像です。追加後は画像保存ボックスに登録され、名刺設定で使えます。",
         okLabel: opts.okLabel || "保存ボックスに追加",
         emptyHtml: opts.emptyHtml ||
-          '<p class="hint">フォルダに画像がありません、またはすべて登録済みです。<br><code>meishi-app/public/images/</code> に PNG/JPG/SVG を置き、<code>Update-ImageManifest.ps1</code> を実行してください。</p>',
+          '<p class="hint">フォルダに画像がありません、またはすべて登録済みです。</p>',
       }, callback);
     });
   }
