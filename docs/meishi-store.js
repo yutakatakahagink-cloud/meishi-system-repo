@@ -416,8 +416,9 @@
     return Array.isArray(sync) && sync.length > 0;
   }
 
+  /** 所有者端末のみローカル優先。admin / user は他PCでも Firebase を正とする。 */
   function shouldPreferRemoteData() {
-    return !window.MEISHI_OWNER_PAGE && !window.MEISHI_ADMIN_PAGE;
+    return !window.MEISHI_OWNER_PAGE;
   }
 
   function recordsHaveFurigana(arr) {
@@ -617,8 +618,8 @@
 
   async function bootstrapLocalImageLibrary() {
     await migrateImageLibrariesIfNeeded();
-    if (!Object.keys(_imageLibraries).some(function (k) { return (_imageLibraries[k] || []).length; })) {
-      if (window.MEISHI_OWNER_PAGE) await recoverImageLibrary();
+    if (!getImageLibrariesCount()) {
+      if (window.MEISHI_OWNER_PAGE || window.MEISHI_ADMIN_PAGE) await recoverImageLibrary();
     }
   }
 
@@ -707,7 +708,7 @@
 
     if (!hasRemote) {
       await migrateImageLibrariesIfNeeded();
-      if (!Object.keys(_imageLibraries).some(function (k) { return (_imageLibraries[k] || []).length; }) && window.MEISHI_OWNER_PAGE) {
+      if (!getImageLibrariesCount() && (window.MEISHI_OWNER_PAGE || window.MEISHI_ADMIN_PAGE)) {
         await recoverImageLibrary();
       }
       return;
@@ -715,7 +716,7 @@
 
     if (shouldPreferRemoteData()) {
       if (imageLibrariesSame(_imageLibraries, remoteMap)) {
-        if (!Object.keys(_imageLibraries).length) {
+        if (!getImageLibrariesCount()) {
           _imageLibraries = remoteMap;
           syncLegacyImageLibraryMirror();
         }
@@ -726,8 +727,9 @@
       syncLegacyImageLibraryMirror();
       return;
     }
-    if (localImageLibrariesHasItems() || Object.keys(_imageLibraries || {}).length) {
-      if (!Object.keys(_imageLibraries || {}).length) await applyLocalImageLibrary();
+    // owner: 実データがあるときだけローカル優先（空のキーだけがある場合はリモートを採用）
+    if (localImageLibrariesHasItems() || getImageLibrariesCount() > 0) {
+      if (!getImageLibrariesCount()) await applyLocalImageLibrary();
       return;
     }
     _imageLibraries = remoteMap;
@@ -2190,7 +2192,8 @@
       });
     } catch (e) {}
 
-    if (!getImageLibrariesCount() && shouldPreferRemoteData()) {
+    // ローカルに画像が無い場合は admin / user / owner いずれも Firebase から初回取得
+    if (!getImageLibrariesCount()) {
       try {
         var snapImgMap = await safeFbOnce(FB_IMG_LIBS_PATH);
         var mapVal = snapImgMap ? snapImgMap.val() : null;
