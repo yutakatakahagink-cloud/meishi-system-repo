@@ -713,6 +713,56 @@
         ev.stopPropagation();
         enterInlineEdit(node, st, false);
       });
+      node.addEventListener("contextmenu", function (ev) {
+        if (readOnly) return;
+        ev.preventDefault();
+        ev.stopPropagation();
+        if (editingId === st.id) exitInlineEdit(node, st);
+        sel = st.id;
+        updateSelectionHighlight();
+        onSelect(st.id, getLayout());
+        if (panelShowDesign) panelShowDesign();
+        showTextDeleteMenu(ev.clientX, ev.clientY, st.id);
+      });
+    }
+
+    var textCtxMenu = null;
+    function hideTextDeleteMenu() {
+      if (textCtxMenu) {
+        try { textCtxMenu.remove(); } catch (e) {}
+        textCtxMenu = null;
+      }
+      document.removeEventListener("pointerdown", onTextCtxOutside, true);
+    }
+    function onTextCtxOutside(ev) {
+      if (textCtxMenu && !textCtxMenu.contains(ev.target)) hideTextDeleteMenu();
+    }
+    function showTextDeleteMenu(clientX, clientY, textId) {
+      hideTextDeleteMenu();
+      textCtxMenu = document.createElement("div");
+      textCtxMenu.className = "meishi-text-ctx";
+      textCtxMenu.setAttribute("role", "menu");
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.textContent = "削除";
+      btn.addEventListener("click", function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        hideTextDeleteMenu();
+        removeTextBlock(textId);
+      });
+      textCtxMenu.appendChild(btn);
+      document.body.appendChild(textCtxMenu);
+      var pad = 4;
+      var mw = textCtxMenu.offsetWidth || 96;
+      var mh = textCtxMenu.offsetHeight || 36;
+      var left = Math.min(clientX, window.innerWidth - mw - pad);
+      var top = Math.min(clientY, window.innerHeight - mh - pad);
+      textCtxMenu.style.left = Math.max(pad, left) + "px";
+      textCtxMenu.style.top = Math.max(pad, top) + "px";
+      setTimeout(function () {
+        document.addEventListener("pointerdown", onTextCtxOutside, true);
+      }, 0);
     }
 
     function syncFreeTextNodes() {
