@@ -465,6 +465,7 @@
       node.style.fontFamily = MeishiLayout.resolveBackFontFamily(st.font || "");
       node.style.fontWeight = st.bold ? "700" : "400";
       node.style.textAlign = st.align;
+      if (MeishiLayout.applyTextBgStyle) MeishiLayout.applyTextBgStyle(node, st);
       node.style.overflow = "";
       node.style.textOverflow = "";
       if (useZoneTextLayout() && txt) {
@@ -665,6 +666,7 @@
       node.style.fontStyle = st.italic ? "italic" : "normal";
       node.style.textDecoration = st.underline ? "underline" : "none";
       node.style.textAlign = st.align || "left";
+      if (MeishiLayout.applyTextBgStyle) MeishiLayout.applyTextBgStyle(node, st);
       node.style.whiteSpace = "pre-wrap";
       node.style.wordBreak = "break-word";
       node.style.maxWidth = Math.max(40, cardInnerWidth() - st.x - 8) + "px";
@@ -1035,6 +1037,9 @@
       var hit = getSelectedStyleTarget();
       if (!hit) return;
       if (patch.size != null) patch.size = clampSize(patch.size);
+      if (Object.prototype.hasOwnProperty.call(patch, "bg") && MeishiLayout.normalizeBg) {
+        patch.bg = MeishiLayout.normalizeBg(patch.bg);
+      }
       Object.assign(hit.st, patch);
       if (hit.kind === "text") {
         applyFreeTextStyle(hit.node, hit.st, editingId === sel);
@@ -1058,6 +1063,8 @@
       var desSizeDown = panel.querySelector("#desSizeDown");
       var desSizeV = panel.querySelector("#desSizeV");
       var desColor = panel.querySelector("#desColor");
+      var desBg = panel.querySelector("#desBg");
+      var desBgNone = panel.querySelector("#desBgNone");
       var desNorm = panel.querySelector("#desNorm");
       var desBold = panel.querySelector("#desBold");
       var desTarget = panel.querySelector("#desTarget");
@@ -1097,6 +1104,9 @@
         if (desSizeUp) desSizeUp.disabled = st.size >= SIZE_MAX;
         if (desSizeDown) desSizeDown.disabled = st.size <= SIZE_MIN;
         if (desColor) desColor.value = st.color && st.color.length === 7 ? st.color : "#222222";
+        var bg = MeishiLayout.normalizeBg ? MeishiLayout.normalizeBg(st.bg) : (st.bg || "");
+        if (desBg) desBg.value = bg || "#ffffff";
+        if (desBgNone) desBgNone.classList.toggle("on", !bg);
         if (desNorm) desNorm.classList.toggle("on", !st.bold);
         if (desBold) desBold.classList.toggle("on", !!st.bold);
         if (MeishiLayout.fillFontSelect) MeishiLayout.fillFontSelect(desFont, st.font || "");
@@ -1116,6 +1126,12 @@
       });
       if (desColor) desColor.addEventListener("input", function () {
         applySelectedStyle({ color: this.value });
+      });
+      if (desBg) desBg.addEventListener("input", function () {
+        applySelectedStyle({ bg: this.value });
+      });
+      if (desBgNone) desBgNone.addEventListener("click", function () {
+        applySelectedStyle({ bg: "" });
       });
       if (desNorm) desNorm.addEventListener("click", function () {
         applySelectedStyle({ bold: 0 });

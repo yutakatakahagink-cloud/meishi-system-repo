@@ -900,6 +900,8 @@
         sizeDown: "deBackDesSizeDown",
         sizeV: "deBackDesSizeV",
         color: "deBackDesColor",
+        bg: "deBackDesBg",
+        bgNone: "deBackDesBgNone",
         norm: "deBackDesNorm",
         bold: "deBackDesBold",
         italic: "deBackDesItalic",

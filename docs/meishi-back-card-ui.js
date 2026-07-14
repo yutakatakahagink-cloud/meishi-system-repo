@@ -269,6 +269,9 @@
       if (!hit || readOnly) return;
       if (editingId === sel && patch.content != null) return;
       if (patch.size != null) patch.size = clampSize(patch.size);
+      if (Object.prototype.hasOwnProperty.call(patch, "bg") && MeishiLayout.normalizeBg) {
+        patch.bg = MeishiLayout.normalizeBg(patch.bg);
+      }
       Object.assign(hit.st, patch);
       applyTextStyle(hit.node, hit.st, editingId === sel);
       saveLayout();
@@ -300,6 +303,7 @@
       node.style.fontStyle = st.italic ? "italic" : "normal";
       node.style.textDecoration = st.underline ? "underline" : "none";
       node.style.textAlign = st.align || "left";
+      if (MeishiLayout.applyTextBgStyle) MeishiLayout.applyTextBgStyle(node, st);
       node.style.whiteSpace = "pre-wrap";
       node.style.wordBreak = "break-word";
       node.style.maxWidth = Math.max(40, cardInnerWidth() - st.x - 8) + "px";
@@ -713,6 +717,8 @@
       var backDesSizeDown = q("sizeDown", "backDesSizeDown");
       var backDesSizeV = q("sizeV", "backDesSizeV");
       var backDesColor = q("color", "backDesColor");
+      var backDesBg = q("bg", "backDesBg");
+      var backDesBgNone = q("bgNone", "backDesBgNone");
       var backDesNorm = q("norm", "backDesNorm");
       var backDesBold = q("bold", "backDesBold");
       var backDesItalic = q("italic", "backDesItalic");
@@ -743,6 +749,9 @@
         if (backDesSizeUp) backDesSizeUp.disabled = st.size >= SIZE_MAX;
         if (backDesSizeDown) backDesSizeDown.disabled = st.size <= SIZE_MIN;
         if (backDesColor) backDesColor.value = st.color && st.color.length === 7 ? st.color : "#222222";
+        var bg = MeishiLayout.normalizeBg ? MeishiLayout.normalizeBg(st.bg) : (st.bg || "");
+        if (backDesBg) backDesBg.value = bg || "#ffffff";
+        if (backDesBgNone) backDesBgNone.classList.toggle("on", !bg);
         if (backDesNorm) backDesNorm.classList.toggle("on", !st.bold);
         if (backDesBold) backDesBold.classList.toggle("on", !!st.bold);
         if (backDesItalic) backDesItalic.classList.toggle("on", !!st.italic);
@@ -766,6 +775,14 @@
       });
       if (backDesColor) backDesColor.addEventListener("input", function () {
         patchSelectedText({ color: this.value });
+        showDesign();
+      });
+      if (backDesBg) backDesBg.addEventListener("input", function () {
+        patchSelectedText({ bg: this.value });
+        showDesign();
+      });
+      if (backDesBgNone) backDesBgNone.addEventListener("click", function () {
+        patchSelectedText({ bg: "" });
         showDesign();
       });
       if (backDesNorm) backDesNorm.addEventListener("click", function () {

@@ -3,17 +3,17 @@
  */
 (function () {
   var ELS = [
-    { id: "company", label: "会社・団体名", def: { x: 48, y: 8, size: 13, color: "#1f3a6e", bold: 1, align: "left" } },
-    { id: "aff", label: "所属", def: { x: 48, y: 30, size: 9, color: "#222", bold: 0, align: "left" } },
-    { id: "title", label: "役職", def: { x: 48, y: 42, size: 9, color: "#222", bold: 0, align: "left" } },
-    { id: "name", label: "氏名", def: { x: 48, y: 48, size: 22, color: "#000", bold: 0, align: "left" } },
-    { id: "qual", label: "資格", def: { x: 48, y: 86, size: 8, color: "#555", bold: 0, align: "left" } },
-    { id: "koji", label: "工事件名", def: { x: 14, y: 100, size: 8, color: "#b3261e", bold: 0, align: "left" } },
-    { id: "address", label: "住所", def: { x: 175, y: 120, size: 8, color: "#222", bold: 0, align: "left" } },
-    { id: "telfax", label: "TEL/FAX", def: { x: 175, y: 134, size: 8, color: "#222", bold: 0, align: "left" } },
-    { id: "mobile", label: "携帯", def: { x: 175, y: 148, size: 8, color: "#222", bold: 0, align: "left" } },
-    { id: "email", label: "メール", def: { x: 175, y: 162, size: 8, color: "#222", bold: 0, align: "left" } },
-    { id: "url", label: "URL", def: { x: 175, y: 176, size: 8, color: "#222", bold: 0, align: "left" } },
+    { id: "company", label: "会社・団体名", def: { x: 48, y: 8, size: 13, color: "#1f3a6e", bg: "", bold: 1, align: "left" } },
+    { id: "aff", label: "所属", def: { x: 48, y: 30, size: 9, color: "#222", bg: "", bold: 0, align: "left" } },
+    { id: "title", label: "役職", def: { x: 48, y: 42, size: 9, color: "#222", bg: "", bold: 0, align: "left" } },
+    { id: "name", label: "氏名", def: { x: 48, y: 48, size: 22, color: "#000", bg: "", bold: 0, align: "left" } },
+    { id: "qual", label: "資格", def: { x: 48, y: 86, size: 8, color: "#555", bg: "", bold: 0, align: "left" } },
+    { id: "koji", label: "工事件名", def: { x: 14, y: 100, size: 8, color: "#b3261e", bg: "", bold: 0, align: "left" } },
+    { id: "address", label: "住所", def: { x: 175, y: 120, size: 8, color: "#222", bg: "", bold: 0, align: "left" } },
+    { id: "telfax", label: "TEL/FAX", def: { x: 175, y: 134, size: 8, color: "#222", bg: "", bold: 0, align: "left" } },
+    { id: "mobile", label: "携帯", def: { x: 175, y: 148, size: 8, color: "#222", bg: "", bold: 0, align: "left" } },
+    { id: "email", label: "メール", def: { x: 175, y: 162, size: 8, color: "#222", bg: "", bold: 0, align: "left" } },
+    { id: "url", label: "URL", def: { x: 175, y: 176, size: 8, color: "#222", bg: "", bold: 0, align: "left" } },
   ];
   var LK = "meishi_layout_v1";
 
@@ -48,6 +48,7 @@
       y: 20 + i * 8,
       size: 12,
       color: "#222222",
+      bg: "",
       bold: 0,
       italic: 0,
       underline: 0,
@@ -146,6 +147,24 @@
     sel.value = cur;
   }
 
+  function normalizeBg(bg) {
+    var v = bg == null ? "" : String(bg).trim();
+    if (/^#[0-9A-Fa-f]{6}$/.test(v)) return v.toLowerCase();
+    return "";
+  }
+
+  function applyTextBgStyle(node, st) {
+    if (!node) return;
+    var bg = normalizeBg(st && st.bg);
+    if (bg) {
+      node.style.backgroundColor = bg;
+      node.setAttribute("data-has-bg", "1");
+    } else {
+      node.style.backgroundColor = "transparent";
+      node.removeAttribute("data-has-bg");
+    }
+  }
+
   function defBackLayout() {
     return { texts: [], images: [], centerShiftMm: 5, centerDivider: false };
   }
@@ -164,6 +183,8 @@
     BACK_FONTS: BACK_FONTS,
     resolveBackFontFamily: resolveBackFontFamily,
     fillFontSelect: fillFontSelect,
+    normalizeBg: normalizeBg,
+    applyTextBgStyle: applyTextBgStyle,
     loadLocal: loadLocal,
     saveLocal: saveLocal,
     isValidLayout: isValidLayout,

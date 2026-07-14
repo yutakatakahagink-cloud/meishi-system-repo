@@ -185,6 +185,8 @@
       if (typeof t.y !== "number") t.y = 20;
       if (typeof t.size !== "number") t.size = 12;
       if (!t.color) t.color = "#222222";
+      if (t.bg == null) t.bg = "";
+      else t.bg = MeishiLayout.normalizeBg ? MeishiLayout.normalizeBg(t.bg) : t.bg;
       if (t.bold == null) t.bold = 0;
       if (t.italic == null) t.italic = 0;
       if (t.underline == null) t.underline = 0;
@@ -208,6 +210,10 @@
         }
       }
       if (layout.el[e.id] && layout.el[e.id].font == null) layout.el[e.id].font = "";
+      if (layout.el[e.id] && layout.el[e.id].bg == null) layout.el[e.id].bg = "";
+      else if (layout.el[e.id] && MeishiLayout.normalizeBg) {
+        layout.el[e.id].bg = MeishiLayout.normalizeBg(layout.el[e.id].bg);
+      }
     });
     return layout;
   }
@@ -224,6 +230,8 @@
       if (typeof t.y !== "number") t.y = 20;
       if (typeof t.size !== "number") t.size = 12;
       if (!t.color) t.color = "#222222";
+      if (t.bg == null) t.bg = "";
+      else t.bg = MeishiLayout.normalizeBg ? MeishiLayout.normalizeBg(t.bg) : t.bg;
       if (t.bold == null) t.bold = 0;
       if (t.italic == null) t.italic = 0;
       if (t.underline == null) t.underline = 0;
