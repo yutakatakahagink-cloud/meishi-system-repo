@@ -450,17 +450,18 @@
         if (readOnly) return;
         ev.preventDefault();
         ev.stopPropagation();
-        if (editingId === st.id) exitInlineEdit(node, st);
-        sel = st.id;
-        updateSelectionHighlight();
-        onSelect(st.id, getLayout());
-        if (panelShowDesign) panelShowDesign();
-        showTextDeleteMenu(ev.clientX, ev.clientY, st.id);
+        if (editingId !== st.id) {
+          sel = st.id;
+          updateSelectionHighlight();
+          onSelect(st.id, getLayout());
+          if (panelShowDesign) panelShowDesign();
+        }
+        showTextContextMenu(ev.clientX, ev.clientY, st, node);
       });
     }
 
     var textCtxMenu = null;
-    function hideTextDeleteMenu() {
+    function hideTextContextMenu() {
       if (textCtxMenu) {
         try { textCtxMenu.remove(); } catch (e) {}
         textCtxMenu = null;
@@ -468,27 +469,139 @@
       document.removeEventListener("pointerdown", onTextCtxOutside, true);
     }
     function onTextCtxOutside(ev) {
-      if (textCtxMenu && !textCtxMenu.contains(ev.target)) hideTextDeleteMenu();
+      if (textCtxMenu && !textCtxMenu.contains(ev.target)) hideTextContextMenu();
     }
-    function showTextDeleteMenu(clientX, clientY, textId) {
-      hideTextDeleteMenu();
+    function getMeishiTextClip() {
+      return window.__MEISHI_TEXT_CLIP__ || null;
+    }
+    function setMeishiTextClip(payload) {
+      window.__MEISHI_TEXT_CLIP__ = payload || null;
+    }
+    function selectionTextInNode(node) {
+      try {
+        var s = window.getSelection();
+        if (!s || s.rangeCount === 0 || s.isCollapsed) return "";
+        if (!node.contains(s.anchorNode) && !node.contains(s.focusNode)) return "";
+        return String(s.toString() || "");
+      } catch (e) {
+        return "";
+      }
+    }
+    function writeSystemClipboard(text) {
+      var t = String(text == null ? "" : text);
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(t).catch(function () {});
+        return;
+      }
+      try {
+        var ta = document.createElement("textarea");
+        ta.value = t;
+        ta.setAttribute("readonly", "");
+        ta.style.position = "fixed";
+        ta.style.left = "-9999px";
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        ta.remove();
+      } catch (e) {}
+    }
+    function copyFreeText(st, node) {
+      if (!st) return;
+      var selected = (editingId === st.id) ? selectionTextInNode(node) : "";
+      var plain = selected || String(st.content || "");
+      var block = MeishiLayout.clone(st);
+      delete block.id;
+      setMeishiTextClip({ block: block, plain: plain });
+      writeSystemClipboard(plain);
+    }
+    function insertPlainAtCaret(node, st, plain) {
+      if (!node || plain == null) return;
+      node.focus();
+      var ok = false;
+      try {
+        ok = document.execCommand("insertText", false, plain);
+      } catch (e) { ok = false; }
+      if (!ok) {
+        var cur = String(st.content || "");
+        st.content = cur + plain;
+        node.textContent = st.content;
+      }
+      syncTextContentFromNode(node, st);
+      saveLayoutSoon();
+    }
+    function pasteFreeText(st, node) {
+      var clip = getMeishiTextClip();
+      function finishWithPlain(plain) {
+        plain = String(plain == null ? "" : plain);
+        if (editingId === st.id && node) {
+          insertPlainAtCaret(node, st, plain);
+          return;
+        }
+        var layout = MeishiCatalog.normalizeBackLayout
+          ? MeishiCatalog.normalizeBackLayout(getLayout())
+          : getLayout();
+        layout.texts = layout.texts || [];
+        var block;
+        if (clip && clip.block) {
+          block = MeishiLayout.clone(clip.block);
+          if (plain !== "") block.content = plain;
+        } else if (MeishiLayout.defTextBlock) {
+          block = MeishiLayout.defTextBlock(layout.texts.length);
+          block.content = plain || "テキスト";
+        } else {
+          block = {
+            content: plain || "テキスト",
+            x: 20, y: 20, size: 12, color: "#222222",
+            bg: "", bold: 0, italic: 0, underline: 0, font: "", align: "left",
+          };
+        }
+        block.id = "txt" + Date.now();
+        block.x = Math.max(0, (st.x || 0) + 12);
+        block.y = Math.max(0, (st.y || 0) + 12);
+        layout.texts.push(block);
+        saveLayout();
+        renderCard();
+        editTextById(block.id, true);
+      }
+      if (clip && (clip.plain != null || clip.block)) {
+        finishWithPlain(clip.plain != null ? clip.plain : (clip.block && clip.block.content) || "");
+        return;
+      }
+      if (navigator.clipboard && navigator.clipboard.readText) {
+        navigator.clipboard.readText().then(finishWithPlain).catch(function () {
+          finishWithPlain("");
+        });
+      } else {
+        finishWithPlain("");
+      }
+    }
+    function showTextContextMenu(clientX, clientY, st, node) {
+      hideTextContextMenu();
       textCtxMenu = document.createElement("div");
       textCtxMenu.className = "meishi-text-ctx";
       textCtxMenu.setAttribute("role", "menu");
-      var btn = document.createElement("button");
-      btn.type = "button";
-      btn.textContent = "削除";
-      btn.addEventListener("click", function (e) {
-        e.preventDefault();
-        e.stopPropagation();
-        hideTextDeleteMenu();
-        removeTextBlock(textId);
+      function addItem(label, fn) {
+        var btn = document.createElement("button");
+        btn.type = "button";
+        btn.textContent = label;
+        btn.addEventListener("click", function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          hideTextContextMenu();
+          fn();
+        });
+        textCtxMenu.appendChild(btn);
+      }
+      addItem("コピー", function () { copyFreeText(st, node); });
+      addItem("ペースト", function () { pasteFreeText(st, node); });
+      addItem("削除", function () {
+        if (editingId === st.id) exitInlineEdit(node, st);
+        removeTextBlock(st.id);
       });
-      textCtxMenu.appendChild(btn);
       document.body.appendChild(textCtxMenu);
       var pad = 4;
-      var mw = textCtxMenu.offsetWidth || 96;
-      var mh = textCtxMenu.offsetHeight || 36;
+      var mw = textCtxMenu.offsetWidth || 110;
+      var mh = textCtxMenu.offsetHeight || 100;
       var left = Math.min(clientX, window.innerWidth - mw - pad);
       var top = Math.min(clientY, window.innerHeight - mh - pad);
       textCtxMenu.style.left = Math.max(pad, left) + "px";

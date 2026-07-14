@@ -110,7 +110,7 @@ th{background:#f3f6fb;position:sticky;top:0}tr.sel{background:#e8eef8}tr:hover{b
 .meishi.design-mode .btel.sel{cursor:grab;border:none;background:rgba(47,85,151,.08)}
 .meishi.design-mode .btel.is-editing{cursor:text;background:rgba(47,85,151,.12);outline:2px solid rgba(47,85,151,.45);outline-offset:1px}
 .meishi.design-mode.is-dragging .btel.sel{cursor:grabbing}
-.meishi-text-ctx{position:fixed;z-index:10000;min-width:88px;background:#fff;border:1px solid #c5d0e0;border-radius:6px;box-shadow:0 4px 14px rgba(20,40,80,.18);padding:4px;box-sizing:border-box}
+.meishi-text-ctx{position:fixed;z-index:10000;min-width:108px;background:#fff;border:1px solid #c5d0e0;border-radius:6px;box-shadow:0 4px 14px rgba(20,40,80,.18);padding:4px;box-sizing:border-box}
 .meishi-text-ctx button{display:block;width:100%;border:0;background:transparent;text-align:left;padding:8px 12px;font:inherit;font-size:13px;color:#b3261e;cursor:pointer;border-radius:4px}
 .meishi-text-ctx button:hover{background:#fdecea}
 .btel.sel{border-color:#2f5597;background:rgba(47,85,151,.06)}
