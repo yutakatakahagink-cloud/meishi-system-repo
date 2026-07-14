@@ -13,6 +13,62 @@
   var SIZE_MAX = 60;
   var SIZE_STEP = 1;
 
+  /** 表裏共通: 自由テキストのクリップボード + Ctrl+C / Ctrl+V */
+  (function initMeishiTextClip() {
+    if (window.MeishiTextClip) return;
+    var uis = [];
+    function isOutsideCardField(el) {
+      if (!el || !el.tagName) return false;
+      var tag = el.tagName;
+      if (tag !== "INPUT" && tag !== "TEXTAREA" && tag !== "SELECT") return false;
+      return !(el.closest && el.closest(".meishi"));
+    }
+    function findActiveUi(ev) {
+      var t = ev && ev.target;
+      var fallback = null;
+      for (var i = 0; i < uis.length; i++) {
+        var ui = uis[i];
+        if (!ui || typeof ui.isActive !== "function" || !ui.isActive()) continue;
+        if (t && typeof ui.contains === "function" && ui.contains(t)) return ui;
+        if (!fallback) fallback = ui;
+      }
+      return fallback;
+    }
+    document.addEventListener("keydown", function (ev) {
+      if (!(ev.ctrlKey || ev.metaKey) || ev.altKey) return;
+      var key = String(ev.key || "").toLowerCase();
+      if (key !== "c" && key !== "v") return;
+      if (isOutsideCardField(ev.target)) return;
+      var ui = findActiveUi(ev);
+      if (!ui) return;
+      if (key === "c") {
+        if (typeof ui.copy === "function" && ui.copy()) {
+          if (!(typeof ui.isEditing === "function" && ui.isEditing())) ev.preventDefault();
+        }
+        return;
+      }
+      if (typeof ui.isEditing === "function" && ui.isEditing()) {
+        if (typeof ui.pasteEdit === "function" && ui.pasteEdit()) {
+          ev.preventDefault();
+          ev.stopPropagation();
+        }
+        return;
+      }
+      if (typeof ui.paste === "function" && ui.paste()) {
+        ev.preventDefault();
+        ev.stopPropagation();
+      }
+    }, true);
+    window.MeishiTextClip = {
+      get: function () { return window.__MEISHI_TEXT_CLIP__ || null; },
+      set: function (payload) { window.__MEISHI_TEXT_CLIP__ = payload || null; },
+      register: function (api) {
+        if (!api || uis.indexOf(api) >= 0) return;
+        uis.push(api);
+      },
+    };
+  })();
+
   function maxCenterShiftMm() {
     return (CARD_W_MM - CENTER_GAP_MM) / 2;
   }
@@ -568,6 +624,7 @@
         });
       }
       if (!readOnly) ensureGuideLayer();
+      registerTextClipShortcuts();
       built = true;
     }
 
@@ -852,10 +909,11 @@
       if (textCtxMenu && !textCtxMenu.contains(ev.target)) hideTextContextMenu();
     }
     function getMeishiTextClip() {
-      return window.__MEISHI_TEXT_CLIP__ || null;
+      return window.MeishiTextClip ? window.MeishiTextClip.get() : (window.__MEISHI_TEXT_CLIP__ || null);
     }
     function setMeishiTextClip(payload) {
-      window.__MEISHI_TEXT_CLIP__ = payload || null;
+      if (window.MeishiTextClip) window.MeishiTextClip.set(payload);
+      else window.__MEISHI_TEXT_CLIP__ = payload || null;
     }
     function selectionTextInNode(node) {
       try {
@@ -913,9 +971,9 @@
       var clip = getMeishiTextClip();
       function finishWithPlain(plain) {
         plain = String(plain == null ? "" : plain);
-        if (editingId === st.id && node) {
+        if (st && editingId === st.id && node) {
           insertPlainAtCaret(node, st, plain);
-          return;
+          return true;
         }
         var layout = MeishiCatalog.normalizeLayout(getLayout());
         layout.texts = layout.texts || [];
@@ -928,25 +986,81 @@
           block.content = plain || "テキスト";
         }
         block.id = "txt" + Date.now();
-        block.x = Math.max(0, (st.x || 0) + 12);
-        block.y = Math.max(0, (st.y || 0) + 12);
+        if (st) {
+          block.x = Math.max(0, (st.x || 0) + 12);
+          block.y = Math.max(0, (st.y || 0) + 12);
+        } else {
+          block.x = typeof block.x === "number" ? block.x : 20;
+          block.y = typeof block.y === "number" ? block.y : 20;
+        }
         layout.texts.push(block);
         saveLayout();
         renderCard();
         editTextById(block.id, true);
+        return true;
       }
       if (clip && (clip.plain != null || clip.block)) {
-        finishWithPlain(clip.plain != null ? clip.plain : (clip.block && clip.block.content) || "");
-        return;
+        return finishWithPlain(clip.plain != null ? clip.plain : (clip.block && clip.block.content) || "");
       }
       if (navigator.clipboard && navigator.clipboard.readText) {
-        navigator.clipboard.readText().then(finishWithPlain).catch(function () {
+        navigator.clipboard.readText().then(function (t) { finishWithPlain(t); }).catch(function () {
           finishWithPlain("");
         });
-      } else {
-        finishWithPlain("");
+        return true;
       }
+      return finishWithPlain("");
     }
+
+    function findSelectedFreeText() {
+      var id = editingId || (textNodes[sel] ? sel : null);
+      if (!id) return null;
+      var layout = getLayout();
+      var texts = (layout && layout.texts) || [];
+      for (var i = 0; i < texts.length; i++) {
+        if (texts[i] && texts[i].id === id) return { st: texts[i], node: textNodes[id] || null };
+      }
+      return null;
+    }
+
+    function isCardSurfaceActive() {
+      if (readOnly || hideElements) return false;
+      if (!cardEl || !cardEl.isConnected) return false;
+      var r = cardEl.getBoundingClientRect();
+      return r.width > 8 && r.height > 8;
+    }
+
+    function registerTextClipShortcuts() {
+      if (!window.MeishiTextClip || readOnly || hideElements || cardEl._meishiClipReg) return;
+      cardEl._meishiClipReg = true;
+      window.MeishiTextClip.register({
+        isActive: isCardSurfaceActive,
+        contains: function (n) { return !!(cardEl && n && cardEl.contains(n)); },
+        isEditing: function () { return !!editingId; },
+        copy: function () {
+          var hit = findSelectedFreeText();
+          if (!hit || !hit.st) return false;
+          copyFreeText(hit.st, hit.node);
+          return true;
+        },
+        paste: function () {
+          var clip = getMeishiTextClip();
+          if (!clip || (clip.plain == null && !clip.block)) return false;
+          var hit = findSelectedFreeText();
+          pasteFreeText(hit ? hit.st : null, hit ? hit.node : null);
+          return true;
+        },
+        pasteEdit: function () {
+          var hit = findSelectedFreeText();
+          if (!hit || !hit.st || !hit.node || editingId !== hit.st.id) return false;
+          var clip = getMeishiTextClip();
+          if (!clip) return false;
+          var plain = clip.plain != null ? clip.plain : ((clip.block && clip.block.content) || "");
+          insertPlainAtCaret(hit.node, hit.st, plain);
+          return true;
+        },
+      });
+    }
+
     function showTextContextMenu(clientX, clientY, st, node) {
       hideTextContextMenu();
       textCtxMenu = document.createElement("div");
