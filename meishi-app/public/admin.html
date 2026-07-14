@@ -36,11 +36,11 @@
         <p class="hint">所有者から付与された ID / パスワードでログインしてください。</p>
         <div class="field"><label>ログインID</label><input id="adminLoginId" autocomplete="username" /></div>
         <div class="field"><label>パスワード</label><input id="adminLoginPass" type="password" autocomplete="current-password" /></div>
-        <label class="hint" style="display:inline-flex;gap:6px;align-items:center;margin:8px 0 12px;cursor:pointer;width:fit-content">
-          <input type="checkbox" id="adminLoginRemember" />
+        <label class="hint login-remember" style="display:flex;align-items:center;gap:8px;margin:4px 0 14px;cursor:pointer;white-space:nowrap;font-weight:500">
+          <input type="checkbox" id="adminLoginRemember" style="width:auto;margin:0;flex:0 0 auto" />
           <span>IDとパスワードを保存する</span>
         </label>
-        <button type="button" class="btn" id="btnAdminLogin">ログイン</button>
+        <button type="button" class="btn" id="btnAdminLogin" style="display:block;width:100%">ログイン</button>
         <p class="hint" id="adminLoginErr" style="color:#b3261e"></p>
       </div>
     </div>
