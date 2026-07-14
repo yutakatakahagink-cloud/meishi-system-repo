@@ -236,7 +236,8 @@
     }
 
     function useAutoWrap() {
-      return isZoneSplitActive() && (textFlow || !readOnly);
+      // 会社／部署／プレビューで折り返し条件を統一（非表示カードは除外）
+      return isZoneSplitActive() && !hideElements;
     }
 
     function useZoneTextLayout() {

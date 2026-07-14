@@ -213,7 +213,8 @@
       if (!userPrint) {
         userPrint = MeishiUserPrint.create({
           ids: PREVIEW_IDS,
-          textFlow: true,
+          // 会社・部署のデザイン画面と同じ座標で描画（自動縦ずらしなし）
+          textFlow: false,
           isActive: cfg.isActive || function () { return true; },
           onBeforePrint: function () {
             if (userPrint) {

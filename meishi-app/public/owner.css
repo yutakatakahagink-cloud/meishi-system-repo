@@ -123,7 +123,7 @@ th{background:#f3f6fb;position:sticky;top:0}tr.sel{background:#e8eef8}tr:hover{b
 .img-list{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
 .img-item img,.logo-prev{max-width:90px;max-height:50px;border:1px solid var(--line);border-radius:6px;display:block}
 .stage.stack{position:relative;min-height:calc(55mm + 32px)}
-.stage.stack .meishi.under{position:relative;z-index:1;opacity:.92}
+.stage.stack .meishi.under{position:relative;z-index:1}
 .stage.stack .meishi.over{position:absolute;left:50%;top:16px;transform:translateX(-50%);z-index:2;background:transparent;box-shadow:none;pointer-events:auto}
 .cat-h3{font-size:.92rem;color:var(--brand-d);margin:14px 0 8px;border-top:1px solid var(--line);padding-top:10px}
 .cat-section{margin-bottom:4px}
