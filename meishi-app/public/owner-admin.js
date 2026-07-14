@@ -407,9 +407,10 @@
     if (ownerInp) ownerInp.value = MeishiStore.ownerUrl();
     var adminInp = document.getElementById("adminUrl");
     if (adminInp) {
-      adminInp.value = MeishiStore.publicPageUrl
-        ? MeishiStore.publicPageUrl("admin.html")
-        : String(userUrl).replace(/user\.html.*/, "admin.html");
+      // user / owner と同様、共有用の本番 URL（他PC・携帯向け）
+      adminInp.value = MeishiStore.adminUrl
+        ? MeishiStore.adminUrl()
+        : MeishiStore.sharePageUrl("admin.html");
     }
   }
 
