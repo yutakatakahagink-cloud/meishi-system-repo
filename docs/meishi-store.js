@@ -537,6 +537,21 @@
     await savePreviewPersonalToStorage({});
   }
 
+  function imageLibraryFingerprint(arr) {
+    return (arr || []).map(function (x) {
+      if (!x) return "";
+      var srcLen = x.src ? String(x.src).length : 0;
+      return String(x.id || "") + ":" + srcLen + ":" + String(x.path || "") + ":" + String(x.file || "");
+    }).join("|");
+  }
+
+  function imageLibrarySame(a, b) {
+    if (!a && !b) return true;
+    if (!a || !b) return false;
+    if (a.length !== b.length) return false;
+    return imageLibraryFingerprint(a) === imageLibraryFingerprint(b);
+  }
+
   async function applyImageLibraryWithRemote(remoteLib) {
     var remoteArr = Array.isArray(remoteLib) ? remoteLib.map(normalizeLibraryItem).filter(Boolean) : [];
     var hasRemote = remoteArr.length > 0;
@@ -550,7 +565,7 @@
       }
       if (localArr.length) {
         _config.imageLibrary = localArr;
-        if (window.MEISHI_OWNER_PAGE && _useFirebase && _fbDb) await syncImageLibraryRemote(localArr);
+        // 起動時の空リモートではフルアップロードしない（遅延の主因だった）
         return;
       }
       if (!hasLocalImageLibrarySaved()) {
@@ -563,12 +578,17 @@
     }
 
     if (shouldPreferRemoteData()) {
+      var curLib = getImageLibrary();
+      if (imageLibrarySame(curLib, remoteArr)) {
+        if (!curLib.length) _config.imageLibrary = remoteArr;
+        return;
+      }
       _config.imageLibrary = remoteArr;
       await saveImageLibraryToStorage(remoteArr);
       return;
     }
-    if (localImageLibraryHasItems()) {
-      await applyLocalImageLibrary();
+    if (localImageLibraryHasItems() || getImageLibrary().length) {
+      if (!getImageLibrary().length) await applyLocalImageLibrary();
       return;
     }
     if (hasRemote) {
@@ -1551,7 +1571,7 @@
 
     await ensureFirebaseAuth();
 
-    // auth / records / config / preview / imageLib を並列取得（RTT を重ねない）
+    // 軽量パスのみ待機。巨大な画像ライブラリは待たない（ローカル表示→裏同期）
     var settled = await Promise.all([
       loadAuthFromFirebase().catch(function (e) {
         console.warn("[Meishi] auth load failed", e);
@@ -1559,12 +1579,10 @@
       safeFbOnce(FB_REC_PATH),
       safeFbOnce(FB_CFG_PATH),
       safeFbOnce(FB_PREVIEW_PERSONAL_PATH),
-      safeFbOnce(FB_IMG_LIB_PATH),
     ]);
     var snapRec = settled[1];
     var snapCfg = settled[2];
     var snapPv = settled[3];
-    var snapImg = settled[4];
 
     try {
       var rv = snapRec && snapRec.val();
@@ -1590,16 +1608,9 @@
       console.warn("[Meishi] Firebase config apply failed（hh_data/meishi_config）", e);
     }
 
-    // 設定マージ後もローカル画像を維持し、リモート画像を適用
+    // 設定マージ後、画像が消えていればローカルから復帰（リモート画像の完了は待たない）
     if (!getImageLibrary().length) {
       try { await applyLocalImageLibrary(); } catch (e) {}
-    }
-    try {
-      var remoteImgLib = snapImg ? snapImg.val() : null;
-      await applyImageLibraryWithRemote(remoteImgLib);
-    } catch (e) {
-      console.warn("[Meishi] Firebase image library apply failed", e);
-      try { await applyLocalImageLibrary(); } catch (e2) {}
     }
 
     try {
@@ -1647,13 +1658,26 @@
       _fbDb.ref(FB_IMG_LIB_PATH).on("value", function (snap) {
         if (_suppressImgLibRemote) return;
         var val = snap.val();
-        if ((!val || !val.length) && (window.MEISHI_OWNER_PAGE || localImageLibraryHasItems())) {
-          void tryPromoteLocalImageLibraryToRemote().then(function () { fireCfg(); });
+        // リモート空でも起動フルアップロードしない（以前は毎回6秒以上かかっていた）
+        if (!val || !val.length) {
+          if (!getImageLibrary().length) {
+            void applyLocalImageLibrary().then(function () { fireCfg(); });
+          }
           return;
         }
         void applyImageLibraryWithRemote(val).then(function () { fireCfg(); });
       });
     } catch (e) {}
+
+    // ローカルに画像が無く、使用者画面などリモート必須のときだけ初回取得を待機
+    if (!getImageLibrary().length && shouldPreferRemoteData()) {
+      try {
+        var snapImg = await safeFbOnce(FB_IMG_LIB_PATH);
+        await applyImageLibraryWithRemote(snapImg ? snapImg.val() : null);
+      } catch (e) {
+        console.warn("[Meishi] Firebase image library initial load failed", e);
+      }
+    }
   }
 
   async function init() {
