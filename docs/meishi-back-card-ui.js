@@ -290,12 +290,38 @@
       return Math.round(91 * 96 / 25.4);
     }
 
+    function cardInnerHeight() {
+      var h = cardEl.clientHeight;
+      if (h > 0) return h;
+      return Math.round(55 * 96 / 25.4);
+    }
+
+    function clampPosInCard(x, y, boxW, boxH) {
+      var cw = cardInnerWidth();
+      var ch = cardInnerHeight();
+      var w = Math.max(1, Math.round(boxW || 1));
+      var h = Math.max(1, Math.round(boxH || 1));
+      return {
+        x: Math.max(0, Math.min(Math.round(x), Math.max(0, cw - w))),
+        y: Math.max(0, Math.min(Math.round(y), Math.max(0, ch - h))),
+      };
+    }
+
+    function clampSizeInCard(x, y, w, h) {
+      var cw = cardInnerWidth();
+      var ch = cardInnerHeight();
+      var left = Math.max(0, Math.round(x) || 0);
+      var top = Math.max(0, Math.round(y) || 0);
+      return {
+        w: Math.max(16, Math.min(Math.round(w), Math.max(16, cw - left))),
+        h: Math.max(12, Math.min(Math.round(h), Math.max(12, ch - top))),
+      };
+    }
+
     function applyTextStyle(node, st, skipContent) {
       if (!skipContent && st.id !== editingId && document.activeElement !== node) {
         node.textContent = st.content || "";
       }
-      node.style.left = st.x + "px";
-      node.style.top = st.y + "px";
       node.style.fontSize = st.size + "px";
       node.style.color = st.color;
       node.style.fontFamily = MeishiLayout.resolveBackFontFamily(st.font || "");
@@ -306,7 +332,13 @@
       if (MeishiLayout.applyTextBgStyle) MeishiLayout.applyTextBgStyle(node, st);
       node.style.whiteSpace = "pre-wrap";
       node.style.wordBreak = "break-word";
-      node.style.maxWidth = Math.max(40, cardInnerWidth() - st.x) + "px";
+      var maxW = Math.max(40, cardInnerWidth() - Math.max(0, st.x || 0));
+      node.style.maxWidth = maxW + "px";
+      var pos = clampPosInCard(st.x || 0, st.y || 0, node.offsetWidth || 40, node.offsetHeight || st.size || 12);
+      st.x = pos.x;
+      st.y = pos.y;
+      node.style.left = st.x + "px";
+      node.style.top = st.y + "px";
     }
 
     function syncTextContentFromNode(node, st) {
@@ -469,6 +501,11 @@
           }
           nx = Math.round(ox + dx);
           ny = Math.round(oy + dy);
+          var boxW = isImage ? (st.w || node.offsetWidth || 1) : (node.offsetWidth || 1);
+          var boxH = isImage ? (st.h || node.offsetHeight || 1) : (node.offsetHeight || 1);
+          var clamped = clampPosInCard(nx, ny, boxW, boxH);
+          nx = clamped.x;
+          ny = clamped.y;
           var guides = guideForDrag(cardEl, node, nx, ny, snapExtraCardEls);
           showDragGuides(guides, nx, ny, node.offsetWidth, node.offsetHeight, "center");
           if (!raf) raf = requestAnimationFrame(applyPos);
@@ -527,6 +564,9 @@
           var q = pxFromEvent(e2);
           nw = Math.max(16, Math.round(ow + (q.clientX - sx)));
           nh = Math.max(12, Math.round(oh + (q.clientY - sy)));
+          var sized = clampSizeInCard(im.x, im.y, nw, nh);
+          nw = sized.w;
+          nh = sized.h;
           var guides = guideForDrag(cardEl, wrap, im.x, im.y, snapExtraCardEls);
           showDragGuides(guides, im.x, im.y, nw, nh, "br");
           if (!raf) raf = requestAnimationFrame(applySize);
@@ -621,6 +661,12 @@
             n._src = nextSrc;
             n.img.src = nextSrc;
           }
+          var sized = clampSizeInCard(raw.x || 0, raw.y || 0, raw.w || 16, raw.h || 12);
+          raw.w = sized.w;
+          raw.h = sized.h;
+          var pos = clampPosInCard(raw.x || 0, raw.y || 0, raw.w, raw.h);
+          raw.x = pos.x;
+          raw.y = pos.y;
           n.wrap.style.left = raw.x + "px";
           n.wrap.style.top = raw.y + "px";
           n.wrap.style.width = raw.w + "px";

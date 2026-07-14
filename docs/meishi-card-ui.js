@@ -634,6 +634,12 @@
           n._src = nextSrc;
           n.img.src = nextSrc;
         }
+        var sized = clampSizeInCard(raw.x || 0, raw.y || 0, raw.w || 16, raw.h || 12);
+        raw.w = sized.w;
+        raw.h = sized.h;
+        var pos = clampPosInCard(raw.x || 0, raw.y || 0, raw.w, raw.h);
+        raw.x = pos.x;
+        raw.y = pos.y;
         n.wrap.style.left = raw.x + "px";
         n.wrap.style.top = raw.y + "px";
         n.wrap.style.width = raw.w + "px";
@@ -653,12 +659,39 @@
       return Math.round(91 * 96 / 25.4);
     }
 
+    function cardInnerHeight() {
+      var h = cardEl.clientHeight;
+      if (h > 0) return h;
+      return Math.round(55 * 96 / 25.4);
+    }
+
+    /** 名刺枠内に収まるよう x/y を制限（右端・下端まで可、枠外不可） */
+    function clampPosInCard(x, y, boxW, boxH) {
+      var cw = cardInnerWidth();
+      var ch = cardInnerHeight();
+      var w = Math.max(1, Math.round(boxW || 1));
+      var h = Math.max(1, Math.round(boxH || 1));
+      return {
+        x: Math.max(0, Math.min(Math.round(x), Math.max(0, cw - w))),
+        y: Math.max(0, Math.min(Math.round(y), Math.max(0, ch - h))),
+      };
+    }
+
+    function clampSizeInCard(x, y, w, h) {
+      var cw = cardInnerWidth();
+      var ch = cardInnerHeight();
+      var left = Math.max(0, Math.round(x) || 0);
+      var top = Math.max(0, Math.round(y) || 0);
+      return {
+        w: Math.max(16, Math.min(Math.round(w), Math.max(16, cw - left))),
+        h: Math.max(12, Math.min(Math.round(h), Math.max(12, ch - top))),
+      };
+    }
+
     function applyFreeTextStyle(node, st, skipContent) {
       if (!skipContent && st.id !== editingId && document.activeElement !== node) {
         node.textContent = st.content || "";
       }
-      node.style.left = st.x + "px";
-      node.style.top = st.y + "px";
       node.style.fontSize = st.size + "px";
       node.style.color = st.color;
       node.style.fontFamily = MeishiLayout.resolveBackFontFamily(st.font || "");
@@ -669,7 +702,14 @@
       if (MeishiLayout.applyTextBgStyle) MeishiLayout.applyTextBgStyle(node, st);
       node.style.whiteSpace = "pre-wrap";
       node.style.wordBreak = "break-word";
-      node.style.maxWidth = Math.max(40, cardInnerWidth() - st.x) + "px";
+      var maxW = Math.max(40, cardInnerWidth() - Math.max(0, st.x || 0));
+      node.style.maxWidth = maxW + "px";
+      // サイズ確定後に枠内へ
+      var pos = clampPosInCard(st.x || 0, st.y || 0, node.offsetWidth || 40, node.offsetHeight || st.size || 12);
+      st.x = pos.x;
+      st.y = pos.y;
+      node.style.left = st.x + "px";
+      node.style.top = st.y + "px";
     }
 
     function syncFreeTextContentFromNode(node, st) {
@@ -898,6 +938,15 @@
           var pointerX = q.clientX - cardEl.getBoundingClientRect().left;
           nx = isTextDrag ? clampTextDragX(node, rawNx, pointerX) : rawNx;
           ny = rawNy;
+          var boxW = node.offsetWidth || (isImage ? (st.w || 1) : 1);
+          var boxH = node.offsetHeight || (isImage ? (st.h || 1) : 1);
+          if (isImage) {
+            boxW = st.w || boxW;
+            boxH = st.h || boxH;
+          }
+          var clamped = clampPosInCard(nx, ny, boxW, boxH);
+          nx = clamped.x;
+          ny = clamped.y;
           var guides = snapDragPosition(cardEl, node, nx, ny, zoneSnapEdges(), snapExtraCardEls);
           if (isImageDrag || isFreeText) showDragGuides(guides, nx, ny, node.offsetWidth, node.offsetHeight, "center");
           else showGuides(guides.guideX, guides.guideY);
@@ -963,8 +1012,9 @@
           var q = pxFromEvent(e2);
           var rawW = Math.max(16, Math.round(ow + (q.clientX - sx)));
           var rawH = Math.max(12, Math.round(oh + (q.clientY - sy)));
-          nw = rawW;
-          nh = rawH;
+          var sized = clampSizeInCard(im.x, im.y, rawW, rawH);
+          nw = sized.w;
+          nh = sized.h;
           var guides = snapResizeBox(cardEl, wrap, im.x, im.y, nw, nh, zoneSnapEdges(), snapExtraCardEls);
           showDragGuides(guides, im.x, im.y, nw, nh, "br");
           if (!raf) raf = requestAnimationFrame(applySize);
