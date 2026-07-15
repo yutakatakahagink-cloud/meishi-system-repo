@@ -135,16 +135,6 @@
     return cat;
   }
 
-  function getAff2List(cat, aff1) {
-    var a = (cat && cat.aff2 && cat.aff2[MeishiFields.norm(aff1)]) || [];
-    var u = (cat && cat.aff2 && cat.aff2["*"]) || [];
-    return MeishiFields.uniq(a.concat(u));
-  }
-  function getAff3List(cat, aff1, aff2) {
-    var a = (cat && cat.aff3 && cat.aff3[pathKey(aff1, aff2)]) || [];
-    var u = (cat && cat.aff3 && cat.aff3["*"]) || [];
-    return MeishiFields.uniq(a.concat(u));
-  }
   function flattenMapLists(map) {
     var out = [];
     if (!map) return out;
@@ -153,16 +143,37 @@
     });
     return MeishiFields.uniq(out);
   }
-  /** 役職は紐づけ不要のため全一覧を返す */
+  /** 共通データは候補マスタ。紐づけは名刺データ行側で判断する */
+  function getAff2List(cat) {
+    return flattenMapLists(cat && cat.aff2);
+  }
+  function getAff3List(cat) {
+    return flattenMapLists(cat && cat.aff3);
+  }
   function getTitleList(cat) {
     return flattenMapLists(cat && cat.title);
   }
-  /** 資格は紐づけ不要のため全一覧を返す */
   function getQualList(cat) {
     return flattenMapLists(cat && cat.qual);
   }
-  function getMobileList(cat, ctx) { return getListByPath(cat.mobile, ctx.aff1, ctx.aff2, ctx.aff3, ctx.title); }
-  function getEmailList(cat, ctx) { return getListByPath(cat.email, ctx.aff1, ctx.aff2, ctx.aff3, ctx.title); }
+  function getMobileList(cat) {
+    return flattenMapLists(cat && cat.mobile);
+  }
+  function getEmailList(cat) {
+    return flattenMapLists(cat && cat.email);
+  }
+  function renameInAllMapLists(map, oldV, newV) {
+    Object.keys(map || {}).forEach(function (k) {
+      renameInList(map[k] || [], oldV, newV);
+    });
+  }
+  function removeFromAllMapLists(map, v) {
+    v = MeishiFields.norm(v);
+    Object.keys(map || {}).forEach(function (k) {
+      if (!map[k]) return;
+      map[k] = map[k].filter(function (x) { return MeishiFields.norm(x) !== v; });
+    });
+  }
 
   function renameInList(arr, oldV, newV) {
     oldV = MeishiFields.norm(oldV);
@@ -346,5 +357,8 @@
     ensureList: ensureList,
     renameInList: renameInList,
     renameMapList: renameMapList,
+    renameInAllMapLists: renameInAllMapLists,
+    removeFromAllMapLists: removeFromAllMapLists,
+    flattenMapLists: flattenMapLists,
   };
 })();

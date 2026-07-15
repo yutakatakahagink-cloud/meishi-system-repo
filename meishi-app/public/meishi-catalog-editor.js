@@ -1,6 +1,7 @@
 /**
  * 会社共通「共通データ」編集 UI
- * 左: 項目一覧（縦） / 右: クリックした項目の全データ＋紐づき
+ * 左: 項目一覧（縦） / 右: 候補マスタの追加・編集・削除
+ * 紐づけ（誰に属するか）は名刺データ編集側で判断する
  */
 (function () {
   var FIELD_TYPES = [
@@ -17,6 +18,18 @@
     { id: "fax", label: "FAX" },
     { id: "url", label: "URL" },
   ];
+
+  var MAP_FIELDS = { aff2: 1, aff3: 1, title: 1, qual: 1, mobile: 1, email: 1 };
+  var PLACEHOLDERS = {
+    aff1: "所属1名",
+    aff2: "所属2名",
+    aff3: "所属3名",
+    title: "役職名",
+    qual: "資格",
+    mobile: "携帯番号",
+    email: "メール",
+    url: "URL",
+  };
 
   function esc(s) {
     return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) {
@@ -55,21 +68,6 @@
     });
   }
 
-  function parsePathKey(pk) {
-    var p = String(pk || "").split("|");
-    return { aff1: p[0] || "", aff2: p[1] || "", aff3: p[2] || "", title: p[3] || "" };
-  }
-
-  function formatLink(parts) {
-    if (!parts || parts.aff1 === "*") return "紐づけなし";
-    var segs = [];
-    if (parts.aff1) segs.push("所属1: " + parts.aff1);
-    if (parts.aff2) segs.push("所属2: " + parts.aff2);
-    if (parts.aff3) segs.push("所属3: " + parts.aff3);
-    if (parts.title) segs.push("役職: " + parts.title);
-    return segs.length ? segs.join(" › ") : "紐づけなし";
-  }
-
   function renameAff1(cat, oldV, newV) {
     oldV = MeishiFields.norm(oldV); newV = MeishiFields.norm(newV);
     if (!oldV || !newV || oldV === newV) return;
@@ -93,134 +91,45 @@
     removeMapPrefix(cat.email, v + "|");
   }
 
-  function renameAff2(cat, aff1, oldV, newV) {
-    aff1 = MeishiFields.norm(aff1); oldV = MeishiFields.norm(oldV); newV = MeishiFields.norm(newV);
-    if (!aff1 || !oldV || !newV) return;
-    var p2old = MeishiCatalog.pathKey(aff1, oldV);
-    var p2new = MeishiCatalog.pathKey(aff1, newV);
-    MeishiCatalog.renameMapList(cat.aff2, aff1, oldV, newV);
-    rekeyMap(cat.aff3, p2old, p2new);
-    rekeyMapPrefix(cat.title, p2old + "|", p2new + "|");
-    rekeyMapPrefix(cat.qual, p2old + "|", p2new + "|");
-    rekeyMapPrefix(cat.mobile, p2old + "|", p2new + "|");
-    rekeyMapPrefix(cat.email, p2old + "|", p2new + "|");
-  }
-
-  function removeAff2(cat, aff1, v) {
-    aff1 = MeishiFields.norm(aff1); v = MeishiFields.norm(v);
-    if (cat.aff2[aff1]) cat.aff2[aff1] = cat.aff2[aff1].filter(function (x) { return x !== v; });
-    var p2 = MeishiCatalog.pathKey(aff1, v);
-    delete cat.aff3[p2];
-    removeMapPrefix(cat.title, p2 + "|");
-    removeMapPrefix(cat.qual, p2 + "|");
-    removeMapPrefix(cat.mobile, p2 + "|");
-    removeMapPrefix(cat.email, p2 + "|");
-  }
-
-  function renameAff3(cat, aff1, aff2, oldV, newV) {
-    var p2 = MeishiCatalog.pathKey(aff1, aff2);
-    var p3old = MeishiCatalog.pathKey(aff1, aff2, oldV);
-    var p3new = MeishiCatalog.pathKey(aff1, aff2, newV);
-    MeishiCatalog.renameMapList(cat.aff3, p2, oldV, newV);
-    rekeyMap(cat.title, p3old, p3new);
-    rekeyMapPrefix(cat.qual, p3old + "|", p3new + "|");
-    rekeyMapPrefix(cat.mobile, p3old + "|", p3new + "|");
-    rekeyMapPrefix(cat.email, p3old + "|", p3new + "|");
-  }
-
-  function removeAff3(cat, aff1, aff2, v) {
-    var p2 = MeishiCatalog.pathKey(aff1, aff2);
-    if (cat.aff3[p2]) cat.aff3[p2] = cat.aff3[p2].filter(function (x) { return x !== v; });
-    var p3 = MeishiCatalog.pathKey(aff1, aff2, v);
-    delete cat.title[p3]; delete cat.qual[p3]; delete cat.mobile[p3]; delete cat.email[p3];
-    removeMapPrefix(cat.qual, p3 + "|");
-    removeMapPrefix(cat.mobile, p3 + "|");
-    removeMapPrefix(cat.email, p3 + "|");
+  function uniqValueRows(values) {
+    var seen = Object.create(null);
+    var rows = [];
+    (values || []).forEach(function (v) {
+      v = MeishiFields.norm(v);
+      if (!v || seen[v]) return;
+      seen[v] = 1;
+      rows.push({ value: v, meta: { value: v } });
+    });
+    return rows.sort(function (a, b) {
+      return String(a.value).localeCompare(String(b.value), "ja");
+    });
   }
 
   function collectRows(cat, fieldId) {
-    var rows = [];
-    if (fieldId === "aff1") {
-      (cat.aff1 || []).forEach(function (v) {
-        rows.push({ value: v, link: "会社共通", meta: {} });
-      });
-      return rows;
-    }
-    if (fieldId === "aff2") {
-      Object.keys(cat.aff2 || {}).forEach(function (a1) {
-        (cat.aff2[a1] || []).forEach(function (v) {
-          rows.push({
-            value: v,
-            link: a1 === "*" ? "紐づけなし" : ("所属1: " + a1),
-            meta: { aff1: a1 },
-          });
-        });
-      });
-      return rows.sort(function (a, b) {
-        return (a.meta.aff1 + a.value).localeCompare(b.meta.aff1 + b.value, "ja");
-      });
-    }
-    if (fieldId === "aff3") {
-      Object.keys(cat.aff3 || {}).forEach(function (pk) {
-        var parts = pk === "*" ? { aff1: "*", aff2: "" } : parsePathKey(pk);
-        (cat.aff3[pk] || []).forEach(function (v) {
-          rows.push({
-            value: v,
-            link: pk === "*" ? "紐づけなし" : formatLink({ aff1: parts.aff1, aff2: parts.aff2 }),
-            meta: { aff1: parts.aff1, aff2: parts.aff2 },
-          });
-        });
-      });
-      return rows;
-    }
-    if (fieldId === "title") {
-      Object.keys(cat.title || {}).forEach(function (pk) {
-        var parts = pk === "*" ? { aff1: "*", aff2: "", aff3: "" } : parsePathKey(pk);
-        (cat.title[pk] || []).forEach(function (v) {
-          rows.push({
-            value: v,
-            link: pk === "*" ? "会社共通" : formatLink({ aff1: parts.aff1, aff2: parts.aff2, aff3: parts.aff3 }),
-            meta: { pk: pk, aff1: parts.aff1, aff2: parts.aff2, aff3: parts.aff3 },
-          });
-        });
-      });
-      return rows;
-    }
-    if (fieldId === "qual" || fieldId === "mobile" || fieldId === "email") {
-      Object.keys(cat[fieldId] || {}).forEach(function (pk) {
-        var parts = pk === "*" ? { aff1: "*", aff2: "", aff3: "", title: "" } : parsePathKey(pk);
-        (cat[fieldId][pk] || []).forEach(function (v) {
-          rows.push({
-            value: v,
-            link: pk === "*" ? "紐づけなし" : formatLink(parts),
-            meta: { pk: pk, parts: parts },
-          });
-        });
-      });
-      return rows;
-    }
+    if (fieldId === "aff1") return uniqValueRows(cat.aff1);
+    if (fieldId === "aff2") return uniqValueRows(MeishiCatalog.flattenMapLists(cat.aff2));
+    if (fieldId === "aff3") return uniqValueRows(MeishiCatalog.flattenMapLists(cat.aff3));
+    if (fieldId === "title") return uniqValueRows(MeishiCatalog.flattenMapLists(cat.title));
+    if (fieldId === "qual") return uniqValueRows(MeishiCatalog.flattenMapLists(cat.qual));
+    if (fieldId === "mobile") return uniqValueRows(MeishiCatalog.flattenMapLists(cat.mobile));
+    if (fieldId === "email") return uniqValueRows(MeishiCatalog.flattenMapLists(cat.email));
+    if (fieldId === "url") return uniqValueRows(cat.urls);
     if (fieldId === "postal" || fieldId === "address" || fieldId === "tel" || fieldId === "fax") {
+      var rows = [];
       (cat.locations || []).forEach(function (loc, i) {
         var v = loc[fieldId] || "";
         if (!v) return;
-        var linkParts = [];
-        if (loc.postal && fieldId !== "postal") linkParts.push("〒" + loc.postal);
-        if (loc.address && fieldId !== "address") linkParts.push(loc.address);
+        var extra = [];
+        if (fieldId !== "postal" && loc.postal) extra.push("〒" + loc.postal);
+        if (fieldId !== "address" && loc.address) extra.push(loc.address);
         rows.push({
-          value: v,
-          link: linkParts.length ? linkParts.join(" / ") : "所在地セット",
-          meta: { locIndex: i },
+          value: extra.length ? (v + "（" + extra.join(" / ") + "）") : v,
+          meta: { locIndex: i, rawValue: v },
         });
       });
       return rows;
     }
-    if (fieldId === "url") {
-      (cat.urls || []).forEach(function (v) {
-        rows.push({ value: v, link: "会社共通", meta: {} });
-      });
-      return rows;
-    }
-    return rows;
+    return [];
   }
 
   function countRows(cat, fieldId) {
@@ -234,81 +143,63 @@
   function renderAddForm(cat, fieldId) {
     var html = "<div class='cat-add-form'>";
     html += "<div class='cat-add-title'>追加</div>";
-    if (fieldId === "aff1") {
-      html += "<div class='btn-row'><input class='cat-new-val' placeholder='所属1名' /><button type='button' class='btn sm btn-row-add'>追加</button></div>";
-    } else if (fieldId === "aff2") {
-      html += "<p class='hint'>所属1は任意。未選択なら「紐づけなし」で登録します。</p>";
-      html += "<div class='field'><label>紐づく所属1（任意）</label><select class='cat-new-aff1'>";
-      html += "<option value=''>— なし —</option>";
-      (cat.aff1 || []).forEach(function (a) { html += "<option>" + esc(a) + "</option>"; });
-      html += "</select></div>";
-      html += "<div class='btn-row'><input class='cat-new-val' placeholder='所属2名' /><button type='button' class='btn sm btn-row-add'>追加</button></div>";
-    } else if (fieldId === "aff3") {
-      html += "<p class='hint'>所属の紐づけは任意。未選択なら「紐づけなし」で登録します。</p>";
-      html += "<div class='field'><label>紐づく所属1（任意）</label><select class='cat-new-aff1 cat-cascade-a1'>";
-      html += "<option value=''>— なし —</option>";
-      (cat.aff1 || []).forEach(function (a) { html += "<option>" + esc(a) + "</option>"; });
-      html += "</select></div>";
-      html += "<div class='field'><label>紐づく所属2（任意）</label><select class='cat-new-aff2 cat-cascade-a2'><option value=''>— なし —</option></select></div>";
-      html += "<div class='btn-row'><input class='cat-new-val' placeholder='所属3名' /><button type='button' class='btn sm btn-row-add'>追加</button></div>";
-    } else if (fieldId === "title") {
-      html += "<p class='hint'>役職は紐づけ不要です。会社共通の一覧として登録します。</p>";
-      html += "<div class='btn-row'><input class='cat-new-val' placeholder='役職名' /><button type='button' class='btn sm btn-row-add'>追加</button></div>";
-    } else if (fieldId === "qual") {
-      html += "<p class='hint'>資格は紐づけ不要です。会社共通の一覧として登録します。</p>";
-      html += "<div class='btn-row'><input class='cat-new-val' placeholder='資格' /><button type='button' class='btn sm btn-row-add'>追加</button></div>";
-    } else if (fieldId === "mobile" || fieldId === "email") {
-      var label = fieldId === "mobile" ? "携帯番号" : "メール";
-      html += "<p class='hint'>所属・役職の紐づけは任意。未選択なら「紐づけなし」で登録します。</p>";
-      html += "<div class='field'><label>所属1（任意）</label><select class='cat-new-aff1 cat-cascade-a1'><option value=''>— なし —</option>";
-      (cat.aff1 || []).forEach(function (a) { html += "<option>" + esc(a) + "</option>"; });
-      html += "</select></div>";
-      html += "<div class='field'><label>所属2（任意）</label><select class='cat-new-aff2 cat-cascade-a2'><option value=''>— なし —</option></select></div>";
-      html += "<div class='field'><label>所属3（任意）</label><select class='cat-new-aff3 cat-cascade-a3'><option value=''>— なし —</option></select></div>";
-      html += "<div class='field'><label>役職（任意）</label><select class='cat-new-title cat-cascade-t'><option value=''>— なし —</option></select></div>";
-      html += "<div class='btn-row'><input class='cat-new-val' placeholder='" + esc(label) + "' /><button type='button' class='btn sm btn-row-add'>追加</button></div>";
-    } else if (fieldId === "postal" || fieldId === "address" || fieldId === "tel" || fieldId === "fax") {
+    if (fieldId === "postal" || fieldId === "address" || fieldId === "tel" || fieldId === "fax") {
       html += "<p class='hint'>郵便番号・住所・TEL・FAXはセットで追加します。</p>";
       html += "<div class='field'><label>郵便番号</label><input class='cat-new-postal' /></div>";
       html += "<div class='field'><label>住所</label><input class='cat-new-address' /></div>";
       html += "<div class='field'><label>TEL</label><input class='cat-new-tel' /></div>";
       html += "<div class='field'><label>FAX</label><input class='cat-new-fax' /></div>";
       html += "<button type='button' class='btn sm btn-loc-add'>所在地セットを追加</button>";
-    } else if (fieldId === "url") {
-      html += "<div class='btn-row'><input class='cat-new-val' placeholder='URL' /><button type='button' class='btn sm btn-row-add'>追加</button></div>";
+    } else {
+      var ph = PLACEHOLDERS[fieldId] || "値";
+      html += "<div class='btn-row'><input class='cat-new-val' placeholder='" + esc(ph) + "' /><button type='button' class='btn sm btn-row-add'>追加</button></div>";
     }
     html += "</div>";
     return html;
   }
 
-  function bindCascadeSelects(box, cat) {
-    var a1 = box.querySelector(".cat-cascade-a1");
-    var a2 = box.querySelector(".cat-cascade-a2");
-    var a3 = box.querySelector(".cat-cascade-a3");
-    var t = box.querySelector(".cat-cascade-t");
-    if (!a1) return;
-    function fillA2() {
-      if (!a2) return;
-      var list = a1.value ? MeishiCatalog.getAff2List(cat, a1.value) : [];
-      a2.innerHTML = "<option value=''>—</option>" + list.map(function (v) { return "<option>" + esc(v) + "</option>"; }).join("");
-      if (a3) { a3.innerHTML = "<option value=''>—</option>"; }
-      if (t) { t.innerHTML = "<option value=''>—</option>"; }
+  function emitRenameOp(fieldId, oldV, newV) {
+    if (fieldId === "aff1") return { type: "renameAff1", from: oldV, to: newV };
+    if (fieldId === "aff2") return { type: "renameAff2", aff1: "*", from: oldV, to: newV };
+    if (fieldId === "aff3") return { type: "renameAff3", aff1: "*", aff2: "*", from: oldV, to: newV };
+    if (fieldId === "title") return { type: "renameTitle", aff1: "*", aff2: "*", aff3: "*", from: oldV, to: newV };
+    if (fieldId === "qual" || fieldId === "mobile" || fieldId === "email") {
+      return { type: "renameField", field: fieldId, parts: {}, from: oldV, to: newV };
     }
-    function fillA3() {
-      if (!a3) return;
-      var list = (a1.value && a2.value) ? MeishiCatalog.getAff3List(cat, a1.value, a2.value) : [];
-      a3.innerHTML = "<option value=''>—</option>" + list.map(function (v) { return "<option>" + esc(v) + "</option>"; }).join("");
-      if (t) { t.innerHTML = "<option value=''>—</option>"; }
+    if (fieldId === "url") return { type: "renameUrl", from: oldV, to: newV };
+    return null;
+  }
+
+  function emitDeleteOp(fieldId, v) {
+    if (fieldId === "aff1") return { type: "deleteAff1", value: v };
+    if (fieldId === "aff2") return { type: "deleteAff2", aff1: "*", value: v };
+    if (fieldId === "aff3") return { type: "deleteAff3", aff1: "*", aff2: "*", value: v };
+    if (fieldId === "title") return { type: "deleteTitle", aff1: "*", aff2: "*", aff3: "*", value: v };
+    if (fieldId === "qual" || fieldId === "mobile" || fieldId === "email") {
+      return { type: "deleteField", field: fieldId, parts: {}, value: v };
     }
-    function fillT() {
-      if (!t) return;
-      var list = MeishiCatalog.getTitleList(cat) || [];
-      t.innerHTML = "<option value=''>—</option>" + list.map(function (v) { return "<option>" + esc(v) + "</option>"; }).join("");
-    }
-    a1.onchange = function () { fillA2(); };
-    if (a2) a2.onchange = function () { fillA3(); };
-    if (a3) a3.onchange = function () { fillT(); };
-    if (t) fillT();
+    if (fieldId === "url") return { type: "deleteUrl", value: v };
+    return null;
+  }
+
+  function renameCatalogValue(cat, fieldId, oldV, newV) {
+    if (fieldId === "aff1") renameAff1(cat, oldV, newV);
+    else if (MAP_FIELDS[fieldId]) {
+      MeishiCatalog.renameInAllMapLists(cat[fieldId], oldV, newV);
+      MeishiCatalog.addUnique(MeishiCatalog.ensureList(cat[fieldId], "*"), newV);
+    } else if (fieldId === "url") MeishiCatalog.renameInList(cat.urls, oldV, newV);
+  }
+
+  function deleteCatalogValue(cat, fieldId, v) {
+    if (fieldId === "aff1") removeAff1(cat, v);
+    else if (MAP_FIELDS[fieldId]) MeishiCatalog.removeFromAllMapLists(cat[fieldId], v);
+    else if (fieldId === "url") cat.urls = (cat.urls || []).filter(function (x) { return x !== v; });
+  }
+
+  function addCatalogValue(cat, fieldId, v) {
+    if (fieldId === "aff1") MeishiCatalog.addUnique(cat.aff1, v);
+    else if (MAP_FIELDS[fieldId]) MeishiCatalog.addUnique(MeishiCatalog.ensureList(cat[fieldId], "*"), v);
+    else if (fieldId === "url") MeishiCatalog.addUnique(cat.urls, v);
   }
 
   function renderDetailPanel(container, cat, fieldId, refresh, onMutate) {
@@ -317,16 +208,13 @@
     }
     var ft = FIELD_TYPES.find(function (f) { return f.id === fieldId; }) || FIELD_TYPES[0];
     var rows = collectRows(cat, fieldId);
-    var showLink = fieldId !== "title" && fieldId !== "qual" && fieldId !== "aff1" && fieldId !== "url";
     var html = "<div class='cat-detail-head'><strong>" + esc(ft.label) + "</strong>";
     html += "<span class='hint'> — 全 " + rows.length + " 件</span></div>";
 
-    html += "<div class='cat-table-wrap'><table class='cat-data-table" + (showLink ? "" : " no-link") + "'>";
-    html += "<thead><tr><th class='col-act'>操作</th><th class='col-val'>値</th>";
-    if (showLink) html += "<th class='col-link'>紐づき</th>";
-    html += "</tr></thead><tbody>";
+    html += "<div class='cat-table-wrap'><table class='cat-data-table no-link'>";
+    html += "<thead><tr><th class='col-act'>操作</th><th class='col-val'>値</th></tr></thead><tbody>";
     if (!rows.length) {
-      html += "<tr><td colspan='" + (showLink ? 3 : 2) + "' class='hint'>（未登録）</td></tr>";
+      html += "<tr><td colspan='2' class='hint'>（未登録）</td></tr>";
     } else {
       rows.forEach(function (row) {
         html += "<tr>";
@@ -335,12 +223,11 @@
           html += "<button type='button' class='linkbtn btn-loc-edit' data-i='" + row.meta.locIndex + "'>編集</button> ";
           html += "<button type='button' class='linkbtn btn-loc-del' data-i='" + row.meta.locIndex + "'>×</button>";
         } else {
-          html += "<button type='button' class='linkbtn btn-cat-edit' data-v='" + escAttr(row.value) + "' data-meta='" + rowMetaAttr(row.meta) + "'>編集</button> ";
-          html += "<button type='button' class='linkbtn btn-cat-del' data-v='" + escAttr(row.value) + "' data-meta='" + rowMetaAttr(row.meta) + "'>×</button>";
+          html += "<button type='button' class='linkbtn btn-cat-edit' data-v='" + escAttr(row.meta.value || row.value) + "' data-meta='" + rowMetaAttr(row.meta) + "'>編集</button> ";
+          html += "<button type='button' class='linkbtn btn-cat-del' data-v='" + escAttr(row.meta.value || row.value) + "' data-meta='" + rowMetaAttr(row.meta) + "'>×</button>";
         }
         html += "</td>";
         html += "<td class='col-val'>" + esc(row.value) + "</td>";
-        if (showLink) html += "<td class='col-link'>" + esc(row.link) + "</td>";
         html += "</tr>";
       });
     }
@@ -348,33 +235,15 @@
     html += renderAddForm(cat, fieldId);
     container.innerHTML = html;
 
-    bindCascadeSelects(container, cat);
-
     container.querySelectorAll(".btn-cat-edit").forEach(function (btn) {
       btn.onclick = function () {
         var oldV = btn.getAttribute("data-v");
-        var meta = JSON.parse(btn.getAttribute("data-meta") || "{}");
         var nv = prompt("新しい名称", oldV);
         if (nv == null) return;
         nv = nv.trim();
         if (!nv || nv === oldV) return;
-        var op = null;
-        if (fieldId === "aff1") { renameAff1(cat, oldV, nv); op = { type: "renameAff1", from: oldV, to: nv }; }
-        else if (fieldId === "aff2") { renameAff2(cat, meta.aff1, oldV, nv); op = { type: "renameAff2", aff1: meta.aff1, from: oldV, to: nv }; }
-        else if (fieldId === "aff3") { renameAff3(cat, meta.aff1, meta.aff2, oldV, nv); op = { type: "renameAff3", aff1: meta.aff1, aff2: meta.aff2, from: oldV, to: nv }; }
-        else if (fieldId === "title") {
-          var titlePk = meta.pk || (meta.aff1 === "*" ? "*" : MeishiCatalog.pathKey(meta.aff1, meta.aff2, meta.aff3));
-          MeishiCatalog.renameMapList(cat.title, titlePk, oldV, nv);
-          op = { type: "renameTitle", aff1: meta.aff1, aff2: meta.aff2, aff3: meta.aff3, from: oldV, to: nv };
-        }
-        else if (fieldId === "qual" || fieldId === "mobile" || fieldId === "email") {
-          MeishiCatalog.renameInList(cat[fieldId][meta.pk] || [], oldV, nv);
-          op = { type: "renameField", field: fieldId, parts: meta.parts || {}, from: oldV, to: nv };
-        } else if (fieldId === "url") {
-          MeishiCatalog.renameInList(cat.urls, oldV, nv);
-          op = { type: "renameUrl", from: oldV, to: nv };
-        }
-        emit(op);
+        renameCatalogValue(cat, fieldId, oldV, nv);
+        emit(emitRenameOp(fieldId, oldV, nv));
         refresh();
       };
     });
@@ -382,26 +251,9 @@
     container.querySelectorAll(".btn-cat-del").forEach(function (btn) {
       btn.onclick = function () {
         var v = btn.getAttribute("data-v");
-        var meta = JSON.parse(btn.getAttribute("data-meta") || "{}");
         if (!confirm("「" + v + "」を削除しますか？")) return;
-        var op = null;
-        if (fieldId === "aff1") { removeAff1(cat, v); op = { type: "deleteAff1", value: v }; }
-        else if (fieldId === "aff2") { removeAff2(cat, meta.aff1, v); op = { type: "deleteAff2", aff1: meta.aff1, value: v }; }
-        else if (fieldId === "aff3") { removeAff3(cat, meta.aff1, meta.aff2, v); op = { type: "deleteAff3", aff1: meta.aff1, aff2: meta.aff2, value: v }; }
-        else if (fieldId === "title") {
-          var pk = meta.pk || (meta.aff1 === "*" ? "*" : MeishiCatalog.pathKey(meta.aff1, meta.aff2, meta.aff3));
-          if (cat.title[pk]) cat.title[pk] = cat.title[pk].filter(function (x) { return x !== v; });
-          op = { type: "deleteTitle", aff1: meta.aff1, aff2: meta.aff2, aff3: meta.aff3, value: v };
-        } else if (fieldId === "qual" || fieldId === "mobile" || fieldId === "email") {
-          var arr = cat[fieldId][meta.pk] || [];
-          var i = arr.indexOf(v);
-          if (i >= 0) arr.splice(i, 1);
-          op = { type: "deleteField", field: fieldId, parts: meta.parts || {}, value: v };
-        } else if (fieldId === "url") {
-          cat.urls = (cat.urls || []).filter(function (x) { return x !== v; });
-          op = { type: "deleteUrl", value: v };
-        }
-        emit(op);
+        deleteCatalogValue(cat, fieldId, v);
+        emit(emitDeleteOp(fieldId, v));
         refresh();
       };
     });
@@ -412,41 +264,7 @@
         var v = (container.querySelector(".cat-new-val") || {}).value;
         v = v ? v.trim() : "";
         if (!v) return;
-        if (fieldId === "aff1") MeishiCatalog.addUnique(cat.aff1, v);
-        else if (fieldId === "aff2") {
-          var a1 = (container.querySelector(".cat-new-aff1") || {}).value;
-          MeishiCatalog.addUnique(MeishiCatalog.ensureList(cat.aff2, a1 || "*"), v);
-        } else if (fieldId === "aff3") {
-          var a1b = (container.querySelector(".cat-new-aff1") || {}).value;
-          var a2b = (container.querySelector(".cat-new-aff2") || {}).value;
-          if (a1b && a2b) {
-            MeishiCatalog.addUnique(MeishiCatalog.ensureList(cat.aff3, MeishiCatalog.pathKey(a1b, a2b)), v);
-          } else if (!a1b && !a2b) {
-            MeishiCatalog.addUnique(MeishiCatalog.ensureList(cat.aff3, "*"), v);
-          } else {
-            return alert("所属1・所属2はどちらも選ぶか、どちらも未選択にしてください");
-          }
-        } else if (fieldId === "title") {
-          MeishiCatalog.addUnique(MeishiCatalog.ensureList(cat.title, "*"), v);
-        } else if (fieldId === "qual") {
-          MeishiCatalog.addUnique(MeishiCatalog.ensureList(cat.qual, "*"), v);
-        } else if (fieldId === "mobile" || fieldId === "email") {
-          var a1q = (container.querySelector(".cat-new-aff1") || {}).value;
-          var a2q = (container.querySelector(".cat-new-aff2") || {}).value;
-          var a3q = (container.querySelector(".cat-new-aff3") || {}).value;
-          var tit = (container.querySelector(".cat-new-title") || {}).value;
-          var pk;
-          if (!a1q && !a2q && !a3q && !tit) {
-            pk = "*";
-          } else if (a1q && a2q && a3q) {
-            pk = tit
-              ? MeishiCatalog.pathKey(a1q, a2q, a3q, tit)
-              : MeishiCatalog.pathKey(a1q, a2q, a3q);
-          } else {
-            return alert("所属1〜3はすべて選ぶか、すべて未選択（紐づけなし）にしてください");
-          }
-          MeishiCatalog.addUnique(MeishiCatalog.ensureList(cat[fieldId], pk), v);
-        } else if (fieldId === "url") MeishiCatalog.addUnique(cat.urls, v);
+        addCatalogValue(cat, fieldId, v);
         refresh();
       };
     }
@@ -478,9 +296,7 @@
         var nv = prompt(labels[fieldId] || "値", loc[fieldId] || "");
         if (nv == null) return;
         loc[fieldId] = nv.trim();
-        if (fieldId === "postal") {
-          MeishiCatalog.addUnique(cat.postal, loc.postal);
-        }
+        if (fieldId === "postal") MeishiCatalog.addUnique(cat.postal, loc.postal);
         emit({
           type: "updateLocation",
           oldPostal: oldPostal,
@@ -510,7 +326,7 @@
       else render(container, cat, onRefresh, onMutate);
     }
 
-    var html = "<p class='hint'>左の項目をクリックすると、右に登録済みデータが表示されます。役職・資格は紐づけ不要です。名称変更すると名刺データ・部署共通にも即時反映されます。最後に「共通データを保存」を押してください。</p>";
+    var html = "<p class='hint'>各項目の候補を追加・編集・削除します。誰に紐づくかは下の「名刺データ編集」で会社・所属・役職を選んで判断します。変更後は「共通データを保存」を押してください。</p>";
     html += "<div class='cat-master-detail'>";
     html += "<nav class='cat-field-nav'>";
     FIELD_TYPES.forEach(function (ft) {

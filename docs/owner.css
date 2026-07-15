@@ -147,6 +147,12 @@ th{background:#f3f6fb;position:sticky;top:0}tr.sel{background:#e8eef8}tr:hover{b
 .cat-data-table .col-link{color:#54607a;font-size:.82rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cat-data-table.no-link .col-val{width:auto}
 .cat-add-form{border-top:1px solid var(--line);padding-top:10px;margin-top:4px}
+.rec-binding-box{grid-column:1/-1;background:#eef4fb;border:1px solid #c5d4ea;border-radius:8px;padding:12px 14px;margin-bottom:4px;font-size:.86rem;line-height:1.55}
+.rec-binding-box strong{color:var(--brand-d);display:block;margin-bottom:4px}
+.rec-binding-path{font-weight:700;font-size:.95rem;color:#1c2533;margin-top:2px;word-break:break-word}
+.rec-binding-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.rec-bind-chip{display:inline-flex;align-items:center;gap:4px;background:#fff;border:1px solid #c5d4ea;border-radius:999px;padding:3px 10px;font-size:.78rem}
+.rec-bind-chip em{font-style:normal;color:#54607a;font-weight:600}
 .cat-add-title{font-size:.82rem;font-weight:700;color:var(--brand-d);margin-bottom:8px}
 .loc-edit-row{padding:8px 0;border-bottom:1px solid var(--line);font-size:.85rem}
 .readonly-box{background:#f7f9fc;border:1px solid var(--line);border-radius:8px;padding:12px;font-size:.88rem;line-height:1.7;margin:12px 0}

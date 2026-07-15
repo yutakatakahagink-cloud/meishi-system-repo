@@ -1242,9 +1242,9 @@
     }
     if (key === "company") return MeishiStore.getCompanyList();
     if (key === "aff1") return cat.aff1 || [];
-    if (key === "aff2") return MeishiCatalog.getAff2List(cat, ctx.aff1);
-    if (key === "aff3") return MeishiCatalog.getAff3List(cat, ctx.aff1, ctx.aff2);
-    if (key === "title") return MeishiCatalog.getTitleList(cat, ctx.aff1, ctx.aff2, ctx.aff3);
+    if (key === "aff2") return MeishiCatalog.getAff2List(cat);
+    if (key === "aff3") return MeishiCatalog.getAff3List(cat);
+    if (key === "title") return MeishiCatalog.getTitleList(cat);
     if (key === "postal") return MeishiFields.uniq((cat.locations || []).map(function (l) { return l.postal; }).concat(cat.postal || []));
     if (key === "address") return MeishiFields.uniq((cat.locations || []).map(function (l) { return l.address; }).filter(Boolean));
     if (key === "tel") return MeishiFields.uniq((cat.locations || []).map(function (l) { return l.tel; }).filter(Boolean));
@@ -1270,6 +1270,28 @@
       html += "<option" + (MeishiFields.norm(v) === MeishiFields.norm(cur) ? " selected" : "") + ">" + esc(v) + "</option>";
     });
     return "<div class='field'><label>" + c.label + "</label><select data-k='" + c.key + "'>" + html + "</select></div>";
+  }
+
+  /** 名刺データ上で、この行がどの会社・所属に紐づくかを明示 */
+  function bindingSummaryHtml(ctx) {
+    var labels = [];
+    if (ctx.company) labels.push({ k: "会社", v: ctx.company });
+    if (ctx.aff1) labels.push({ k: "所属1", v: ctx.aff1 });
+    if (ctx.aff2) labels.push({ k: "所属2", v: ctx.aff2 });
+    if (ctx.aff3) labels.push({ k: "所属3", v: ctx.aff3 });
+    if (ctx.title) labels.push({ k: "役職", v: ctx.title });
+    var path = labels.length
+      ? labels.map(function (x) { return x.v; }).join(" › ")
+      : "（会社・所属・役職を選ぶとここに表示されます）";
+    var detail = labels.length
+      ? labels.map(function (x) { return "<span class='rec-bind-chip'><em>" + esc(x.k) + "</em>" + esc(x.v) + "</span>"; }).join("")
+      : "";
+    return "<div class='rec-binding-box'>"
+      + "<strong>この名刺の紐づけ</strong>"
+      + "<div class='rec-binding-path'>" + esc(path) + "</div>"
+      + (detail ? "<div class='rec-binding-chips'>" + detail + "</div>" : "")
+      + "<p class='hint' style='margin:8px 0 0'>共通データは候補一覧です。実際の紐づけは、上の会社・所属・役職の選択で決まります。</p>"
+      + "</div>";
   }
 
   function refreshRecFormIfOpen() {
@@ -1300,7 +1322,7 @@
     var ctx = {
       company: rec.company, aff1: rec.aff1, aff2: rec.aff2, aff3: rec.aff3, title: rec.title, postal: rec.postal,
     };
-    var html = "";
+    var html = bindingSummaryHtml(ctx);
     MeishiFields.COLUMNS.forEach(function (c) {
       if (c.key === "no") {
         html += "<div class='field'><label>" + c.label + "</label><input data-k='no' value='" + esc(rec.no || "") + "' readonly /></div>";
