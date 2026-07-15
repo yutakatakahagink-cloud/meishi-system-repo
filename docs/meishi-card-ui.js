@@ -797,6 +797,14 @@
           if (!readOnly) {
             attachDrag(wrap, raw, true);
             attachResize(rs, raw, wrap);
+            wrap.addEventListener("contextmenu", function (ev) {
+              ev.preventDefault();
+              ev.stopPropagation();
+              sel = imgSelId(raw.id);
+              updateSelectionHighlight();
+              onSelect(sel, getLayout());
+              if (confirm("この画像を削除しますか？")) removeImageById(raw.id);
+            });
           } else {
             wrap.style.cursor = "default";
             if (rs) rs.style.display = "none";
@@ -1677,6 +1685,50 @@
       return true;
     }
 
+    function rawImageIdFromSel(selId) {
+      if (!isImgSel(selId)) return "";
+      return String(selId).replace(/^__img:/, "");
+    }
+
+    function removeImageById(imgId) {
+      if (readOnly || !imgId) return false;
+      var layout = getLayout();
+      if (!layout || !Array.isArray(layout.images)) return false;
+      var next = layout.images.filter(function (im) { return im && im.id !== imgId; });
+      if (next.length === layout.images.length) return false;
+      layout.images = next;
+      if (sel === imgSelId(imgId)) sel = null;
+      if (imgNodes[imgId]) {
+        try { imgNodes[imgId].wrap.remove(); } catch (e) {}
+        delete imgNodes[imgId];
+      }
+      saveLayout();
+      renderCard();
+      if (panelShowDesign) panelShowDesign();
+      return true;
+    }
+
+    function removeSelectedImage() {
+      return removeImageById(rawImageIdFromSel(sel));
+    }
+
+    if (!cardEl._meishiImgDelBound) {
+      cardEl._meishiImgDelBound = true;
+      document.addEventListener("keydown", function (ev) {
+        if (readOnly) return;
+        var key = String(ev.key || "");
+        if (key !== "Delete" && key !== "Backspace") return;
+        var t = ev.target;
+        if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable)) return;
+        if (!isImgSel(sel)) return;
+        if (!cardEl.isConnected) return;
+        if (typeof opts.isActive === "function" && !opts.isActive()) return;
+        if (removeSelectedImage()) {
+          ev.preventDefault();
+        }
+      });
+    }
+
     function setCenterDivider(on) {
       var layout = getLayout();
       if (!layout) return false;
@@ -1705,6 +1757,8 @@
       editTextById: editTextById,
       addTextBlock: addTextBlock,
       removeTextBlock: removeTextBlock,
+      removeImageById: removeImageById,
+      removeSelectedImage: removeSelectedImage,
       commitAllTextEdits: commitAllTextEdits,
       setCenterDivider: setCenterDivider,
       getCenterDivider: getCenterDivider,

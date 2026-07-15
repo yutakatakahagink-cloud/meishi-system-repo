@@ -1245,6 +1245,8 @@
     if (key === "aff2") return MeishiCatalog.getAff2List(cat);
     if (key === "aff3") return MeishiCatalog.getAff3List(cat);
     if (key === "title") return MeishiCatalog.getTitleList(cat);
+    if (key === "qual") return MeishiCatalog.getQualList(cat);
+    if (key === "email") return MeishiCatalog.getEmailList(cat);
     if (key === "postal") return MeishiFields.uniq((cat.locations || []).map(function (l) { return l.postal; }).concat(cat.postal || []));
     if (key === "address") return MeishiFields.uniq((cat.locations || []).map(function (l) { return l.address; }).filter(Boolean));
     if (key === "tel") return MeishiFields.uniq((cat.locations || []).map(function (l) { return l.tel; }).filter(Boolean));
@@ -1254,7 +1256,20 @@
     return [];
   }
 
-  function textFieldHtml(c, rec) {
+  function textFieldHtml(c, rec, ctx) {
+    var listId = "";
+    var hint = "";
+    if (c.key === "qual" || c.key === "email") {
+      listId = "recDatalist_" + c.key;
+      var opts = fieldOptions(ctx.company || rec.company, c.key, ctx || {});
+      hint = "共通データの候補から選ぶか、直接入力できます";
+      var dl = "<datalist id='" + listId + "'>" +
+        (opts || []).map(function (v) { return "<option value='" + esc(v) + "'>"; }).join("") +
+        "</datalist>";
+      return "<div class='field'><label>" + c.label + "</label>"
+        + "<input type='text' data-k='" + c.key + "' list='" + listId + "' value='" + esc(rec[c.key] || "") + "' placeholder='" + esc(hint) + "' />"
+        + dl + "</div>";
+    }
     return "<div class='field'><label>" + c.label + "</label><input type='text' data-k='" + c.key + "' value='" + esc(rec[c.key] || "") + "' /></div>";
   }
 
@@ -1329,7 +1344,7 @@
         return;
       }
       if (REC_TEXT_INPUT_KEYS[c.key]) {
-        html += textFieldHtml(c, rec);
+        html += textFieldHtml(c, rec, ctx);
         return;
       }
       html += selectFieldHtml(c, rec, ctx);

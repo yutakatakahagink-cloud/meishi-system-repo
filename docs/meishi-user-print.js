@@ -633,8 +633,10 @@
       }
       var rows = filtered();
       el("inUrl").value = firstNonEmpty(rows, "url");
-      el("inEmail").value = firstNonEmpty(rows, "email");
-      el("inQual").value = firstNonEmpty(rows, "qual");
+      var emailEl = el("inEmail");
+      if (emailEl && !emailEl._pvTyping) emailEl.value = firstNonEmpty(rows, "email");
+      var qualEl = el("inQual");
+      if (qualEl && !qualEl._pvTyping) qualEl.value = firstNonEmpty(rows, "qual");
       var locRows = S.postal ? rows.filter(function (r) { return (r.postal || "") === S.postal; }) : rows;
       el("inAddress").value = firstNonEmpty(locRows, "address");
       el("inTel").value = firstNonEmpty(locRows, "tel");

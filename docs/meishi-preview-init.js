@@ -71,9 +71,46 @@
       return best;
     }
 
+    function escAttr(s) {
+      return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+        return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+      });
+    }
+
+    function renderPersonalImgList() {
+      var list = document.getElementById("pvPersonalImgList");
+      if (!list) return;
+      var imgs = (pvPersonalLayout && pvPersonalLayout.images) || [];
+      if (!imgs.length) {
+        list.innerHTML = "<span class='hint'>（個人画像なし）</span>";
+        return;
+      }
+      list.innerHTML = imgs.map(function (im, i) {
+        var src = window.MeishiImageLib ? MeishiImageLib.itemUrl(im) : (im.src || "");
+        return "<div class='img-item'><img src='" + escAttr(src) + "' alt='' />"
+          + "<button type='button' class='linkbtn' data-pv-img-i='" + i + "' data-pv-img-id='" + escAttr(im.id || "") + "'>削除</button></div>";
+      }).join("");
+      list.querySelectorAll("[data-pv-img-i]").forEach(function (btn) {
+        btn.onclick = function () {
+          if (!pvPersonalLayout) return;
+          var id = btn.getAttribute("data-pv-img-id");
+          var i = +btn.getAttribute("data-pv-img-i");
+          if (id && pvPersonalUI && pvPersonalUI.removeImageById) {
+            pvPersonalUI.removeImageById(id);
+          } else if (pvPersonalLayout.images && pvPersonalLayout.images[i]) {
+            pvPersonalLayout.images.splice(i, 1);
+            if (pvPersonalUI) pvPersonalUI.invalidate();
+            refreshPreviewPersonal();
+          }
+          renderPersonalImgList();
+        };
+      });
+    }
+
     function refreshPreviewPersonal() {
       if (!pvPersonalUI) return;
       pvPersonalUI.renderCard();
+      renderPersonalImgList();
     }
 
     function loadPreviewPersonalImages() {
@@ -82,7 +119,7 @@
       var kojiEl = document.getElementById("pvInKoji");
       if (idx < 0) {
         pvPersonalLayout = newPersonalLayout();
-        if (hint) hint.textContent = "氏名を選ぶと、その人専用の画像を設定できます。";
+        if (hint) hint.textContent = "氏名を選ぶと、その人専用の画像を設定できます。画像はリストの「削除」または画像を選んで Delete キーで消せます。";
         if (kojiEl && !kojiEl._kojiTyping) kojiEl.value = "";
       } else {
         var rec = MeishiStore.getRecords()[idx];
@@ -91,13 +128,38 @@
         if (window.MeishiImageLib) {
           pvPersonalLayout.images = MeishiImageLib.resolveImages(pvPersonalLayout.images);
         }
-        if (hint) hint.textContent = "編集中: #" + rec.no + " " + rec.name + " の個人画像";
+        if (hint) hint.textContent = "編集中: #" + rec.no + " " + rec.name + " の個人画像（削除可）";
         if (kojiEl && !kojiEl._kojiTyping && MeishiStore.getPreviewKoji) {
           kojiEl.value = MeishiStore.getPreviewKoji(rec.no) || "";
         }
       }
       if (pvPersonalUI) pvPersonalUI.invalidate();
       refreshPreviewPersonal();
+    }
+
+    function savePreviewRecordField(field, value) {
+      var idx = findPreviewRecordIndex();
+      if (idx < 0 || !MeishiStore.updateRecord) return;
+      var rec = Object.assign({}, MeishiFields.emptyRecord(), MeishiStore.getRecords()[idx]);
+      rec[field] = String(value == null ? "" : value).trim();
+      MeishiStore.updateRecord(idx, rec);
+      if (userPrint && userPrint.scheduleRebuild) userPrint.scheduleRebuild();
+      else if (userPrint && userPrint.rebuild) userPrint.rebuild();
+    }
+
+    function fillQualEmailDatalists() {
+      var company = previewField("pvSelCompany");
+      if (!company) return;
+      var cat = MeishiStore.getCompanyProfileForEdit(company).catalog || MeishiCatalog.emptyCatalog();
+      function fillList(id, values) {
+        var dl = document.getElementById(id);
+        if (!dl) return;
+        dl.innerHTML = (values || []).map(function (v) {
+          return "<option value=\"" + escAttr(v) + "\">";
+        }).join("");
+      }
+      fillList("pvQualList", MeishiCatalog.getQualList(cat));
+      fillList("pvEmailList", MeishiCatalog.getEmailList(cat));
     }
 
     function savePreviewKojiForSelection() {
@@ -133,6 +195,27 @@
       });
     }
 
+    function bindEditablePreviewField(inputId, recordKey) {
+      var inp = document.getElementById(inputId);
+      if (!inp || inp._pvFieldBound) return;
+      inp._pvFieldBound = true;
+      inp.removeAttribute("readonly");
+      var timer = null;
+      function commit() {
+        inp._pvTyping = false;
+        savePreviewRecordField(recordKey, inp.value);
+      }
+      inp.addEventListener("input", function () {
+        inp._pvTyping = true;
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(commit, 450);
+        if (userPrint && userPrint.scheduleRenderCard) userPrint.scheduleRenderCard();
+        else if (userPrint && userPrint.renderCard) userPrint.renderCard();
+      });
+      inp.addEventListener("change", commit);
+      inp.addEventListener("blur", commit);
+    }
+
     function initPreviewPersonal() {
       if (!pvPersonalLayout) pvPersonalLayout = newPersonalLayout();
       if (!pvPersonalUI) {
@@ -142,7 +225,12 @@
           getElText: function () { return ""; },
           getImages: function () { return pvPersonalLayout.images || []; },
           hideElements: true,
-          onLayoutChange: function () {},
+          isActive: function () {
+            return !!(cfg.isActive ? cfg.isActive() : true);
+          },
+          onLayoutChange: function () {
+            renderPersonalImgList();
+          },
           onSelect: function () {},
         });
       }
@@ -150,7 +238,10 @@
         pvPersonalHooked = true;
         ["pvSelName", "pvSelCompany", "pvSelAff1", "pvSelAff2", "pvSelAff3", "pvSelTitle"].forEach(function (id) {
           var node = document.getElementById(id);
-          if (node) node.addEventListener("change", loadPreviewPersonalImages);
+          if (node) node.addEventListener("change", function () {
+            loadPreviewPersonalImages();
+            fillQualEmailDatalists();
+          });
         });
         if (cfg.allowPersonalEdit !== false) {
           var btnImg = document.getElementById("pvBtnImages");
@@ -164,6 +255,8 @@
           var btnSave = document.getElementById("pvBtnSavePersonal");
           if (btnSave) btnSave.onclick = savePreviewPersonalImages;
         }
+        bindEditablePreviewField("pvInQual", "qual");
+        bindEditablePreviewField("pvInEmail", "email");
         var kojiEl = document.getElementById("pvInKoji");
         if (kojiEl && !kojiEl._kojiBound) {
           kojiEl._kojiBound = true;
@@ -192,6 +285,7 @@
         }
       }
       loadPreviewPersonalImages();
+      fillQualEmailDatalists();
     }
 
     function initPreviewSideToggle() {
