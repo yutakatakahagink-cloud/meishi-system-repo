@@ -1699,8 +1699,11 @@
         setBadge();
         refreshUserUrlFields();
         refreshCoPickOptions();
-        var deptOn = document.getElementById("panel-dept") && document.getElementById("panel-dept").classList.contains("on");
-        if (!deptOn) fillDeptPanel();
+        fillImgLibCoPick();
+        renderImgLibBox();
+        var coOn = document.getElementById("panel-company") && document.getElementById("panel-company").classList.contains("on");
+        if (coOn) fillCoPanel();
+        fillDeptPanel();
         refreshRecFormIfOpen();
         var prevOn = document.getElementById("panel-preview") && document.getElementById("panel-preview").classList.contains("on");
         if (prevOn) initPreviewPanel();

@@ -55,6 +55,8 @@
   let _suppressImgLibRemoteTimer = null;
   let _suppressKojiRemote = false;
   let _suppressKojiRemoteTimer = null;
+  /** 起動中はオーナー含め Firebase を正とする（他PC・本番URLで古い localStorage を使わない） */
+  let _bootPreferRemote = false;
   const IDB_NAME = "meishi_app_v1";
   const IDB_STORE = "kv";
   const IDB_IMG_LIB = "imageLibrary";
@@ -428,8 +430,9 @@
     return Array.isArray(sync) && sync.length > 0;
   }
 
-  /** 所有者端末のみローカル優先。admin / user は他PCでも Firebase を正とする。 */
+  /** 起動中は全ページ Firebase 優先。起動後は所有者のみローカル優先（編集中の上書き防止）。 */
   function shouldPreferRemoteData() {
+    if (_bootPreferRemote) return true;
     return !window.MEISHI_OWNER_PAGE;
   }
 
@@ -2132,156 +2135,158 @@
       _useFirebase = true;
     } catch (e) { return; }
 
-    await ensureFirebaseAuth();
+    _bootPreferRemote = true;
+    try {
+      await ensureFirebaseAuth();
 
-    // 軽量パスのみ待機。巨大な画像ライブラリは待たない（ローカル表示→裏同期）
-    var settled = await Promise.all([
-      loadAuthFromFirebase().catch(function (e) {
-        console.warn("[Meishi] auth load failed", e);
-      }),
-      safeFbOnce(FB_REC_PATH),
-      safeFbOnce(FB_CFG_PATH),
-      safeFbOnce(FB_PREVIEW_PERSONAL_PATH),
-      safeFbOnce(FB_PREVIEW_KOJI_PATH),
-    ]);
-    var snapRec = settled[1];
-    var snapCfg = settled[2];
-    var snapPv = settled[3];
-    var snapKoji = settled[4];
+      // 軽量パスのみ待機。巨大な画像ライブラリは待たない（ローカル表示→裏同期）
+      var settled = await Promise.all([
+        loadAuthFromFirebase().catch(function (e) {
+          console.warn("[Meishi] auth load failed", e);
+        }),
+        safeFbOnce(FB_REC_PATH),
+        safeFbOnce(FB_CFG_PATH),
+        safeFbOnce(FB_PREVIEW_PERSONAL_PATH),
+        safeFbOnce(FB_PREVIEW_KOJI_PATH),
+      ]);
+      var snapRec = settled[1];
+      var snapCfg = settled[2];
+      var snapPv = settled[3];
+      var snapKoji = settled[4];
 
-    try {
-      var rv = snapRec && snapRec.val();
-      if (rv && Array.isArray(rv) && rv.length) {
-        var localRec = loadLocalRec();
-        if (shouldPreferRemoteData() || !localRec || !localRec.length || shouldUpgradeRecordsFromRemote(localRec, rv)) {
-          _records = rv;
-          _mergedRecordsCache = null;
-          try { localStorage.setItem(REC_KEY, JSON.stringify(_records)); } catch (e) {}
-        }
-      }
-    } catch (e) {
-      console.warn("[Meishi] Firebase records apply failed", e);
-    }
-
-    try {
-      var v = snapCfg && snapCfg.val();
-      if (v && typeof v === "object") {
-        mergeConfigFromRemote(v);
-        try { localStorage.setItem(CFG_KEY, JSON.stringify(configForMainStorage())); } catch (e) {}
-      }
-    } catch (e) {
-      console.warn("[Meishi] Firebase config apply failed（hh_data/meishi_config）", e);
-    }
-
-    // 設定マージ後、画像が消えていればローカルから復帰（リモート画像の完了は待たない）
-    if (!getImageLibrariesCount()) {
-      try { await applyLocalImageLibrary(); } catch (e) {}
-    }
-
-    try {
-      var remotePv = snapPv ? snapPv.val() : null;
-      await applyPreviewPersonalWithRemote(remotePv);
-    } catch (e) {
-      console.warn("[Meishi] Firebase preview personal apply failed", e);
-    }
-
-    try {
-      var remoteKoji = snapKoji ? snapKoji.val() : null;
-      if (remoteKoji && typeof remoteKoji === "object") {
-        if (shouldPreferRemoteData() || !Object.keys(_previewKoji || {}).length) {
-          _previewKoji = remoteKoji;
-          try { localStorage.setItem(PREVIEW_KOJI_KEY, JSON.stringify(_previewKoji)); } catch (e) {}
-        } else {
-          Object.keys(remoteKoji).forEach(function (k) {
-            if (!_previewKoji[k] && remoteKoji[k]) _previewKoji[k] = remoteKoji[k];
-          });
-          try { localStorage.setItem(PREVIEW_KOJI_KEY, JSON.stringify(_previewKoji)); } catch (e) {}
-        }
-      }
-    } catch (e) {
-      console.warn("[Meishi] Firebase preview koji apply failed", e);
-    }
-
-    try { _fbDb.ref(FB_CFG_PATH + "/imageLibrary").remove(); } catch (e) {}
-
-    try {
-      _fbDb.ref(FB_AUTH_PATH).on("value", function (snap) {
-        if (_suppressCfgRemote) return;
-        if (applyAuthFromRemote(snap.val())) {
-          try { localStorage.setItem(CFG_KEY, JSON.stringify(configForMainStorage())); } catch (e) {}
-          fireCfg();
-        }
-      });
-    } catch (e) {}
-    try {
-      _fbDb.ref(FB_CFG_PATH).on("value", function (snap) {
-        if (_suppressCfgRemote) return;
-        var val = snap.val();
-        if (val && typeof val === "object") {
-          mergeConfigFromRemote(val);
-          try { localStorage.setItem(CFG_KEY, JSON.stringify(configForMainStorage())); } catch (e) {}
-          fireCfg();
-        }
-      });
-    } catch (e) {}
-    try {
-      _fbDb.ref(FB_REC_PATH).on("value", function (snap) {
-        if (_suppressRecRemote) return;
-        var v2 = snap.val();
-        if (v2 && Array.isArray(v2)) {
-          _records = v2;
-          _mergedRecordsCache = null;
-          try { localStorage.setItem(REC_KEY, JSON.stringify(_records)); } catch (e) {}
-          fireRec();
-        }
-      });
-    } catch (e) {}
-    try {
-      _fbDb.ref(FB_IMG_LIBS_PATH).on("value", function (snap) {
-        if (_suppressImgLibRemote) return;
-        var val = snap.val();
-        void applyImageLibraryWithRemote(val).then(function () { fireCfg(); });
-      });
-    } catch (e) {}
-    try {
-      _fbDb.ref(FB_IMG_LIB_PATH).on("value", function (snap) {
-        if (_suppressImgLibRemote) return;
-        if (getImageLibrariesCount()) return;
-        var val = snap.val();
-        if (!val || !val.length) {
-          if (!getImageLibrariesCount()) {
-            void applyLocalImageLibrary().then(function () { fireCfg(); });
+      try {
+        var rv = snapRec && snapRec.val();
+        if (rv && Array.isArray(rv) && rv.length) {
+          var localRec = loadLocalRec();
+          if (shouldPreferRemoteData() || !localRec || !localRec.length || shouldUpgradeRecordsFromRemote(localRec, rv)) {
+            _records = rv;
+            _mergedRecordsCache = null;
+            try { localStorage.setItem(REC_KEY, JSON.stringify(_records)); } catch (e) {}
           }
-          return;
         }
-        void applyImageLibraryWithRemote(val).then(function () { fireCfg(); });
-      });
-    } catch (e) {}
+      } catch (e) {
+        console.warn("[Meishi] Firebase records apply failed", e);
+      }
 
-    try {
-      _fbDb.ref(FB_PREVIEW_KOJI_PATH).on("value", function (snap) {
-        if (_suppressKojiRemote) return;
-        var val = snap.val();
-        if (val && typeof val === "object") {
-          _previewKoji = val;
-          try { localStorage.setItem(PREVIEW_KOJI_KEY, JSON.stringify(_previewKoji)); } catch (e) {}
+      try {
+        var v = snapCfg && snapCfg.val();
+        if (v && typeof v === "object") {
+          mergeConfigFromRemote(v);
+          try { localStorage.setItem(CFG_KEY, JSON.stringify(configForMainStorage())); } catch (e) {}
         }
-      });
-    } catch (e) {}
+      } catch (e) {
+        console.warn("[Meishi] Firebase config apply failed（hh_data/meishi_config）", e);
+      }
 
-    // 画像ライブラリ: user/admin は起動時に必ず Firebase から取得。owner はローカル空のときのみ
-    try {
-      var snapImgMap = await safeFbOnce(FB_IMG_LIBS_PATH);
-      var mapVal = snapImgMap ? snapImgMap.val() : null;
-      if (shouldPreferRemoteData() || !getImageLibrariesCount()) {
+      // 起動時は画像ライブラリも必ず Firebase から取得（「未登録」のまま残さない）
+      try {
+        var snapImgMap = await safeFbOnce(FB_IMG_LIBS_PATH);
+        var mapVal = snapImgMap ? snapImgMap.val() : null;
         if (mapVal) await applyImageLibraryWithRemote(mapVal);
         else {
           var snapImg = await safeFbOnce(FB_IMG_LIB_PATH);
           await applyImageLibraryWithRemote(snapImg ? snapImg.val() : null);
         }
+      } catch (e) {
+        console.warn("[Meishi] Firebase image library initial load failed", e);
       }
-    } catch (e) {
-      console.warn("[Meishi] Firebase image library initial load failed", e);
+
+      if (!getImageLibrariesCount()) {
+        try { await applyLocalImageLibrary(); } catch (e) {}
+      }
+
+      try {
+        var remotePv = snapPv ? snapPv.val() : null;
+        await applyPreviewPersonalWithRemote(remotePv);
+      } catch (e) {
+        console.warn("[Meishi] Firebase preview personal apply failed", e);
+      }
+
+      try {
+        var remoteKoji = snapKoji ? snapKoji.val() : null;
+        if (remoteKoji && typeof remoteKoji === "object") {
+          if (shouldPreferRemoteData() || !Object.keys(_previewKoji || {}).length) {
+            _previewKoji = remoteKoji;
+            try { localStorage.setItem(PREVIEW_KOJI_KEY, JSON.stringify(_previewKoji)); } catch (e) {}
+          } else {
+            Object.keys(remoteKoji).forEach(function (k) {
+              if (!_previewKoji[k] && remoteKoji[k]) _previewKoji[k] = remoteKoji[k];
+            });
+            try { localStorage.setItem(PREVIEW_KOJI_KEY, JSON.stringify(_previewKoji)); } catch (e) {}
+          }
+        }
+      } catch (e) {
+        console.warn("[Meishi] Firebase preview koji apply failed", e);
+      }
+
+      try { _fbDb.ref(FB_CFG_PATH + "/imageLibrary").remove(); } catch (e) {}
+
+      try {
+        _fbDb.ref(FB_AUTH_PATH).on("value", function (snap) {
+          if (_suppressCfgRemote) return;
+          if (applyAuthFromRemote(snap.val())) {
+            try { localStorage.setItem(CFG_KEY, JSON.stringify(configForMainStorage())); } catch (e) {}
+            fireCfg();
+          }
+        });
+      } catch (e) {}
+      try {
+        _fbDb.ref(FB_CFG_PATH).on("value", function (snap) {
+          if (_suppressCfgRemote) return;
+          var val = snap.val();
+          if (val && typeof val === "object") {
+            mergeConfigFromRemote(val);
+            try { localStorage.setItem(CFG_KEY, JSON.stringify(configForMainStorage())); } catch (e) {}
+            fireCfg();
+          }
+        });
+      } catch (e) {}
+      try {
+        _fbDb.ref(FB_REC_PATH).on("value", function (snap) {
+          if (_suppressRecRemote) return;
+          var v2 = snap.val();
+          if (v2 && Array.isArray(v2)) {
+            _records = v2;
+            _mergedRecordsCache = null;
+            try { localStorage.setItem(REC_KEY, JSON.stringify(_records)); } catch (e) {}
+            fireRec();
+          }
+        });
+      } catch (e) {}
+      try {
+        _fbDb.ref(FB_IMG_LIBS_PATH).on("value", function (snap) {
+          if (_suppressImgLibRemote) return;
+          var val = snap.val();
+          void applyImageLibraryWithRemote(val).then(function () { fireCfg(); });
+        });
+      } catch (e) {}
+      try {
+        _fbDb.ref(FB_IMG_LIB_PATH).on("value", function (snap) {
+          if (_suppressImgLibRemote) return;
+          if (getImageLibrariesCount()) return;
+          var val = snap.val();
+          if (!val || !val.length) {
+            if (!getImageLibrariesCount()) {
+              void applyLocalImageLibrary().then(function () { fireCfg(); });
+            }
+            return;
+          }
+          void applyImageLibraryWithRemote(val).then(function () { fireCfg(); });
+        });
+      } catch (e) {}
+
+      try {
+        _fbDb.ref(FB_PREVIEW_KOJI_PATH).on("value", function (snap) {
+          if (_suppressKojiRemote) return;
+          var val = snap.val();
+          if (val && typeof val === "object") {
+            _previewKoji = val;
+            try { localStorage.setItem(PREVIEW_KOJI_KEY, JSON.stringify(_previewKoji)); } catch (e) {}
+          }
+        });
+      } catch (e) {}
+    } finally {
+      _bootPreferRemote = false;
     }
   }
 
