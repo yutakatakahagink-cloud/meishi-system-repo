@@ -556,15 +556,23 @@
       return !!(txt && /[\r\n]/.test(txt));
     }
 
-    /** プレビュー：資格が空なら所属・役職を一段下げる（改行ありは除く） */
+    /** プレビュー用：資格空→所属・役職↓／携帯空→メール・工事件名↑ */
     function flowBaseY(id, st, layout) {
       if (!textFlow || !readOnly) return st.y;
-      if (id !== "aff" && id !== "title") return st.y;
-      if (getElText("qual")) return st.y;
-      if (hasLineBreak(getElText(id))) return st.y;
-      var qualSt = layout.el.qual;
-      if (qualSt) return st.y + singleLineHeight(qualSt);
-      return st.y;
+      var y = st.y;
+      if ((id === "aff" || id === "title") && !String(getElText("qual") || "").trim()) {
+        if (!hasLineBreak(getElText(id))) {
+          var qualSt = layout.el.qual;
+          if (qualSt) y += singleLineHeight(qualSt);
+        }
+      }
+      if ((id === "email" || id === "koji") && !String(getElText("mobile") || "").trim()) {
+        if (!hasLineBreak(getElText(id))) {
+          var mobSt = layout.el.mobile;
+          if (mobSt) y -= singleLineHeight(mobSt);
+        }
+      }
+      return y;
     }
 
     function collectFlowItems(layout, zoneSide) {
@@ -582,6 +590,18 @@
       return items;
     }
 
+    function elementExtraHeight(item) {
+      var lineH = singleLineHeight(item.st);
+      var h = item.node.offsetHeight || lineH;
+      var extra = Math.max(0, h - lineH);
+      if (extra > 0) return extra;
+      // 住所が改行を含む2段なら、続く TEL/FAX/URL を1行分下げる
+      if (item.id === "address" && hasLineBreak(getElText("address"))) {
+        return lineH;
+      }
+      return 0;
+    }
+
     function reflowTextElements(layout) {
       if (!textFlow || hideElements) return;
       ["left", "right"].forEach(function (zoneSide) {
@@ -590,10 +610,7 @@
         var wrapPush = 0;
         items.forEach(function (item) {
           item.node.style.top = (item.baseY + wrapPush) + "px";
-          if (item.node.getAttribute("data-text-wrapped") === "1") {
-            var extra = Math.max(0, item.node.offsetHeight - singleLineHeight(item.st));
-            wrapPush += extra;
-          }
+          wrapPush += elementExtraHeight(item);
         });
       });
     }

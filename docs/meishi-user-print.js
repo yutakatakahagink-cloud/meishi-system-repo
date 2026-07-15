@@ -403,7 +403,8 @@
       if (skipAutoPick) {
         nextVal = "";
         if (S[stateKey] !== "") { S[stateKey] = ""; changed = true; }
-      } else if (arr.length === 1 && stateKey !== "aff2" && stateKey !== "aff3") {
+      } else if (arr.length === 1) {
+        // 候補が1件なら所属2・3も含め自動選択
         if (S[stateKey] !== arr[0]) changed = true;
         S[stateKey] = arr[0];
         nextVal = arr[0];
@@ -606,11 +607,12 @@
     function rebuild() {
       var opts = computeCascadeOptions();
       if (pruneAgainst(opts)) opts = computeCascadeOptions();
-      if (applyCascadeOptions(opts, false)) {
-        // 自動選択で S が変わった場合だけもう1回
+      // 氏名選択後、紐づく候補が1件ずつのとき連鎖的に自動選択
+      var guard = 0;
+      while (guard++ < 8) {
+        if (!applyCascadeOptions(opts, false)) break;
         opts = computeCascadeOptions();
-        pruneAgainst(opts);
-        applyCascadeOptions(opts, false);
+        if (pruneAgainst(opts)) opts = computeCascadeOptions();
       }
       var rows = filtered();
       el("inUrl").value = firstNonEmpty(rows, "url");

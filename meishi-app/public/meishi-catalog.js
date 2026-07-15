@@ -51,12 +51,16 @@
       pathKey(aff1, aff2, aff3),
       pathKey(aff1, aff2),
       pathKey(aff1),
-      "*",
     ];
+    var out = [];
     for (var i = 0; i < keys.length; i++) {
-      if (map && map[keys[i]] && map[keys[i]].length) return map[keys[i]];
+      if (map && map[keys[i]] && map[keys[i]].length) {
+        out = out.concat(map[keys[i]]);
+        break;
+      }
     }
-    return [];
+    if (map && map["*"] && map["*"].length) out = out.concat(map["*"]);
+    return MeishiFields.uniq(out);
   }
 
   function buildCatalogFromRecords(records, company) {
@@ -131,9 +135,21 @@
     return cat;
   }
 
-  function getAff2List(cat, aff1) { return (cat && cat.aff2 && cat.aff2[MeishiFields.norm(aff1)]) || []; }
-  function getAff3List(cat, aff1, aff2) { return (cat && cat.aff3 && cat.aff3[pathKey(aff1, aff2)]) || []; }
-  function getTitleList(cat, aff1, aff2, aff3) { return (cat && cat.title && cat.title[pathKey(aff1, aff2, aff3)]) || []; }
+  function getAff2List(cat, aff1) {
+    var a = (cat && cat.aff2 && cat.aff2[MeishiFields.norm(aff1)]) || [];
+    var u = (cat && cat.aff2 && cat.aff2["*"]) || [];
+    return MeishiFields.uniq(a.concat(u));
+  }
+  function getAff3List(cat, aff1, aff2) {
+    var a = (cat && cat.aff3 && cat.aff3[pathKey(aff1, aff2)]) || [];
+    var u = (cat && cat.aff3 && cat.aff3["*"]) || [];
+    return MeishiFields.uniq(a.concat(u));
+  }
+  function getTitleList(cat, aff1, aff2, aff3) {
+    var a = (cat && cat.title && cat.title[pathKey(aff1, aff2, aff3)]) || [];
+    var u = (cat && cat.title && cat.title["*"]) || [];
+    return MeishiFields.uniq(a.concat(u));
+  }
   function getQualList(cat, ctx) { return getListByPath(cat.qual, ctx.aff1, ctx.aff2, ctx.aff3, ctx.title); }
   function getMobileList(cat, ctx) { return getListByPath(cat.mobile, ctx.aff1, ctx.aff2, ctx.aff3, ctx.title); }
   function getEmailList(cat, ctx) { return getListByPath(cat.email, ctx.aff1, ctx.aff2, ctx.aff3, ctx.title); }
