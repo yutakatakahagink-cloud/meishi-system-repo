@@ -88,14 +88,33 @@
         names.push(n);
         if (r.furigana) kana[n] = String(r.furigana).trim();
       }
-      names.sort(function (a, b) {
-        var ka = kana[a] || a;
-        var kb = kana[b] || b;
-        var c = String(ka).localeCompare(String(kb), "ja");
-        return c || String(a).localeCompare(String(b), "ja");
-      });
+      names.sort(compareNamesAiroWithMap(kana));
       nameOptionsUniverse = names;
       nameFuriganaMap = kana;
+    }
+
+    /** カタカナ→ひらがな（あいうえお順用） */
+    function toHiraganaKey(s) {
+      return String(s || "").replace(/[\u30A1-\u30F6]/g, function (ch) {
+        return String.fromCharCode(ch.charCodeAt(0) - 0x60);
+      });
+    }
+
+    function compareNamesAiroWithMap(kanaMap) {
+      return function (a, b) {
+        var ka = toHiraganaKey((kanaMap && kanaMap[a]) || a);
+        var kb = toHiraganaKey((kanaMap && kanaMap[b]) || b);
+        var c = ka.localeCompare(kb, "ja");
+        return c || String(a).localeCompare(String(b), "ja");
+      };
+    }
+
+    function compareNamesAiro(a, b) {
+      return compareNamesAiroWithMap(nameFuriganaMap)(a, b);
+    }
+
+    function sortNamesAiro(list) {
+      return (list || []).slice().sort(compareNamesAiro);
     }
 
     function reloadRecords() {
@@ -142,9 +161,7 @@
           if (aff2 && (r.aff2 || "") !== aff2) return false;
           if (aff3 && (r.aff3 || "") !== aff3) return false;
           return true;
-        }, "name").sort(function (a, b) {
-          return String(a).localeCompare(String(b), "ja");
-        }),
+        }, "name").sort(compareNamesAiro),
         company: collectField(function (r) {
           if (name && r.name !== name) return false;
           return true;
@@ -300,7 +317,7 @@
         // プルダウン: 会社・所属などカスケード該当の氏名（未選択時は全氏名）
         source = nameOptionsAll.length ? nameOptionsAll : nameOptionsUniverse;
       }
-      return source.filter(function (v) { return nameMatchesQuery(v, q); });
+      return sortNamesAiro(source.filter(function (v) { return nameMatchesQuery(v, q); }));
     }
 
     function setNameComboOpen(open) {
@@ -369,7 +386,7 @@
       var inp = el("selName");
       if (!inp) return false;
       var field = inp.closest(".field");
-      nameOptionsAll = Array.isArray(nameValues) ? nameValues.slice() : optionValuesFor("name");
+      nameOptionsAll = sortNamesAiro(Array.isArray(nameValues) ? nameValues : optionValuesFor("name"));
       var changed = false;
       inp.disabled = false;
       if (field) field.classList.remove("field-disabled");

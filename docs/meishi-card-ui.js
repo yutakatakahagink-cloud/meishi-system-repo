@@ -90,9 +90,12 @@
   ];
   /** 長いときに改行してよい項目 */
   var WRAP_ELIGIBLE_IDS = {
-    company: true, aff: true, title: true, name: true, qual: true, koji: true,
+    company: true, aff: true, title: true, qual: true, koji: true,
     address: true, mobile: true, email: true, url: true,
+    // name は中央線越え時に改行せず文字サイズ縮小（SHRINK_TO_ZONE_IDS）
   };
+  /** 中央線（ゾーン幅）を超えるとき折り返しではなくフォント縮小する項目 */
+  var SHRINK_TO_ZONE_IDS = { name: true };
   /** 改行しない項目（TEL/FAX など1行表示） */
   var NO_WRAP_IDS = { telfax: true };
 
@@ -482,6 +485,7 @@
     function applyTextWrapIfOverflow(node, st, txt, elId) {
       clearTextWrapStyle(node);
       if (!useAutoWrap() || !txt || NO_WRAP_IDS[elId] || !WRAP_ELIGIBLE_IDS[elId]) return false;
+      if (SHRINK_TO_ZONE_IDS[elId]) return false;
       var side = textElementSide(st);
       var mw = textMaxWidth(st);
       var lineH = singleLineHeight(st);
@@ -503,6 +507,38 @@
       return true;
     }
 
+    /** 氏名など：中央線（ゾーン幅）を超える場合は1行のままフォントを縮小 */
+    function fitFontSizeToZoneWidth(node, st, maxW) {
+      clearTextWrapStyle(node);
+      node.style.whiteSpace = "nowrap";
+      node.style.wordBreak = "normal";
+      node.style.overflowWrap = "normal";
+      node.style.maxWidth = maxW + "px";
+      node.style.width = "";
+      node.style.overflow = "visible";
+      node.style.textOverflow = "";
+      var base = st.size;
+      var minPx = Math.max(8, Math.round(base * 0.45));
+      node.style.fontSize = base + "px";
+      if (node.scrollWidth <= maxW + 0.5) return base;
+      var lo = minPx;
+      var hi = base;
+      var best = minPx;
+      while (lo <= hi) {
+        var mid = (lo + hi) >> 1;
+        node.style.fontSize = mid + "px";
+        if (node.scrollWidth <= maxW + 0.5) {
+          best = mid;
+          lo = mid + 1;
+        } else {
+          hi = mid - 1;
+        }
+      }
+      node.style.fontSize = best + "px";
+      node.setAttribute("data-font-fitted", "1");
+      return best;
+    }
+
     function applyElStyle(node, st, txt, label, elId) {
       if (st.hidden) node.style.display = "none";
       else node.style.display = "";
@@ -511,6 +547,7 @@
         node.textContent = "〔" + label + "〕";
         if (readOnly) node.style.display = "none";
         clearTextWrapStyle(node);
+        node.removeAttribute("data-font-fitted");
       } else {
         node.classList.remove("empty");
         node.textContent = txt;
@@ -525,6 +562,12 @@
       if (MeishiLayout.applyTextBgStyle) MeishiLayout.applyTextBgStyle(node, st);
       node.style.overflow = "";
       node.style.textOverflow = "";
+      node.removeAttribute("data-font-fitted");
+      if (useZoneTextLayout() && txt && SHRINK_TO_ZONE_IDS[elId]) {
+        fitFontSizeToZoneWidth(node, st, textMaxWidth(st));
+        enforceZoneBounds(node, st);
+        return;
+      }
       if (useZoneTextLayout() && txt) {
         var mw = textMaxWidth(st);
         node.style.maxWidth = mw + "px";
