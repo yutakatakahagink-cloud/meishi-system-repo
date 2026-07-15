@@ -733,8 +733,16 @@
       syncLegacyImageLibraryMirror();
       return;
     }
-    // owner: 実データがあるときだけローカル優先（空のキーだけがある場合はリモートを採用）
+    // owner: 実データがあるときだけローカル優先。ただしリモートの方が多い場合は採用（他PC反映）
+    var remoteCount = 0;
+    Object.keys(remoteMap).forEach(function (k) { remoteCount += (remoteMap[k] || []).length; });
     if (localImageLibrariesHasItems() || getImageLibrariesCount() > 0) {
+      if (remoteCount > getImageLibrariesCount()) {
+        _imageLibraries = remoteMap;
+        await saveImageLibrariesToStorage(remoteMap);
+        syncLegacyImageLibraryMirror();
+        return;
+      }
       if (!getImageLibrariesCount()) await applyLocalImageLibrary();
       return;
     }
@@ -849,6 +857,35 @@
     return normalizeDeptProfile(clone(lv), lv.company || rv.company, lv.aff1 || rv.aff1, lv.aff2 != null ? lv.aff2 : (rv.aff2 || ""));
   }
 
+  function layoutRichness(layout) {
+    if (!layout || typeof layout !== "object") return 0;
+    var n = coerceToArray(layout.images).length;
+    n += coerceToArray(layout.texts).length;
+    if (layout.el && typeof layout.el === "object") {
+      Object.keys(layout.el).forEach(function (id) {
+        var st = layout.el[id];
+        if (!st || typeof st !== "object") return;
+        if (st.font || st.bold || st.size) n += 1;
+      });
+    }
+    return n;
+  }
+
+  function pickRicherLayout(localLayout, remoteLayout, isBack) {
+    var validLocal = isBack
+      ? (localLayout && MeishiLayout.isValidBackLayout(localLayout))
+      : (localLayout && MeishiLayout.isValidLayout(localLayout));
+    var validRemote = isBack
+      ? (remoteLayout && MeishiLayout.isValidBackLayout(remoteLayout))
+      : (remoteLayout && MeishiLayout.isValidLayout(remoteLayout));
+    if (validRemote && (!validLocal || layoutRichness(remoteLayout) > layoutRichness(localLayout))) {
+      return clone(remoteLayout);
+    }
+    if (validLocal) return clone(localLayout);
+    if (validRemote) return clone(remoteLayout);
+    return null;
+  }
+
   function mergeSettingsMaps(localMap, remoteMap, preferRemote) {
     localMap = localMap && typeof localMap === "object" ? localMap : {};
     remoteMap = remoteMap && typeof remoteMap === "object" ? remoteMap : {};
@@ -865,7 +902,14 @@
       var lv = out[k];
       if (rv && typeof rv === "object" && lv && typeof lv === "object") {
         if (k.indexOf("|") >= 0) {
-          out[k] = mergeDeptSettingsEntry(lv, rv, false);
+          // 部署: リモートの方が画像が多い場合はリモートを採用（他PC反映）
+          var localDeptImgs = coerceToArray((lv.layout && lv.layout.images) || lv.images).length;
+          var remoteDeptImgs = coerceToArray((rv.layout && rv.layout.images) || rv.images).length;
+          if (remoteDeptImgs > localDeptImgs) {
+            out[k] = mergeDeptSettingsEntry(lv, rv, true);
+          } else {
+            out[k] = mergeDeptSettingsEntry(lv, rv, false);
+          }
         } else {
           out[k] = Object.assign({}, rv, lv);
           if (rv.forceLayoutFromRemote) {
@@ -879,16 +923,10 @@
             }
             delete out[k].forceLayoutFromRemote;
           } else {
-            if (lv.layout && MeishiLayout.isValidLayout(lv.layout)) {
-              out[k].layout = clone(lv.layout);
-            } else if (rv.layout && MeishiLayout.isValidLayout(rv.layout)) {
-              out[k].layout = clone(rv.layout);
-            }
-            if (lv.layoutBack && MeishiLayout.isValidBackLayout(lv.layoutBack)) {
-              out[k].layoutBack = clone(lv.layoutBack);
-            } else if (rv.layoutBack && MeishiLayout.isValidBackLayout(rv.layoutBack)) {
-              out[k].layoutBack = clone(rv.layoutBack);
-            }
+            var front = pickRicherLayout(lv.layout, rv.layout, false);
+            if (front) out[k].layout = front;
+            var back = pickRicherLayout(lv.layoutBack, rv.layoutBack, true);
+            if (back) out[k].layoutBack = back;
           }
         }
       } else {
@@ -1011,15 +1049,9 @@
   }
 
   async function publishOwnerSnapshotToRemote() {
+    // 起動時の自動アップロードは行わない（他PCの空・古いローカルで Firebase を壊すため）。
+    // 明示保存（persistCfg）のときだけリモートへ書く。
     if (!_useFirebase || !_fbDb || !window.MEISHI_OWNER_PAGE) return;
-    var hasCo = Object.keys(_config.companySettings || {}).length > 0;
-    var hasDept = Object.keys(_config.deptSettings || {}).length > 0;
-    var hasLib = getImageLibrariesCount() > 0;
-    var hasPv = Object.keys(_previewPersonal || {}).length > 0;
-    if (!hasCo && !hasDept && !hasLib && !hasPv && !(_records && _records.length)) return;
-    // 設定・レコードのみ。画像ライブラリの起動時フルアップロードは行わない（毎回数秒〜かかるため）
-    persistCfg();
-    persistRec();
   }
 
   function safeFbOnce(path) {
@@ -2307,6 +2339,10 @@
     }
     await publishOwnerSnapshotToRemote();
     migrateDeptKeys();
+    // 所有者他PC: 起動直後にローカルへ取り込んだリモート設定をディスクへ保存（次回も同じ内容）
+    if (window.MEISHI_OWNER_PAGE && _useFirebase) {
+      try { localStorage.setItem(CFG_KEY, JSON.stringify(configForMainStorage())); } catch (e) {}
+    }
     _ready = true;
   }
 
