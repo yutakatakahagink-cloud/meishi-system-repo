@@ -101,7 +101,7 @@
     if (!window.MEISHI_ADMIN_PAGE) return;
     var can = !!(currentCo && MeishiStore.adminCanEditCompany && MeishiStore.adminCanEditCompany(currentCo));
     [
-      "btnSaveCo", "btnCoAdd", "btnCoRename", "btnCoDel", "btnCoSyncCat",
+      "btnSaveCoCatalog", "btnSaveCoDesign", "btnCoAdd", "btnCoRename", "btnCoDel", "btnCoSyncCat",
       "btnCoFrontText", "btnCoImgPick", "btnCoFrontDivider", "btnCoDesReset",
       "btnCoBackText", "btnCoBackImgPick", "btnCoBackDivider", "btnCoBackDesReset",
       "btnSaveDept", "btnRecSave", "btnRecDel", "btnRecAdd"
@@ -674,9 +674,8 @@
     if (coBackUI) coBackUI.invalidate();
   }
 
-  function afterCoSaveRefresh() {
+  function afterCoCatalogSaveRefresh() {
     window._coCatalogMutations = [];
-    reloadCoLayoutFromStore();
     window._coSavedCatalogSnapshot = cloneCat(MeishiStore.getCompanyProfileForEdit(currentCo).catalog);
     window._coEditingCatalog = cloneCat(window._coSavedCatalogSnapshot);
     window._coSyncBaseline = cloneCat(window._coSavedCatalogSnapshot);
@@ -684,16 +683,50 @@
     refreshRecFormIfOpen();
     renderRecTable();
     fillDeptPanel();
+    initPreviewPanel();
+    syncRemoteAfterSave();
+  }
+
+  function afterCoDesignSaveRefresh() {
+    reloadCoLayoutFromStore();
     refreshCoDesign();
     refreshCoBackDesign();
     initPreviewPanel();
     syncRemoteAfterSave();
   }
 
+  /** 互換: 両方まとめて保存したあと用 */
+  function afterCoSaveRefresh() {
+    afterCoCatalogSaveRefresh();
+    afterCoDesignSaveRefresh();
+  }
+
   function collectCoProfile() {
     return {
       company: currentCo,
       catalog: cloneCat(window._coEditingCatalog) || MeishiCatalog.emptyCatalog(),
+      layout: MeishiCatalog.normalizeLayout(MeishiLayout.clone(coLayout)),
+      layoutBack: MeishiCatalog.normalizeBackLayout(MeishiLayout.clone(coLayoutBack || MeishiLayout.defBackLayout())),
+    };
+  }
+
+  /** 共通データのみ保存（未保存のデザイン編集は上書きしない） */
+  function collectCoCatalogProfile() {
+    var existing = MeishiStore.getCompanyProfileForEdit(currentCo) || {};
+    return {
+      company: currentCo,
+      catalog: cloneCat(window._coEditingCatalog) || MeishiCatalog.emptyCatalog(),
+      layout: existing.layout ? MeishiLayout.clone(existing.layout) : null,
+      layoutBack: existing.layoutBack ? MeishiLayout.clone(existing.layoutBack) : null,
+    };
+  }
+
+  /** 名刺デザインのみ保存（未保存の共通データ編集は上書きしない） */
+  function collectCoDesignProfile() {
+    var existing = MeishiStore.getCompanyProfileForEdit(currentCo) || {};
+    return {
+      company: currentCo,
+      catalog: cloneCat(existing.catalog) || MeishiCatalog.emptyCatalog(),
       layout: MeishiCatalog.normalizeLayout(MeishiLayout.clone(coLayout)),
       layoutBack: MeishiCatalog.normalizeBackLayout(MeishiLayout.clone(coLayoutBack || MeishiLayout.defBackLayout())),
     };
@@ -1485,15 +1518,26 @@
       afterCoSaveRefresh();
       alert("名刺データからマスタを取り込み、関連データを更新しました");
     };
-    document.getElementById("btnSaveCo").onclick = function () {
-      if (coUI && coUI.commitAllTextEdits) coUI.commitAllTextEdits();
-      if (coBackUI && coBackUI.commitAllTextEdits) coBackUI.commitAllTextEdits();
-      syncCoCatalogToRecords(null);
-      var pending = collectCoSaveMutations();
-      MeishiStore.saveCompanyProfile(currentCo, collectCoProfile(), pending);
-      afterCoSaveRefresh();
-      alert("会社共通を保存し、関連データを更新しました");
-    };
+    var btnSaveCatalog = document.getElementById("btnSaveCoCatalog");
+    if (btnSaveCatalog) {
+      btnSaveCatalog.onclick = function () {
+        syncCoCatalogToRecords(null);
+        var pending = collectCoSaveMutations();
+        MeishiStore.saveCompanyProfile(currentCo, collectCoCatalogProfile(), pending);
+        afterCoCatalogSaveRefresh();
+        alert("共通データを保存し、関連データを更新しました");
+      };
+    }
+    var btnSaveDesign = document.getElementById("btnSaveCoDesign");
+    if (btnSaveDesign) {
+      btnSaveDesign.onclick = function () {
+        if (coUI && coUI.commitAllTextEdits) coUI.commitAllTextEdits();
+        if (coBackUI && coBackUI.commitAllTextEdits) coBackUI.commitAllTextEdits();
+        MeishiStore.saveCompanyProfile(currentCo, collectCoDesignProfile(), null);
+        afterCoDesignSaveRefresh();
+        alert("名刺デザインを保存しました");
+      };
+    }
     document.getElementById("btnCoImgPick").onclick = function () {
       pickImagesIntoLayout(coLayout, "co", function () { refreshCoDesign(); });
     };

@@ -513,7 +513,7 @@
       else render(container, cat, onRefresh, onMutate);
     }
 
-    var html = "<p class='hint'>左の項目をクリックすると、右に登録済みデータと紐づき先が表示されます。役職・資格などは紐づけ任意（未選択＝紐づけなし）で登録できます。名称変更すると名刺データ・部署共通にも即時反映されます。最後に「会社共通を保存」を押してください。</p>";
+    var html = "<p class='hint'>左の項目をクリックすると、右に登録済みデータと紐づき先が表示されます。役職・資格などは紐づけ任意（未選択＝紐づけなし）で登録できます。名称変更すると名刺データ・部署共通にも即時反映されます。最後に「共通データを保存」を押してください。</p>";
     html += "<div class='cat-master-detail'>";
     html += "<nav class='cat-field-nav'>";
     FIELD_TYPES.forEach(function (ft) {
