@@ -482,6 +482,17 @@
       node.removeAttribute("data-zone-side");
     }
 
+    /** 住所：折り返し時は「丁目」の直後で改行（既に改行あり／丁目なしはそのまま） */
+    function preferAddressBreakAfterChome(txt) {
+      var s = String(txt == null ? "" : txt).replace(/\r\n/g, "\n");
+      if (!s || s.indexOf("\n") >= 0) return s;
+      var at = s.indexOf("丁目");
+      if (at < 0) return s;
+      at += 2;
+      if (at >= s.length) return s;
+      return s.slice(0, at) + "\n" + s.slice(at).replace(/^\s+/, "");
+    }
+
     function applyTextWrapIfOverflow(node, st, txt, elId) {
       clearTextWrapStyle(node);
       if (!useAutoWrap() || !txt || NO_WRAP_IDS[elId] || !WRAP_ELIGIBLE_IDS[elId]) return false;
@@ -489,6 +500,41 @@
       var side = textElementSide(st);
       var mw = textMaxWidth(st);
       var lineH = singleLineHeight(st);
+
+      // 1行で収まるか（nowrap で幅超過を判定）
+      node.textContent = txt;
+      node.style.whiteSpace = "nowrap";
+      node.style.maxWidth = mw + "px";
+      node.style.width = mw + "px";
+      var needsWrap = node.scrollWidth > mw + 0.5 || node.scrollHeight > lineH + 1;
+      if (!needsWrap) {
+        clearTextWrapStyle(node);
+        node.textContent = txt;
+        return false;
+      }
+
+      // 住所は「丁目」の後で明示改行
+      if (elId === "address") {
+        var broken = preferAddressBreakAfterChome(txt);
+        if (broken !== txt && broken.indexOf("\n") >= 0) {
+          node.textContent = broken;
+          node.style.whiteSpace = "pre-wrap";
+          node.style.wordBreak = "keep-all";
+          node.style.overflowWrap = "normal";
+          node.style.maxWidth = mw + "px";
+          node.style.width = mw + "px";
+          if (textElementSide(st) !== side) {
+            clearTextWrapStyle(node);
+            node.textContent = txt;
+            return false;
+          }
+          node.setAttribute("data-text-wrapped", "1");
+          node.setAttribute("data-zone-side", side);
+          return true;
+        }
+      }
+
+      node.textContent = txt;
       node.style.whiteSpace = "pre-wrap";
       node.style.wordBreak = "break-word";
       node.style.overflowWrap = "anywhere";
