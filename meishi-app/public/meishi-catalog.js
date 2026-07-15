@@ -168,15 +168,37 @@
   function normalizeLayout(layout) {
     if (!layout || !layout.el) return MeishiLayout.defLayout();
     if (!Array.isArray(layout.images)) {
-      layout.images = [];
-      if (layout.img && (layout.img.src || layout.img.w)) {
+      if (layout.images && typeof layout.images === "object") {
+        var ikeys = Object.keys(layout.images).filter(function (k) { return /^\d+$/.test(k); });
+        if (ikeys.length) {
+          ikeys.sort(function (a, b) { return Number(a) - Number(b); });
+          layout.images = ikeys.map(function (k) { return layout.images[k]; });
+        } else {
+          layout.images = [];
+        }
+      } else {
+        layout.images = [];
+      }
+      if ((!layout.images || !layout.images.length) && layout.img && (layout.img.src || layout.img.w)) {
         layout.images.push({
           id: "img1", src: layout.img.src || "",
           x: layout.img.x || 250, y: layout.img.y || 8, w: layout.img.w || 80, h: layout.img.h || 44,
         });
       }
     }
-    if (!Array.isArray(layout.texts)) layout.texts = [];
+    if (!Array.isArray(layout.texts)) {
+      if (layout.texts && typeof layout.texts === "object") {
+        var tkeys = Object.keys(layout.texts).filter(function (k) { return /^\d+$/.test(k); });
+        if (tkeys.length) {
+          tkeys.sort(function (a, b) { return Number(a) - Number(b); });
+          layout.texts = tkeys.map(function (k) { return layout.texts[k]; });
+        } else {
+          layout.texts = [];
+        }
+      } else {
+        layout.texts = [];
+      }
+    }
     layout.texts = layout.texts.map(function (t, i) {
       if (!t || typeof t !== "object") return MeishiLayout.defTextBlock(i);
       if (!t.id) t.id = "txt" + Date.now() + i;
@@ -220,8 +242,32 @@
 
   function normalizeBackLayout(layout) {
     if (!layout || typeof layout !== "object") return MeishiLayout.defBackLayout();
-    if (!Array.isArray(layout.texts)) layout.texts = [];
-    if (!Array.isArray(layout.images)) layout.images = [];
+    if (!Array.isArray(layout.texts)) {
+      if (layout.texts && typeof layout.texts === "object") {
+        var tkeys = Object.keys(layout.texts).filter(function (k) { return /^\d+$/.test(k); });
+        if (tkeys.length) {
+          tkeys.sort(function (a, b) { return Number(a) - Number(b); });
+          layout.texts = tkeys.map(function (k) { return layout.texts[k]; });
+        } else {
+          layout.texts = [];
+        }
+      } else {
+        layout.texts = [];
+      }
+    }
+    if (!Array.isArray(layout.images)) {
+      if (layout.images && typeof layout.images === "object") {
+        var ikeys = Object.keys(layout.images).filter(function (k) { return /^\d+$/.test(k); });
+        if (ikeys.length) {
+          ikeys.sort(function (a, b) { return Number(a) - Number(b); });
+          layout.images = ikeys.map(function (k) { return layout.images[k]; });
+        } else {
+          layout.images = [];
+        }
+      } else {
+        layout.images = [];
+      }
+    }
     layout.texts = layout.texts.map(function (t, i) {
       if (!t || typeof t !== "object") return MeishiLayout.defTextBlock(i);
       if (!t.id) t.id = "txt" + Date.now() + i;

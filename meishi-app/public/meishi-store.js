@@ -173,6 +173,18 @@
   }
   function clone(v) { try { return JSON.parse(JSON.stringify(v)); } catch (e) { return null; } }
 
+  /** Firebase が配列を {0:..} 形式で返す場合もあるため正規化 */
+  function coerceToArray(v) {
+    if (Array.isArray(v)) return v;
+    if (v && typeof v === "object") {
+      var keys = Object.keys(v).filter(function (k) { return /^\d+$/.test(k); });
+      if (!keys.length) return [];
+      keys.sort(function (a, b) { return Number(a) - Number(b); });
+      return keys.map(function (k) { return v[k]; });
+    }
+    return [];
+  }
+
   function normalizeLibraryItem(item, companyHint) {
     if (!item) return null;
     var co = MeishiFields.norm(companyHint || item.company || "");
@@ -230,7 +242,7 @@
     }
     Object.keys(raw).forEach(function (k) {
       var co = normalizeCompanyKey(k);
-      var arr = Array.isArray(raw[k]) ? raw[k] : [];
+      var arr = coerceToArray(raw[k]);
       out[co] = arr.map(function (item) {
         return normalizeLibraryItem(item, co);
       }).filter(Boolean).map(function (n) {
@@ -715,13 +727,7 @@
     }
 
     if (shouldPreferRemoteData()) {
-      if (imageLibrariesSame(_imageLibraries, remoteMap)) {
-        if (!getImageLibrariesCount()) {
-          _imageLibraries = remoteMap;
-          syncLegacyImageLibraryMirror();
-        }
-        return;
-      }
+      // user / admin: 常に Firebase を正（他端末の空・古いローカルで上書きしない）
       _imageLibraries = remoteMap;
       await saveImageLibrariesToStorage(remoteMap);
       syncLegacyImageLibraryMirror();
@@ -1030,7 +1036,7 @@
     try {
       persistCfg();
       persistRec();
-      await persistImageLibraryStore(getImageLibrary(getImageLibraryContext()), getImageLibraryContext());
+      if (getImageLibrariesCount() > 0) await syncImageLibrariesRemote(_imageLibraries);
       await persistPreviewPersonalStore();
       return { ok: true };
     } catch (e) {
@@ -1203,8 +1209,8 @@
       try {
         _fbDb.ref(FB_CFG_PATH).set(payload);
         _fbCfgLoaded = true;
-        var libMap = getImageLibraries();
-        if (libMap && Object.keys(libMap).length) void persistImageLibraryStore(getImageLibrary(), getImageLibraryContext());
+        // 設定保存時に「現在会社のライブラリだけ」を再セットしない（他社画像を消す事故防止）
+        if (getImageLibrariesCount() > 0) void syncImageLibrariesRemote(_imageLibraries);
       } catch (e) {
         console.warn("[Meishi] config remote save failed", e);
       }
@@ -1272,9 +1278,20 @@
     );
   }
 
+  function findCompanySettingsRaw(company) {
+    var key = MeishiFields.norm(company);
+    var cs = _config.companySettings || {};
+    if (cs[key]) return cs[key];
+    var keys = Object.keys(cs);
+    for (var i = 0; i < keys.length; i++) {
+      if (MeishiFields.norm(keys[i]) === key) return cs[keys[i]];
+    }
+    return null;
+  }
+
   function getCompanyProfileForEdit(company) {
     var key = MeishiFields.norm(company);
-    var raw = (_config.companySettings || {})[key];
+    var raw = findCompanySettingsRaw(key);
     var p = buildProfileFromRaw(raw, key);
     p.catalog = clone(p.catalog) || MeishiCatalog.emptyCatalog();
     if (!hasSavedCatalog(raw)) {
@@ -1422,7 +1439,7 @@
     }
 
     persistCfg();
-    void persistImageLibraryStore(getImageLibrary());
+    if (getImageLibrariesCount() > 0) void syncImageLibrariesRemote(_imageLibraries);
     fireCfg();
   }
 
@@ -1942,7 +1959,7 @@
     }
     _config.deptSettings[k] = out;
     var ok = persistCfg();
-    void persistImageLibraryStore(getImageLibrary());
+    if (getImageLibrariesCount() > 0) void syncImageLibrariesRemote(_imageLibraries);
     if (!ok) return false;
     fireCfg();
     return true;
@@ -1958,21 +1975,42 @@
     return MeishiCatalog.getAff2List(getCompanyProfile(company).catalog, aff1);
   }
 
+  function hydrateLayoutImages(layout, company) {
+    if (!layout || typeof layout !== "object") return layout;
+    var imgs = coerceToArray(layout.images);
+    if (window.MeishiImageLib) {
+      layout.images = MeishiImageLib.resolveImages(imgs, company).map(function (im) {
+        if (im && company && !im.company) im.company = MeishiFields.norm(company);
+        return im;
+      });
+    } else {
+      layout.images = imgs;
+    }
+    return layout;
+  }
+
   function getCompanyLayout(company) {
     var p = getCompanyProfileForEdit(company);
-    if (p.layout && MeishiLayout.isValidLayout(p.layout)) return MeishiCatalog.normalizeLayout(clone(p.layout));
-    var std = _config.defaultLayout;
-    return std && MeishiLayout.isValidLayout(std) ? MeishiCatalog.normalizeLayout(clone(std)) : MeishiLayout.defLayout();
+    var lay;
+    if (p.layout && MeishiLayout.isValidLayout(p.layout)) {
+      lay = MeishiCatalog.normalizeLayout(clone(p.layout));
+    } else {
+      var std = _config.defaultLayout;
+      lay = std && MeishiLayout.isValidLayout(std)
+        ? MeishiCatalog.normalizeLayout(clone(std))
+        : MeishiLayout.defLayout();
+    }
+    return hydrateLayoutImages(lay, company);
   }
 
   function getPrintImages(company, aff1, aff2, personalImages) {
     if (company && typeof setImageLibraryContext === "function") setImageLibraryContext(company);
     var layout = getCompanyLayout(company);
-    var imgs = (layout.images || []).slice();
+    var imgs = coerceToArray(layout.images).slice();
     var dept = getDeptSettings(company, aff1, aff2);
     var dLayout = dept.layout;
-    if (dLayout && dLayout.images) imgs = imgs.concat(dLayout.images);
-    else if (dept.images) imgs = imgs.concat(dept.images);
+    if (dLayout && dLayout.images) imgs = imgs.concat(coerceToArray(dLayout.images));
+    else if (dept.images) imgs = imgs.concat(coerceToArray(dept.images));
     if (personalImages && personalImages.length && window.MeishiImageLib) {
       imgs = imgs.concat(MeishiImageLib.resolveImages(personalImages, company));
     } else if (personalImages && personalImages.length) {
@@ -1987,17 +2025,24 @@
     var dept = getDeptLayout(company, aff1, aff2);
     if (!dept) return base;
     var merged = MeishiLayout.clone(base);
-    if (dept.images && dept.images.length) merged.images = (merged.images || []).concat(MeishiLayout.clone(dept.images));
-    if (dept.texts && dept.texts.length) merged.texts = (merged.texts || []).concat(MeishiLayout.clone(dept.texts));
-    return MeishiCatalog.normalizeLayout(merged);
+    if (dept.images && dept.images.length) {
+      merged.images = coerceToArray(merged.images).concat(MeishiLayout.clone(coerceToArray(dept.images)));
+    }
+    if (dept.texts && dept.texts.length) {
+      merged.texts = coerceToArray(merged.texts).concat(MeishiLayout.clone(coerceToArray(dept.texts)));
+    }
+    return hydrateLayoutImages(MeishiCatalog.normalizeLayout(merged), company);
   }
 
   function getCompanyLayoutBack(company) {
     var p = getCompanyProfileForEdit(company);
+    var lay;
     if (p.layoutBack && MeishiLayout.isValidBackLayout(p.layoutBack)) {
-      return MeishiCatalog.normalizeBackLayout(clone(p.layoutBack));
+      lay = MeishiCatalog.normalizeBackLayout(clone(p.layoutBack));
+    } else {
+      lay = MeishiLayout.defBackLayout();
     }
-    return MeishiLayout.defBackLayout();
+    return hydrateLayoutImages(lay, company);
   }
 
   function getDeptLayoutBack(company, aff1, aff2) {
@@ -2014,19 +2059,19 @@
     var merged = MeishiLayout.clone(base);
     if (dept) {
       if (dept.texts && dept.texts.length) {
-        merged.texts = (merged.texts || []).concat(MeishiLayout.clone(dept.texts));
+        merged.texts = coerceToArray(merged.texts).concat(MeishiLayout.clone(coerceToArray(dept.texts)));
       }
       if (dept.images && dept.images.length) {
-        merged.images = (merged.images || []).concat(MeishiLayout.clone(dept.images));
+        merged.images = coerceToArray(merged.images).concat(MeishiLayout.clone(coerceToArray(dept.images)));
       }
     }
-    return MeishiCatalog.normalizeBackLayout(merged);
+    return hydrateLayoutImages(MeishiCatalog.normalizeBackLayout(merged), company);
   }
 
-  function resolveBackLayoutImages(layout) {
-    var imgs = (layout && layout.images) ? layout.images.slice() : [];
-    if (window.MeishiImageLib) imgs = MeishiImageLib.resolveImages(imgs);
-    return imgs.filter(function (im) { return im && (im.src || im.path || im.libId); });
+  function resolveBackLayoutImages(layout, company) {
+    var imgs = layout ? coerceToArray(layout.images).slice() : [];
+    if (window.MeishiImageLib) imgs = MeishiImageLib.resolveImages(imgs, company);
+    return imgs.filter(function (im) { return im && (im.src || im.path || im.libId || im.file); });
   }
 
   function nextRecordNo() {
@@ -2192,19 +2237,19 @@
       });
     } catch (e) {}
 
-    // ローカルに画像が無い場合は admin / user / owner いずれも Firebase から初回取得
-    if (!getImageLibrariesCount()) {
-      try {
-        var snapImgMap = await safeFbOnce(FB_IMG_LIBS_PATH);
-        var mapVal = snapImgMap ? snapImgMap.val() : null;
+    // 画像ライブラリ: user/admin は起動時に必ず Firebase から取得。owner はローカル空のときのみ
+    try {
+      var snapImgMap = await safeFbOnce(FB_IMG_LIBS_PATH);
+      var mapVal = snapImgMap ? snapImgMap.val() : null;
+      if (shouldPreferRemoteData() || !getImageLibrariesCount()) {
         if (mapVal) await applyImageLibraryWithRemote(mapVal);
         else {
           var snapImg = await safeFbOnce(FB_IMG_LIB_PATH);
           await applyImageLibraryWithRemote(snapImg ? snapImg.val() : null);
         }
-      } catch (e) {
-        console.warn("[Meishi] Firebase image library initial load failed", e);
       }
+    } catch (e) {
+      console.warn("[Meishi] Firebase image library initial load failed", e);
     }
   }
 
