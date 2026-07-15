@@ -645,20 +645,34 @@
       return !!(txt && /[\r\n]/.test(txt));
     }
 
-    /** プレビュー用：資格空→所属・役職↓／携帯空→メール・工事件名↑ */
+    /** デザイン上「表示」の項目か（非表示なら縦ずらしの対象外） */
+    function isElShownInLayout(layout, elId) {
+      var elSt = layout && layout.el && layout.el[elId];
+      return !!(elSt && !elSt.hidden);
+    }
+
+    /**
+     * プレビュー用縦ずらし
+     * 資格が「表示」かつ空 → 所属・役職↓／携帯が「表示」かつ空 → メール・工事件名↑
+     * 対象項目が非表示ならずらさない
+     */
     function flowBaseY(id, st, layout) {
       if (!textFlow || !readOnly) return st.y;
       var y = st.y;
-      if ((id === "aff" || id === "title") && !String(getElText("qual") || "").trim()) {
+      if ((id === "aff" || id === "title")
+          && isElShownInLayout(layout, id)
+          && isElShownInLayout(layout, "qual")
+          && !String(getElText("qual") || "").trim()) {
         if (!hasLineBreak(getElText(id))) {
-          var qualSt = layout.el.qual;
-          if (qualSt) y += singleLineHeight(qualSt);
+          y += singleLineHeight(layout.el.qual);
         }
       }
-      if ((id === "email" || id === "koji") && !String(getElText("mobile") || "").trim()) {
+      if ((id === "email" || id === "koji")
+          && isElShownInLayout(layout, id)
+          && isElShownInLayout(layout, "mobile")
+          && !String(getElText("mobile") || "").trim()) {
         if (!hasLineBreak(getElText(id))) {
-          var mobSt = layout.el.mobile;
-          if (mobSt) y -= singleLineHeight(mobSt);
+          y -= singleLineHeight(layout.el.mobile);
         }
       }
       return y;
