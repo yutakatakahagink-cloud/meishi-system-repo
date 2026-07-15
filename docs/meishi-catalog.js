@@ -145,12 +145,22 @@
     var u = (cat && cat.aff3 && cat.aff3["*"]) || [];
     return MeishiFields.uniq(a.concat(u));
   }
-  function getTitleList(cat, aff1, aff2, aff3) {
-    var a = (cat && cat.title && cat.title[pathKey(aff1, aff2, aff3)]) || [];
-    var u = (cat && cat.title && cat.title["*"]) || [];
-    return MeishiFields.uniq(a.concat(u));
+  function flattenMapLists(map) {
+    var out = [];
+    if (!map) return out;
+    Object.keys(map).forEach(function (k) {
+      out = out.concat(map[k] || []);
+    });
+    return MeishiFields.uniq(out);
   }
-  function getQualList(cat, ctx) { return getListByPath(cat.qual, ctx.aff1, ctx.aff2, ctx.aff3, ctx.title); }
+  /** 役職は紐づけ不要のため全一覧を返す */
+  function getTitleList(cat) {
+    return flattenMapLists(cat && cat.title);
+  }
+  /** 資格は紐づけ不要のため全一覧を返す */
+  function getQualList(cat) {
+    return flattenMapLists(cat && cat.qual);
+  }
   function getMobileList(cat, ctx) { return getListByPath(cat.mobile, ctx.aff1, ctx.aff2, ctx.aff3, ctx.title); }
   function getEmailList(cat, ctx) { return getListByPath(cat.email, ctx.aff1, ctx.aff2, ctx.aff3, ctx.title); }
 

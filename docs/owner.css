@@ -137,13 +137,15 @@ th{background:#f3f6fb;position:sticky;top:0}tr.sel{background:#e8eef8}tr:hover{b
 .cat-count{font-size:.72rem;background:#eef2f7;color:#54607a;padding:2px 7px;border-radius:999px;flex-shrink:0}
 .cat-detail-panel{border:1px solid var(--line);border-radius:8px;padding:12px;background:#fff;min-height:320px;overflow:auto}
 .cat-detail-head{margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--line)}
-.cat-table-wrap{overflow:auto;max-height:220px;margin-bottom:12px}
-.cat-data-table{width:100%;border-collapse:collapse;font-size:.84rem}
-.cat-data-table th,.cat-data-table td{border-bottom:1px solid var(--line);padding:7px 8px;text-align:left;vertical-align:top}
-.cat-data-table th{background:#f7f9fc;font-size:.78rem;color:#54607a;position:sticky;top:0}
-.cat-data-table .col-val{font-weight:600;min-width:100px}
-.cat-data-table .col-link{color:#54607a;font-size:.82rem}
-.cat-data-table .col-act{white-space:nowrap;width:72px}
+.cat-table-wrap{overflow:auto;max-height:280px;margin-bottom:12px}
+.cat-data-table{width:100%;border-collapse:collapse;font-size:.84rem;table-layout:fixed}
+.cat-data-table th,.cat-data-table td{border-bottom:1px solid var(--line);padding:7px 8px;text-align:left;vertical-align:middle}
+.cat-data-table th{background:#f7f9fc;font-size:.78rem;color:#54607a;position:sticky;top:0;z-index:2}
+.cat-data-table .col-act{white-space:nowrap;width:4.8em;position:sticky;left:0;background:#fff;z-index:1;box-shadow:2px 0 4px rgba(28,37,51,.06)}
+.cat-data-table th.col-act{background:#f7f9fc;z-index:3}
+.cat-data-table .col-val{font-weight:600;overflow-wrap:anywhere;word-break:break-word}
+.cat-data-table .col-link{color:#54607a;font-size:.82rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cat-data-table.no-link .col-val{width:auto}
 .cat-add-form{border-top:1px solid var(--line);padding-top:10px;margin-top:4px}
 .cat-add-title{font-size:.82rem;font-weight:700;color:var(--brand-d);margin-bottom:8px}
 .loc-edit-row{padding:8px 0;border-bottom:1px solid var(--line);font-size:.85rem}

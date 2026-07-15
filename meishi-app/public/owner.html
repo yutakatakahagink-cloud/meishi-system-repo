@@ -10,9 +10,9 @@
     <script>window.MEISHI_OWNER_PAGE = true;</script>
     <script src="config.js" onerror="console.info('[Meishi] config.js なし')"></script>
     <script src="meishi-fields.js?v=20250714p"></script>
-    <script src="meishi-catalog.js?v=20250715d"></script>
+    <script src="meishi-catalog.js?v=20250715h"></script>
     <script src="meishi-catalog-sync.js?v=20250615c"></script>
-    <script src="meishi-catalog-editor.js?v=20250715g"></script>
+    <script src="meishi-catalog-editor.js?v=20250715h"></script>
     <script src="meishi-store.js?v=20250715c"></script>
     <script src="meishi-layout.js?v=20250714q"></script>
     <script src="meishi-image-lib.js?v=20250714ad"></script>
@@ -22,7 +22,7 @@
     <script src="meishi-user-print.js?v=20250715e"></script>
     <script src="meishi-preview-init.js?v=20250715d"></script>
     <link rel="stylesheet" href="meishi-print-sheet.css?v=20250714z" />
-    <link rel="stylesheet" href="owner.css?v=20250714z" />
+    <link rel="stylesheet" href="owner.css?v=20250715h" />
   </head>
   <body>
     <header>
@@ -122,13 +122,7 @@
             <input type="checkbox" id="coHiddenForUser" />
           </label>
         </div>
-        <div class="grid2">
-          <div class="card">
-            <h2>共通データ</h2>
-            <div id="coCatalogBody"></div>
-            <button type="button" class="btn" id="btnSaveCoCatalog">共通データを保存</button>
-          </div>
-          <div class="card">
+        <div class="card">
             <h2>名刺デザイン（会社別）</h2>
             <div class="seg card-side-toggle" id="coSideToggle">
               <button type="button" data-side="front" class="on">表</button>
@@ -189,7 +183,6 @@
               </div>
             </div>
             <button type="button" class="btn" id="btnSaveCoDesign" style="margin-top:12px">名刺デザインを保存</button>
-          </div>
         </div>
       </section>
 
@@ -338,8 +331,18 @@
 
       <section id="panel-records" class="panel">
         <div class="card">
+          <h2>共通データ</h2>
+          <p class="hint">名刺のプルダウン候補（所属・役職・資格・所在地など）を会社・団体ごとに管理します。編集後は「共通データを保存」を押してください。</p>
+          <div class="btn-row" style="margin-bottom:10px">
+            <label class="hint" for="recCatalogCoPick">会社・団体</label>
+            <select id="recCatalogCoPick" style="max-width:280px"></select>
+          </div>
+          <div id="coCatalogBody"></div>
+          <button type="button" class="btn" id="btnSaveCoCatalog">共通データを保存</button>
+        </div>
+        <div class="card">
           <h2>名刺データ編集</h2>
-          <p class="hint">会社共通で定義した項目はすべてプルダウン選択。保存前に会社・所属を選んで候補を絞り込みます。</p>
+          <p class="hint">共通データで定義した項目はすべてプルダウン選択。保存前に会社・所属を選んで候補を絞り込みます。</p>
           <div class="btn-row">
             <select id="selRecNo" style="max-width:140px"></select>
             <input id="recSearch" placeholder="検索" style="max-width:200px" />
@@ -370,7 +373,7 @@
         <button type="button" class="btn sm" id="btnQrClose">閉じる</button>
       </div>
     </div>
-    <script src="owner-admin.js?v=20250715g"></script>
+    <script src="owner-admin.js?v=20250715h"></script>
     <script>OwnerAdmin.init();</script>
   </body>
 </html>

@@ -541,6 +541,21 @@
     fillCoPanel();
   }
 
+  function coPickIds() {
+    return ["coPick", "recCatalogCoPick"];
+  }
+
+  function syncCoPickValue(v) {
+    coPickIds().forEach(function (id) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      if (v && [].some.call(el.options, function (o) { return o.value === v; })) el.value = v;
+      else if (el.options.length) el.selectedIndex = 0;
+    });
+    var primary = document.getElementById("coPick") || document.getElementById("recCatalogCoPick");
+    currentCo = primary ? primary.value : (v || "");
+  }
+
   function refreshCoPickOptions() {
     var list = MeishiStore.getCompanyList();
     if (window.MEISHI_ADMIN_PAGE && MeishiStore.adminCanEditCompany) {
@@ -551,14 +566,26 @@
         list = list.filter(function (c) { return MeishiStore.adminCanEditCompany(c); });
       }
     }
-    var sel = document.getElementById("coPick");
-    var cur = sel.value || currentCo;
-    sel.innerHTML = list.length
+    var cur = currentCo;
+    var primary = document.getElementById("coPick") || document.getElementById("recCatalogCoPick");
+    if (primary && primary.value) cur = primary.value;
+    var html = list.length
       ? list.map(function (v) { return "<option>" + esc(v) + "</option>"; }).join("")
       : '<option value="">（担当会社なし）</option>';
-    if (cur && list.indexOf(cur) >= 0) sel.value = cur;
-    else if (list.length) sel.value = list[0];
-    currentCo = sel.value;
+    coPickIds().forEach(function (id) {
+      var sel = document.getElementById(id);
+      if (!sel) return;
+      sel.innerHTML = html;
+    });
+    if (cur && list.indexOf(cur) >= 0) syncCoPickValue(cur);
+    else if (list.length) syncCoPickValue(list[0]);
+    else currentCo = "";
+  }
+
+  function onCoPickChange(ev) {
+    var v = ev && ev.target ? ev.target.value : "";
+    syncCoPickValue(v);
+    fillCoPanel();
   }
 
   function companyDefaults(co) {
@@ -585,7 +612,9 @@
 
   function fillCoPanel() {
     var prevCo = currentCo;
-    currentCo = document.getElementById("coPick").value;
+    var primary = document.getElementById("coPick") || document.getElementById("recCatalogCoPick");
+    currentCo = primary ? primary.value : currentCo;
+    syncCoPickValue(currentCo);
     if (!currentCo) return;
     window._coCatalogMutations = [];
     var p = MeishiStore.getCompanyProfileForEdit(currentCo);
@@ -1483,14 +1512,17 @@
     document.getElementById("btnImgLibAdd").onclick = addImagesToLibrary;
     document.getElementById("btnImgLibRecover").onclick = recoverImagesFromBackup;
     document.getElementById("imgLibFileInput").onchange = onImgLibFilesSelected;
-    document.getElementById("coPick").onchange = fillCoPanel;
+    coPickIds().forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.onchange = onCoPickChange;
+    });
     document.getElementById("btnCoAdd").onclick = function () {
       var n = document.getElementById("coNewName").value.trim();
       if (!n) return alert("会社名を入力してください");
       MeishiStore.addCompany(n);
       document.getElementById("coNewName").value = "";
       fillCoPick();
-      document.getElementById("coPick").value = n;
+      syncCoPickValue(n);
       fillCoPanel();
     };
     document.getElementById("btnCoRename").onclick = function () {
@@ -1499,7 +1531,7 @@
       try {
         MeishiStore.renameCompany(currentCo, n);
         fillCoPick();
-        document.getElementById("coPick").value = n;
+        syncCoPickValue(n);
         fillCoPanel();
         alert("会社名を変更しました");
       } catch (e) { alert(e.message || e); }
