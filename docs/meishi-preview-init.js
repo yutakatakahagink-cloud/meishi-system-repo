@@ -148,18 +148,7 @@
     }
 
     function fillQualEmailDatalists() {
-      var company = previewField("pvSelCompany");
-      if (!company) return;
-      var cat = MeishiStore.getCompanyProfileForEdit(company).catalog || MeishiCatalog.emptyCatalog();
-      function fillList(id, values) {
-        var dl = document.getElementById(id);
-        if (!dl) return;
-        dl.innerHTML = (values || []).map(function (v) {
-          return "<option value=\"" + escAttr(v) + "\">";
-        }).join("");
-      }
-      fillList("pvQualList", MeishiCatalog.getQualList(cat));
-      fillList("pvEmailList", MeishiCatalog.getEmailList(cat));
+      // 資格・メールは共通データから外したため候補一覧は不要
     }
 
     function savePreviewKojiForSelection() {

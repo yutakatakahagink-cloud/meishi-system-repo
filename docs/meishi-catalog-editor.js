@@ -9,9 +9,7 @@
     { id: "aff2", label: "所属2" },
     { id: "aff3", label: "所属3" },
     { id: "title", label: "役職" },
-    { id: "qual", label: "資格" },
     { id: "mobile", label: "携帯" },
-    { id: "email", label: "メール" },
     { id: "postal", label: "郵便番号" },
     { id: "address", label: "住所" },
     { id: "tel", label: "TEL" },
@@ -19,15 +17,13 @@
     { id: "url", label: "URL" },
   ];
 
-  var MAP_FIELDS = { aff2: 1, aff3: 1, title: 1, qual: 1, mobile: 1, email: 1 };
+  var MAP_FIELDS = { aff2: 1, aff3: 1, title: 1, mobile: 1 };
   var PLACEHOLDERS = {
     aff1: "所属1名",
     aff2: "所属2名",
     aff3: "所属3名",
     title: "役職名",
-    qual: "資格",
     mobile: "携帯番号",
-    email: "メール",
     url: "URL",
   };
 
@@ -110,9 +106,7 @@
     if (fieldId === "aff2") return uniqValueRows(MeishiCatalog.flattenMapLists(cat.aff2));
     if (fieldId === "aff3") return uniqValueRows(MeishiCatalog.flattenMapLists(cat.aff3));
     if (fieldId === "title") return uniqValueRows(MeishiCatalog.flattenMapLists(cat.title));
-    if (fieldId === "qual") return uniqValueRows(MeishiCatalog.flattenMapLists(cat.qual));
     if (fieldId === "mobile") return uniqValueRows(MeishiCatalog.flattenMapLists(cat.mobile));
-    if (fieldId === "email") return uniqValueRows(MeishiCatalog.flattenMapLists(cat.email));
     if (fieldId === "url") return uniqValueRows(cat.urls);
     if (fieldId === "postal" || fieldId === "address" || fieldId === "tel" || fieldId === "fax") {
       var rows = [];
@@ -163,7 +157,7 @@
     if (fieldId === "aff2") return { type: "renameAff2", aff1: "*", from: oldV, to: newV };
     if (fieldId === "aff3") return { type: "renameAff3", aff1: "*", aff2: "*", from: oldV, to: newV };
     if (fieldId === "title") return { type: "renameTitle", aff1: "*", aff2: "*", aff3: "*", from: oldV, to: newV };
-    if (fieldId === "qual" || fieldId === "mobile" || fieldId === "email") {
+    if (fieldId === "mobile") {
       return { type: "renameField", field: fieldId, parts: {}, from: oldV, to: newV };
     }
     if (fieldId === "url") return { type: "renameUrl", from: oldV, to: newV };
@@ -175,7 +169,7 @@
     if (fieldId === "aff2") return { type: "deleteAff2", aff1: "*", value: v };
     if (fieldId === "aff3") return { type: "deleteAff3", aff1: "*", aff2: "*", value: v };
     if (fieldId === "title") return { type: "deleteTitle", aff1: "*", aff2: "*", aff3: "*", value: v };
-    if (fieldId === "qual" || fieldId === "mobile" || fieldId === "email") {
+    if (fieldId === "mobile") {
       return { type: "deleteField", field: fieldId, parts: {}, value: v };
     }
     if (fieldId === "url") return { type: "deleteUrl", value: v };
