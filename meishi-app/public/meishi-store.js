@@ -35,10 +35,14 @@
   let _imageLibraries = {};
   let _imageLibContextCompany = DEFAULT_IMAGE_COMPANY;
   let _ready = false;
+  let _authReady = false;
+  let _configBootstrapped = false;
+  let _initPromise = null;
   let _fbDb = null;
   let _useFirebase = false;
   let _fbCfgLoaded = false;
   let _fbAuthLoaded = false;
+  const FB_TIMEOUT_MS = 8000;
   let _suppress = false;
   let _suppressRecRemote = false;
   let _suppressRecRemoteTimer = null;
@@ -969,11 +973,38 @@
     return applied;
   }
 
+  function withTimeout(promise, ms, label) {
+    return new Promise(function (resolve) {
+      var done = false;
+      var t = setTimeout(function () {
+        if (done) return;
+        done = true;
+        console.warn("[Meishi] timeout: " + (label || "op") + " (" + ms + "ms)");
+        resolve(null);
+      }, ms);
+      Promise.resolve(promise).then(
+        function (v) {
+          if (done) return;
+          done = true;
+          clearTimeout(t);
+          resolve(v);
+        },
+        function (e) {
+          if (done) return;
+          done = true;
+          clearTimeout(t);
+          console.warn("[Meishi] failed: " + (label || "op"), e);
+          resolve(null);
+        }
+      );
+    });
+  }
+
   async function loadAuthFromFirebase() {
     if (!_useFirebase || !_fbDb) return false;
     try {
-      var snap = await _fbDb.ref(FB_AUTH_PATH).once("value");
-      if (applyAuthFromRemote(snap.val())) {
+      var snap = await safeFbOnce(FB_AUTH_PATH);
+      if (snap && applyAuthFromRemote(snap.val())) {
         try { localStorage.setItem(CFG_KEY, JSON.stringify(configForMainStorage())); } catch (e) {}
         return true;
       }
@@ -1058,12 +1089,12 @@
   }
 
   function safeFbOnce(path) {
-    return _fbDb.ref(path).once("value").then(function (snap) {
-      return snap;
-    }).catch(function (e) {
-      console.warn("[Meishi] Firebase once failed: " + path, e);
-      return null;
-    });
+    if (!_fbDb) return Promise.resolve(null);
+    return withTimeout(
+      _fbDb.ref(path).once("value"),
+      FB_TIMEOUT_MS,
+      path
+    );
   }
 
   async function syncAllToRemote() {
@@ -1101,12 +1132,79 @@
     }
     try {
       if (auth.currentUser) return true;
-      await auth.signInAnonymously();
+      var signed = await withTimeout(auth.signInAnonymously(), FB_TIMEOUT_MS, "signInAnonymously");
+      if (signed == null && !auth.currentUser) return false;
       return !!auth.currentUser;
     } catch (e) {
       console.warn("[Meishi] Firebase 匿名ログイン失敗（Authentication で「匿名」を有効にしてください）", e);
       return false;
     }
+  }
+
+  function ensureFirebaseApp() {
+    var cfg = window.MEISHI_FIREBASE_CONFIG;
+    if (!(cfg && cfg.databaseURL) || typeof window.firebase === "undefined") return false;
+    if (_fbDb) {
+      _useFirebase = true;
+      return true;
+    }
+    try {
+      if (window.firebase.apps && window.firebase.apps.length) _fbDb = window.firebase.app().database();
+      else {
+        window.firebase.initializeApp(cfg);
+        _fbDb = window.firebase.database();
+      }
+      _useFirebase = true;
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function bootstrapLocalConfig() {
+    if (_configBootstrapped) return;
+    stripLegacyImageLibraryFromLocalConfig();
+    var local = loadLocalCfg();
+    var localAuth = null;
+    if (local) {
+      localAuth = {
+        ownerId: local.ownerId,
+        ownerPass: local.ownerPass,
+        title: local.title,
+      };
+      delete local.ownerId;
+      delete local.ownerPass;
+      _config = Object.assign({}, _config, local);
+    }
+    if (!_config.companySettings) _config.companySettings = {};
+    if (!_config.deptSettings) _config.deptSettings = {};
+    ensureAdminConfigShape();
+    delete _config.imageLibrary;
+    _config.imageLibrary = [];
+    // ローカル保存の認証があれば即ログイン可能にする（Firebase 未取得扱いは維持）
+    if (localAuth && String(localAuth.ownerId || "").trim()) {
+      _config.ownerId = String(localAuth.ownerId).trim();
+      _config.ownerPass = String(localAuth.ownerPass == null ? "" : localAuth.ownerPass);
+      if (localAuth.title != null && String(localAuth.title).trim() !== "") {
+        _config.title = String(localAuth.title).trim();
+      }
+    }
+    _configBootstrapped = true;
+    _authReady = true;
+  }
+
+  /** ログイン UI 用: 認証情報だけ先に用意（重い同期は待たない） */
+  async function initAuthFast() {
+    bootstrapLocalConfig();
+    _authReady = true;
+    if (!ensureFirebaseApp()) return _fbAuthLoaded;
+    try {
+      await ensureFirebaseAuth();
+      await loadAuthFromFirebase();
+    } catch (e) {
+      console.warn("[Meishi] initAuthFast failed", e);
+    }
+    return _fbAuthLoaded;
   }
 
   function isDataLibraryItem(item) {
@@ -2127,13 +2225,7 @@
   }
 
   async function initFirebase() {
-    var cfg = window.MEISHI_FIREBASE_CONFIG;
-    if (!(cfg && cfg.databaseURL) || typeof window.firebase === "undefined") return;
-    try {
-      if (window.firebase.apps && window.firebase.apps.length) _fbDb = window.firebase.app().database();
-      else { window.firebase.initializeApp(cfg); _fbDb = window.firebase.database(); }
-      _useFirebase = true;
-    } catch (e) { return; }
+    if (!ensureFirebaseApp()) return;
 
     _bootPreferRemote = true;
     try {
@@ -2178,26 +2270,30 @@
         console.warn("[Meishi] Firebase config apply failed（hh_data/meishi_config）", e);
       }
 
-      // 起動時は画像ライブラリも必ず Firebase から取得（「未登録」のまま残さない）
-      try {
-        var snapImgMap = await safeFbOnce(FB_IMG_LIBS_PATH);
-        var mapVal = snapImgMap ? snapImgMap.val() : null;
-        if (mapVal) await applyImageLibraryWithRemote(mapVal);
-        else {
-          var snapImg = await safeFbOnce(FB_IMG_LIB_PATH);
-          await applyImageLibraryWithRemote(snapImg ? snapImg.val() : null);
+      // 画像ライブラリは裏で同期（起動・ログインをブロックしない）
+      void (async function () {
+        try {
+          var snapImgMap = await safeFbOnce(FB_IMG_LIBS_PATH);
+          var mapVal = snapImgMap ? snapImgMap.val() : null;
+          if (mapVal) await applyImageLibraryWithRemote(mapVal);
+          else {
+            var snapImg = await safeFbOnce(FB_IMG_LIB_PATH);
+            await applyImageLibraryWithRemote(snapImg ? snapImg.val() : null);
+          }
+        } catch (e) {
+          console.warn("[Meishi] Firebase image library initial load failed", e);
         }
-      } catch (e) {
-        console.warn("[Meishi] Firebase image library initial load failed", e);
-      }
-
-      if (!getImageLibrariesCount()) {
-        try { await applyLocalImageLibrary(); } catch (e) {}
-      }
+        if (!getImageLibrariesCount()) {
+          try { await applyLocalImageLibrary(); } catch (e2) {}
+        }
+        fireCfg();
+      })();
 
       try {
         var remotePv = snapPv ? snapPv.val() : null;
-        await applyPreviewPersonalWithRemote(remotePv);
+        void applyPreviewPersonalWithRemote(remotePv).catch(function (e) {
+          console.warn("[Meishi] Firebase preview personal apply failed", e);
+        });
       } catch (e) {
         console.warn("[Meishi] Firebase preview personal apply failed", e);
       }
@@ -2291,64 +2387,56 @@
   }
 
   async function init() {
-    _ready = false;
-    _fbAuthLoaded = false;
-    stripLegacyImageLibraryFromLocalConfig();
-    var local = loadLocalCfg();
-    var localAuth = null;
-    if (local) {
-      localAuth = {
-        ownerId: local.ownerId,
-        ownerPass: local.ownerPass,
-        title: local.title,
+    if (_initPromise) return _initPromise;
+    _initPromise = (async function () {
+      _ready = false;
+      bootstrapLocalConfig();
+      var localAuthSnapshot = {
+        ownerId: _config.ownerId,
+        ownerPass: _config.ownerPass,
+        title: _config.title,
       };
-      delete local.ownerId;
-      delete local.ownerPass;
-      _config = Object.assign({}, _config, local);
-    }
-    if (!_config.companySettings) _config.companySettings = {};
-    if (!_config.deptSettings) _config.deptSettings = {};
-    ensureAdminConfigShape();
-    delete _config.imageLibrary;
-    _config.imageLibrary = [];
-    try { await loadRecords(); }
-    catch (e) {
-      var msg = (e && e.message) || String(e);
-      if (String(msg).indexOf("Failed to fetch") !== -1 || (e && e.name === "TypeError")) {
-        throw new Error(
-          "名刺データを読み込めませんでした（Failed to fetch）。\n\n" +
-            "・start.bat で Python サーバーを起動し、http://127.0.0.1:8791/ から開いているか確認してください。\n" +
-            "・owner.html / user.html を直接開く場合は data/meishi-records.js があるか確認してください。"
-        );
+      try { await loadRecords(); }
+      catch (e) {
+        var msg = (e && e.message) || String(e);
+        _initPromise = null;
+        if (String(msg).indexOf("Failed to fetch") !== -1 || (e && e.name === "TypeError")) {
+          throw new Error(
+            "名刺データを読み込めませんでした（Failed to fetch）。\n\n" +
+              "・start.bat で Python サーバーを起動し、http://127.0.0.1:8791/ から開いているか確認してください。\n" +
+              "・owner.html / user.html を直接開く場合は data/meishi-records.js があるか確認してください。"
+          );
+        }
+        throw new Error("名刺データを読み込めませんでした。\n" + msg);
       }
-      throw new Error("名刺データを読み込めませんでした。\n" + msg);
-    }
-    // ローカル画像を先に載せ、UI はすぐ開けるようにする
-    await bootstrapLocalImageLibrary();
-    applyLocalPreviewKoji();
-    await initFirebase();
-    if (localAuth && String(localAuth.ownerId || "").trim()) {
-      var localOid = String(localAuth.ownerId).trim();
-      var remoteOid = String(_config.ownerId || "").trim();
-      var preferLocal =
-        !_fbAuthLoaded ||
-        (window.MEISHI_OWNER_PAGE && localOid && localOid !== remoteOid);
-      if (preferLocal) applyAuthFromRemote(localAuth);
-    }
-    if (_useFirebase && String(_config.ownerId || "").trim()) {
-      await persistAuthRemote();
-    }
-    if (_useFirebase && !_fbAuthLoaded) {
-      _config.ownerId = "";
-      _config.ownerPass = "";
-    }
-    await publishOwnerSnapshotToRemote();
-    migrateDeptKeys();
-    // 所有者他PC: 起動直後にローカルへ取り込んだリモート設定をディスクへ保存（次回も同じ内容）
-    if (window.MEISHI_OWNER_PAGE && _useFirebase) {
-      try { localStorage.setItem(CFG_KEY, JSON.stringify(configForMainStorage())); } catch (e) {}
-    }
-    _ready = true;
+      // ローカル画像は裏で準備（起動をブロックしない）
+      void bootstrapLocalImageLibrary().catch(function (e) {
+        console.warn("[Meishi] local image library bootstrap failed", e);
+      });
+      applyLocalPreviewKoji();
+      await initFirebase();
+      if (localAuthSnapshot && String(localAuthSnapshot.ownerId || "").trim()) {
+        var localOid = String(localAuthSnapshot.ownerId).trim();
+        var remoteOid = String(_config.ownerId || "").trim();
+        var preferLocal =
+          !_fbAuthLoaded ||
+          (window.MEISHI_OWNER_PAGE && localOid && localOid !== remoteOid);
+        if (preferLocal) applyAuthFromRemote(localAuthSnapshot);
+      }
+      // 所有者ページのみ起動時に認証をリモートへ保存（使用者で上書きしない）
+      if (window.MEISHI_OWNER_PAGE && _useFirebase && String(_config.ownerId || "").trim()) {
+        await persistAuthRemote();
+      }
+      // Firebase 未取得でもローカル認証は残す（ログイン欄が永久に使えない状態を防ぐ）
+      await publishOwnerSnapshotToRemote();
+      migrateDeptKeys();
+      if (window.MEISHI_OWNER_PAGE && _useFirebase) {
+        try { localStorage.setItem(CFG_KEY, JSON.stringify(configForMainStorage())); } catch (e) {}
+      }
+      _authReady = true;
+      _ready = true;
+    })();
+    return _initPromise;
   }
 
   function isValidLayout(v) { return MeishiLayout.isValidLayout(v); }
@@ -2566,6 +2654,7 @@
     firebaseConfigLoaded: function () { return _fbCfgLoaded; },
     firebaseAuthLoaded: function () { return _fbAuthLoaded; },
     refreshAuthFromFirebase: loadAuthFromFirebase,
+    initAuthFast: initAuthFast,
     syncAllToRemote: syncAllToRemote,
     recoverImageLibrary: recoverImageLibrary,
     verifyUserLogin: verifyUserLogin,
@@ -2577,5 +2666,6 @@
     publicPageUrl: publicPageUrl,
     sharePageUrl: sharePageUrl,
     get ready() { return _ready; },
+    get authReady() { return _authReady; },
   };
 })();

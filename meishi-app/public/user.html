@@ -10,14 +10,7 @@
     <script src="config.js" onerror="console.info('[Meishi] config.js なし → localStorage モード')"></script>
     <script src="meishi-fields.js?v=20250714p"></script>
     <script src="meishi-catalog.js?v=20250715d"></script>
-    <script src="meishi-store.js?v=20250715c"></script>
-    <script src="meishi-layout.js?v=20250714q"></script>
-    <script src="meishi-image-lib.js?v=20250714ad"></script>
-    <script src="meishi-card-ui.js?v=20250715k"></script>
-    <script src="meishi-back-card-ui.js?v=20250714z"></script>
-    <script src="meishi-print-sheet.js?v=20250714z"></script>
-    <script src="meishi-user-print.js?v=20250715k"></script>
-    <script src="meishi-preview-init.js?v=20250715m"></script>
+    <script src="meishi-store.js?v=20250723a"></script>
     <link rel="stylesheet" href="meishi-print-sheet.css?v=20250714z" />
     <link rel="stylesheet" href="owner.css?v=20250714z" />
     <style>
@@ -41,13 +34,13 @@
         <div class="login-card">
           <h2>ログイン</h2>
           <p id="loginStatus" class="hint" style="margin-top:0">設定を読み込み中…</p>
-          <div class="field"><label>ID</label><input id="loginId" type="text" autocomplete="username" disabled /></div>
-          <div class="field"><label>パスワード</label><input id="loginPass" type="password" autocomplete="current-password" disabled /></div>
+          <div class="field"><label>ID</label><input id="loginId" type="text" autocomplete="username" /></div>
+          <div class="field"><label>パスワード</label><input id="loginPass" type="password" autocomplete="current-password" /></div>
           <label class="hint login-remember" style="display:flex;align-items:center;gap:8px;margin:4px 0 14px;cursor:pointer;white-space:nowrap;font-weight:500">
             <input type="checkbox" id="loginRemember" style="width:auto;margin:0;flex:0 0 auto" />
             <span>IDとパスワードを保存する</span>
           </label>
-          <button class="btn" style="display:block;width:100%" id="btnLogin" disabled>ログイン</button>
+          <button class="btn" style="display:block;width:100%" id="btnLogin">ログイン</button>
         </div>
       </section>
 
@@ -125,14 +118,53 @@
         document.getElementById("view-" + v).classList.add("active");
       }
 
-      var previewPanel = MeishiPreviewPanel.create({
-        isActive: function () {
-          return document.getElementById("view-editor").classList.contains("active");
-        },
-        onPersonalSaved: function (msg) { alert(msg); },
-      });
+      var EDITOR_SCRIPTS = [
+        "meishi-layout.js?v=20250714q",
+        "meishi-image-lib.js?v=20250714ad",
+        "meishi-card-ui.js?v=20250715k",
+        "meishi-back-card-ui.js?v=20250714z",
+        "meishi-print-sheet.js?v=20250714z",
+        "meishi-user-print.js?v=20250715k",
+        "meishi-preview-init.js?v=20250715m",
+      ];
+      var previewPanel = null;
+      var editorScriptsPromise = null;
 
-      function openEditor() {
+      function loadScript(src) {
+        return new Promise(function (resolve, reject) {
+          var s = document.createElement("script");
+          s.src = src;
+          s.onload = function () { resolve(); };
+          s.onerror = function () { reject(new Error("script load failed: " + src)); };
+          document.head.appendChild(s);
+        });
+      }
+
+      function ensureEditorScripts() {
+        if (previewPanel) return Promise.resolve();
+        if (editorScriptsPromise) return editorScriptsPromise;
+        editorScriptsPromise = EDITOR_SCRIPTS.reduce(function (p, src) {
+          return p.then(function () { return loadScript(src); });
+        }, Promise.resolve()).then(function () {
+          previewPanel = MeishiPreviewPanel.create({
+            isActive: function () {
+              return document.getElementById("view-editor").classList.contains("active");
+            },
+            onPersonalSaved: function (msg) { alert(msg); },
+          });
+        });
+        return editorScriptsPromise;
+      }
+
+      async function openEditor() {
+        setLoginStatus("編集画面を準備中…");
+        if (!MeishiStore.ready) {
+          try { await MeishiStore.init(); } catch (e) { alert(e.message || e); return; }
+        }
+        try { await ensureEditorScripts(); } catch (e) {
+          alert("画面の読み込みに失敗しました。再読み込みしてください。\n" + (e.message || e));
+          return;
+        }
         show("editor");
         previewPanel.init();
       }
@@ -140,6 +172,7 @@
       var SK = "meishi_user_login";
       var REMEMBER_KEY = "meishi_user_saved_login";
       var loginReady = false;
+      var loggingIn = false;
 
       function setLoginEnabled(on) {
         document.getElementById("loginId").disabled = !on;
@@ -176,42 +209,57 @@
         }
       }
 
-      function doLogin() {
-        if (!loginReady || !MeishiStore.ready) {
+      function applyTitleAndBadge() {
+        var c = MeishiStore.getConfig();
+        document.getElementById("appTitle").textContent = c.title || "名刺印刷システム";
+        document.title = c.title || "名刺印刷システム";
+        setBadge();
+      }
+
+      function defaultLoginStatus() {
+        if (MeishiStore.useFirebase() && !MeishiStore.firebaseAuthLoaded()) {
+          return "サーバー同期未完了です。ローカル保存の ID / パスワードがあれば入力できます。";
+        }
+        return "所有者が設定した ID / パスワードを入力してください。";
+      }
+
+      async function doLogin() {
+        if (loggingIn) return;
+        if (!loginReady && !MeishiStore.authReady) {
           alert("設定を読み込み中です。少し待ってから再度お試しください。");
           return;
         }
         var id = document.getElementById("loginId").value;
         var pw = document.getElementById("loginPass").value;
-        var attempt = function () {
-          if (MeishiStore.verifyUserLogin(id, pw)) {
-            persistLoginRemember(id, pw);
-            sessionStorage.setItem(SK, "1");
-            document.getElementById("btnLogout").style.display = "";
-            openEditor();
+        loggingIn = true;
+        setLoginEnabled(false);
+        try {
+          if (MeishiStore.useFirebase() && MeishiStore.refreshAuthFromFirebase) {
+            setLoginStatus("ログイン情報を確認中…");
+            try { await MeishiStore.refreshAuthFromFirebase(); } catch (e) {}
+            setBadge();
+          }
+          if (!MeishiStore.verifyUserLogin(id, pw)) {
+            var hint = "";
+            if (MeishiStore.useFirebase() && !MeishiStore.firebaseAuthLoaded()) {
+              hint = "\n\n※ ログイン情報をサーバーから取得できていません。\n" +
+                "所有者が本番URL（owner.html）を開き「基本・URL」で保存してください。";
+            }
+            alert("IDまたはパスワードが違います。" + hint);
+            setLoginStatus(defaultLoginStatus());
             return;
           }
-          var hint = "";
-          if (MeishiStore.useFirebase() && !MeishiStore.firebaseAuthLoaded()) {
-            hint = "\n\n※ ログイン情報をサーバーから取得できていません。\n" +
-              "所有者が本番URL（owner.html）を開き「基本・URL」で保存してください。";
-          }
-          alert("IDまたはパスワードが違います。" + hint);
-        };
-        if (MeishiStore.useFirebase() && MeishiStore.refreshAuthFromFirebase) {
-          setLoginStatus("ログイン情報を確認中…");
-          setLoginEnabled(false);
-          MeishiStore.refreshAuthFromFirebase().then(function () {
-            setBadge();
+          persistLoginRemember(id, pw);
+          sessionStorage.setItem(SK, "1");
+          document.getElementById("btnLogout").style.display = "";
+          await openEditor();
+        } finally {
+          loggingIn = false;
+          if (document.getElementById("view-login").classList.contains("active")) {
             setLoginEnabled(true);
-            setLoginStatus(MeishiStore.firebaseAuthLoaded()
-              ? "所有者が設定した ID / パスワードを入力してください。"
-              : "ログイン情報をサーバーから取得できませんでした。");
-            attempt();
-          });
-          return;
+            setLoginStatus(defaultLoginStatus());
+          }
         }
-        attempt();
       }
       document.getElementById("btnLogin").addEventListener("click", doLogin);
       document.getElementById("loginPass").addEventListener("keydown", function (e) { if (e.key === "Enter") doLogin(); });
@@ -220,6 +268,8 @@
         this.style.display = "none";
         show("login");
         restoreSavedLogin();
+        setLoginEnabled(true);
+        setLoginStatus(defaultLoginStatus());
       });
 
       function setBadge() {
@@ -237,30 +287,37 @@
       }
 
       (async function () {
-        setLoginEnabled(false);
-        setLoginStatus("設定を読み込み中…");
-        restoreSavedLogin();
-        try { await MeishiStore.init(); } catch (e) { alert(e.message || e); }
-        loginReady = true;
+        // 入力欄は最初から有効（重い init 完了を待たない）
         setLoginEnabled(true);
-        setLoginStatus(MeishiStore.useFirebase() && !MeishiStore.firebaseAuthLoaded()
-          ? "ログイン情報をサーバーから取得できませんでした。所有者に設定の再保存を依頼してください。"
-          : "所有者が設定した ID / パスワードを入力してください。");
-        var c = MeishiStore.getConfig();
-        document.getElementById("appTitle").textContent = c.title || "名刺印刷システム";
-        document.title = c.title || "名刺印刷システム";
-        setBadge();
+        restoreSavedLogin();
+        setLoginStatus("ログイン情報を取得中…（入力できます）");
+        show("login");
+        try {
+          if (MeishiStore.initAuthFast) await MeishiStore.initAuthFast();
+        } catch (e) { console.warn(e); }
+        loginReady = true;
+        applyTitleAndBadge();
+        setLoginStatus(defaultLoginStatus());
         MeishiStore.onConfigChange(function (cc) {
           document.getElementById("appTitle").textContent = cc.title || "名刺印刷システム";
           setBadge();
-          if (MeishiStore.firebaseAuthLoaded()) {
+          if (MeishiStore.firebaseAuthLoaded() && document.getElementById("view-login").classList.contains("active")) {
             setLoginStatus("所有者が設定した ID / パスワードを入力してください。");
           }
         });
+        // 名刺データ等は裏で読み込み（ログイン入力と並列）
+        void MeishiStore.init().then(function () {
+          applyTitleAndBadge();
+          if (document.getElementById("view-login").classList.contains("active")) {
+            setLoginStatus(defaultLoginStatus());
+          }
+        }).catch(function (e) { console.warn("[Meishi] init", e); });
+        // 編集用スクリプトも裏で先読み
+        void ensureEditorScripts().catch(function () {});
         if (sessionStorage.getItem(SK) === "1") {
           document.getElementById("btnLogout").style.display = "";
-          openEditor();
-        } else show("login");
+          await openEditor();
+        }
       })();
     </script>
   </body>
