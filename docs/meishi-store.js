@@ -2270,24 +2270,21 @@
         console.warn("[Meishi] Firebase config apply failed（hh_data/meishi_config）", e);
       }
 
-      // 画像ライブラリは裏で同期（起動・ログインをブロックしない）
-      void (async function () {
-        try {
-          var snapImgMap = await safeFbOnce(FB_IMG_LIBS_PATH);
-          var mapVal = snapImgMap ? snapImgMap.val() : null;
-          if (mapVal) await applyImageLibraryWithRemote(mapVal);
-          else {
-            var snapImg = await safeFbOnce(FB_IMG_LIB_PATH);
-            await applyImageLibraryWithRemote(snapImg ? snapImg.val() : null);
-          }
-        } catch (e) {
-          console.warn("[Meishi] Firebase image library initial load failed", e);
+      // 画像ライブラリはタイムアウト付きで待機（未読込のまま名刺が真っ白になるのを防ぐ）
+      try {
+        var snapImgMap = await safeFbOnce(FB_IMG_LIBS_PATH);
+        var mapVal = snapImgMap ? snapImgMap.val() : null;
+        if (mapVal) await applyImageLibraryWithRemote(mapVal);
+        else {
+          var snapImg = await safeFbOnce(FB_IMG_LIB_PATH);
+          await applyImageLibraryWithRemote(snapImg ? snapImg.val() : null);
         }
-        if (!getImageLibrariesCount()) {
-          try { await applyLocalImageLibrary(); } catch (e2) {}
-        }
-        fireCfg();
-      })();
+      } catch (e) {
+        console.warn("[Meishi] Firebase image library initial load failed", e);
+      }
+      if (!getImageLibrariesCount()) {
+        try { await applyLocalImageLibrary(); } catch (e2) {}
+      }
 
       try {
         var remotePv = snapPv ? snapPv.val() : null;
@@ -2409,10 +2406,9 @@
         }
         throw new Error("名刺データを読み込めませんでした。\n" + msg);
       }
-      // ローカル画像は裏で準備（起動をブロックしない）
-      void bootstrapLocalImageLibrary().catch(function (e) {
-        console.warn("[Meishi] local image library bootstrap failed", e);
-      });
+      // ローカル画像を先に載せてから Firebase 同期（背景画像が消えて真っ白になるのを防ぐ）
+      try { await bootstrapLocalImageLibrary(); }
+      catch (e) { console.warn("[Meishi] local image library bootstrap failed", e); }
       applyLocalPreviewKoji();
       await initFirebase();
       if (localAuthSnapshot && String(localAuthSnapshot.ownerId || "").trim()) {

@@ -1572,7 +1572,12 @@
         if (desSizeDown) desSizeDown.disabled = st.size <= SIZE_MIN;
         if (desColor) desColor.value = st.color && st.color.length === 7 ? st.color : "#222222";
         var bg = MeishiLayout.normalizeBg ? MeishiLayout.normalizeBg(st.bg) : (st.bg || "");
-        if (desBg) desBg.value = bg || "#ffffff";
+        // 色ピッカーの初期値設定で input が誤発火して背景がすべて白になるのを防ぐ
+        if (desBg) {
+          desBg._meishiSuppress = true;
+          desBg.value = bg || "#ffffff";
+          desBg._meishiSuppress = false;
+        }
         if (desBgNone) desBgNone.classList.toggle("on", !bg);
         if (desNorm) desNorm.classList.toggle("on", !st.bold);
         if (desBold) desBold.classList.toggle("on", !!st.bold);
@@ -1595,7 +1600,9 @@
         applySelectedStyle({ color: this.value });
       });
       if (desBg) desBg.addEventListener("input", function () {
+        if (this._meishiSuppress) return;
         applySelectedStyle({ bg: this.value });
+        if (desBgNone) desBgNone.classList.remove("on");
       });
       if (desBgNone) desBgNone.addEventListener("click", function () {
         applySelectedStyle({ bg: "" });

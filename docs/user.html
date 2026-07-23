@@ -10,9 +10,9 @@
     <script src="config.js" onerror="console.info('[Meishi] config.js なし → localStorage モード')"></script>
     <script src="meishi-fields.js?v=20250714p"></script>
     <script src="meishi-catalog.js?v=20250715d"></script>
-    <script src="meishi-store.js?v=20250723a"></script>
+    <script src="meishi-store.js?v=20250723b"></script>
     <link rel="stylesheet" href="meishi-print-sheet.css?v=20250714z" />
-    <link rel="stylesheet" href="owner.css?v=20250714z" />
+    <link rel="stylesheet" href="owner.css?v=20250723b" />
     <style>
       .view{display:none}.view.active{display:block}
       header .header-actions{display:flex;align-items:center;gap:8px;margin-left:auto}
@@ -121,7 +121,7 @@
       var EDITOR_SCRIPTS = [
         "meishi-layout.js?v=20250714q",
         "meishi-image-lib.js?v=20250714ad",
-        "meishi-card-ui.js?v=20250715k",
+        "meishi-card-ui.js?v=20250723b",
         "meishi-back-card-ui.js?v=20250714z",
         "meishi-print-sheet.js?v=20250714z",
         "meishi-user-print.js?v=20250715k",
@@ -303,6 +303,10 @@
           setBadge();
           if (MeishiStore.firebaseAuthLoaded() && document.getElementById("view-login").classList.contains("active")) {
             setLoginStatus("所有者が設定した ID / パスワードを入力してください。");
+          }
+          // 画像ライブラリ遅延到着時にプレビューを再描画（背景が真っ白のまま残るのを防ぐ）
+          if (previewPanel && document.getElementById("view-editor").classList.contains("active")) {
+            try { previewPanel.rebuild(); } catch (e) {}
           }
         });
         // 名刺データ等は裏で読み込み（ログイン入力と並列）

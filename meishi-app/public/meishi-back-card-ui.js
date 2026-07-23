@@ -1031,7 +1031,11 @@
         if (backDesSizeDown) backDesSizeDown.disabled = st.size <= SIZE_MIN;
         if (backDesColor) backDesColor.value = st.color && st.color.length === 7 ? st.color : "#222222";
         var bg = MeishiLayout.normalizeBg ? MeishiLayout.normalizeBg(st.bg) : (st.bg || "");
-        if (backDesBg) backDesBg.value = bg || "#ffffff";
+        if (backDesBg) {
+          backDesBg._meishiSuppress = true;
+          backDesBg.value = bg || "#ffffff";
+          backDesBg._meishiSuppress = false;
+        }
         if (backDesBgNone) backDesBgNone.classList.toggle("on", !bg);
         if (backDesNorm) backDesNorm.classList.toggle("on", !st.bold);
         if (backDesBold) backDesBold.classList.toggle("on", !!st.bold);
@@ -1059,7 +1063,9 @@
         showDesign();
       });
       if (backDesBg) backDesBg.addEventListener("input", function () {
+        if (this._meishiSuppress) return;
         patchSelectedText({ bg: this.value });
+        if (backDesBgNone) backDesBgNone.classList.remove("on");
         showDesign();
       });
       if (backDesBgNone) backDesBgNone.addEventListener("click", function () {
