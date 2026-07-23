@@ -1199,13 +1199,18 @@
     bootstrapLocalConfig();
     _authReady = true;
     if (!ensureFirebaseApp()) return _fbAuthLoaded;
+    _bootPreferRemote = true;
     try {
       await ensureFirebaseAuth();
       await Promise.all([
         loadAuthFromFirebase(),
         (async function () {
-          var snapCfg = await safeFbOnce(FB_CFG_PATH);
-          var v = snapCfg && snapCfg.val();
+          var snapCfg = await withTimeout(
+            _fbDb ? _fbDb.ref(FB_CFG_PATH).once("value") : Promise.resolve(null),
+            FB_AUTH_TIMEOUT_MS,
+            FB_CFG_PATH + "(authFast)"
+          );
+          var v = snapCfg && snapCfg.val ? snapCfg.val() : null;
           if (v && typeof v === "object") {
             mergeConfigFromRemote(v);
             try { localStorage.setItem(CFG_KEY, JSON.stringify(configForMainStorage())); } catch (e) {}
@@ -1214,6 +1219,8 @@
       ]);
     } catch (e) {
       console.warn("[Meishi] initAuthFast failed", e);
+    } finally {
+      _bootPreferRemote = false;
     }
     _authReady = true;
     return _fbAuthLoaded;

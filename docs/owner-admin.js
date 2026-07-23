@@ -1853,39 +1853,7 @@
       var loginView = document.getElementById("adminLoginView");
       var mainView = document.getElementById("adminMainView");
       var loggingIn = false;
-      var EDITOR_SCRIPTS = [
-        "meishi-layout.js?v=20250714q",
-        "meishi-image-lib.js?v=20250714ad",
-        "meishi-card-ui.js?v=20250723b",
-        "meishi-back-card-ui.js?v=20250723b",
-        "meishi-print-sheet.js?v=20250714z",
-        "meishi-user-print.js?v=20250715k",
-        "meishi-preview-init.js?v=20250715m",
-      ];
-      var editorScriptsPromise = null;
-
-      function loadScript(src) {
-        return new Promise(function (resolve, reject) {
-          if (document.querySelector('script[src="' + src + '"]')) {
-            resolve();
-            return;
-          }
-          var s = document.createElement("script");
-          s.src = src;
-          s.onload = function () { resolve(); };
-          s.onerror = function () { reject(new Error("script load failed: " + src)); };
-          document.head.appendChild(s);
-        });
-      }
-
-      function ensureEditorScripts() {
-        if (window.MeishiCardUI && window.MeishiPreviewPanel) return Promise.resolve();
-        if (editorScriptsPromise) return editorScriptsPromise;
-        editorScriptsPromise = EDITOR_SCRIPTS.reduce(function (p, src) {
-          return p.then(function () { return loadScript(src); });
-        }, Promise.resolve());
-        return editorScriptsPromise;
-      }
+      var uiWired = false;
 
       function restoreAdminSavedLogin() {
         try {
@@ -1918,55 +1886,74 @@
         refreshAdminWho();
         showTab("company");
       }
-      function wireAdminUi() {
+      function paintAdminPanels() {
+        try {
+          setBadge();
+          refreshCoPickOptions();
+          fillCoPick();
+          fillDeptPanel();
+          renderRecTable();
+          applyAdminUiLocks();
+        } catch (e) {
+          console.warn("[Meishi] paintAdminPanels", e);
+        }
+      }
+      function wireAdminUiOnce() {
+        if (uiWired) return;
+        uiWired = true;
         bindEvents();
-        setBadge();
-        fillCoPick();
-        fillDeptPanel();
-        renderRecTable();
         MeishiStore.onConfigChange(function () {
           refreshAdminWho();
           setBadge();
           refreshCoPickOptions();
           applyAdminUiLocks();
+          try { fillCoPanel(); } catch (e) {}
         });
-        MeishiStore.onRecordsChange(function () { renderRecTable(); });
-        applyAdminUiLocks();
+        MeishiStore.onRecordsChange(function () {
+          renderRecTable();
+          refreshRecFormIfOpen();
+        });
       }
-      async function enterMainAfterLogin() {
-        if (!MeishiStore.ready) {
-          try { await MeishiStore.init(); } catch (e) {
-            alert(e.message || e);
-            return false;
-          }
-        }
-        try { await ensureEditorScripts(); } catch (e) {
-          alert("画面の読み込みに失敗しました。再読み込みしてください。\n" + (e.message || e));
-          return false;
-        }
-        wireAdminUi();
+      /** ログイン成功後は待たずに画面を開く。データは裏で描画 */
+      function enterMainAfterLogin() {
         revealMain();
+        wireAdminUiOnce();
+        refreshAdminWho();
+        applyAdminUiLocks();
+        paintAdminPanels();
+        if (!MeishiStore.ready) {
+          void MeishiStore.init().then(function () {
+            paintAdminPanels();
+            setBadge();
+          }).catch(function (e) {
+            console.warn("[Meishi] init", e);
+            if (e && e.message) {
+              var err = document.getElementById("adminLoginErr");
+              // 既にメイン表示済み。致命時のみアラート
+              alert(e.message || e);
+            }
+          });
+        }
         return true;
       }
 
       restoreAdminSavedLogin();
-      // ログイン欄はすぐ使える。認証・管理者アカウントだけ先読み
+      // 認証・管理者アカウントだけ先読み（待っても最大数秒）
       try {
         if (MeishiStore.initAuthFast) await MeishiStore.initAuthFast();
       } catch (e) { console.warn(e); }
-      // 名刺データ等は裏で読み込み
+      // 名刺データ等は裏で読み込み（ログインをブロックしない）
       void MeishiStore.init().catch(function (e) { console.warn("[Meishi] init", e); });
-      void ensureEditorScripts().catch(function () {});
 
       var sess = MeishiStore.getAdminSession && MeishiStore.getAdminSession();
       if (sess) {
-        await enterMainAfterLogin();
+        enterMainAfterLogin();
         return;
       }
 
       var btn = document.getElementById("btnAdminLogin");
       if (btn) {
-        btn.onclick = async function () {
+        btn.onclick = function () {
           if (loggingIn) return;
           var id = (document.getElementById("adminLoginId").value || "").trim();
           var pass = document.getElementById("adminLoginPass").value || "";
@@ -1974,23 +1961,48 @@
           loggingIn = true;
           btn.disabled = true;
           try {
-            if (MeishiStore.useFirebase() && MeishiStore.refreshAuthFromFirebase) {
-              try { await MeishiStore.initAuthFast(); } catch (e) {}
-            }
             var r = MeishiStore.verifyAdminLogin(id, pass);
             if (!r || !r.ok) {
+              // ローカルにアカウントが無いときだけ短時間リモート再取得
+              if (!(MeishiStore.getAdminAccounts() || []).length && MeishiStore.initAuthFast) {
+                if (err) err.textContent = "アカウント確認中…";
+                MeishiStore.initAuthFast().then(function () {
+                  var r2 = MeishiStore.verifyAdminLogin(id, pass);
+                  if (!r2 || !r2.ok) {
+                    if (err) err.textContent = "ID またはパスワードが違います";
+                    loggingIn = false;
+                    btn.disabled = false;
+                    return;
+                  }
+                  persistAdminRemember(id, pass);
+                  MeishiStore.setAdminSession(r2.account);
+                  if (err) err.textContent = "";
+                  enterMainAfterLogin();
+                  loggingIn = false;
+                  btn.disabled = false;
+                }).catch(function () {
+                  if (err) err.textContent = "ID またはパスワードが違います";
+                  loggingIn = false;
+                  btn.disabled = false;
+                });
+                return;
+              }
               if (err) err.textContent = "ID またはパスワードが違います";
               return;
             }
             persistAdminRemember(id, pass);
             MeishiStore.setAdminSession(r.account);
-            if (err) err.textContent = "読み込み中…";
-            var ok = await enterMainAfterLogin();
-            if (!ok && err) err.textContent = "";
-            else if (err) err.textContent = "";
+            if (err) err.textContent = "";
+            enterMainAfterLogin();
           } finally {
-            loggingIn = false;
-            btn.disabled = false;
+            if (loggingIn) {
+              // 非同期経路以外はここで解除
+              var stillWaiting = err && err.textContent === "アカウント確認中…";
+              if (!stillWaiting) {
+                loggingIn = false;
+                btn.disabled = false;
+              }
+            }
           }
         };
       }
