@@ -74,6 +74,8 @@
       var p2 = pathKey(r.aff1, r.aff2);
       if (p2 !== "|") addUnique(ensureList(cat.aff3, p2), r.aff3);
       var p3 = pathKey(r.aff1, r.aff2, r.aff3);
+      // 役職は所属に依存しないフラットマスタ（"*"）へも必ず載せる
+      if (r.title) addUnique(ensureList(cat.title, "*"), r.title);
       if (p3 !== "||") addUnique(ensureList(cat.title, p3), r.title);
       if (p3 !== "||") {
         addUnique(ensureList(cat.qual, p3), r.qual);

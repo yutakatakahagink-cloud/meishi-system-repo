@@ -1439,11 +1439,14 @@
     var raw = findCompanySettingsRaw(key);
     var p = buildProfileFromRaw(raw, key);
     p.catalog = clone(p.catalog) || MeishiCatalog.emptyCatalog();
+    var fromRec = MeishiCatalog.buildCatalogFromRecords(_records, key);
     if (!hasSavedCatalog(raw)) {
-      p.catalog = MeishiCatalog.mergeCatalog(
-        MeishiCatalog.buildCatalogFromRecords(_records, key),
-        MeishiCatalog.emptyCatalog()
-      );
+      p.catalog = MeishiCatalog.mergeCatalog(fromRec, MeishiCatalog.emptyCatalog());
+    } else {
+      // 保存済み共通データがあっても、名刺データ上の役職は選択肢に反映する
+      MeishiCatalog.getTitleList(fromRec).forEach(function (t) {
+        MeishiCatalog.addUnique(MeishiCatalog.ensureList(p.catalog.title, "*"), t);
+      });
     }
     if (p.url && (!p.catalog.urls || !p.catalog.urls.length)) {
       p.catalog.urls = MeishiFields.uniq([p.url].concat(p.catalog.urls || []));

@@ -1240,6 +1240,21 @@
     }).join("");
   }
 
+  /** 名刺データ行から会社ごとの候補値を集める（共通データ未登録でも選択できるようにする） */
+  function recordFieldValues(company, key) {
+    var co = MeishiFields.norm(company);
+    if (!co || !key) return [];
+    var out = [];
+    MeishiStore.getRecords().forEach(function (r) {
+      if (!r) return;
+      if (co && MeishiFields.norm(r.company) !== co) return;
+      var v = r[key];
+      if (v == null || String(v).trim() === "") return;
+      out.push(String(v).trim());
+    });
+    return MeishiFields.uniq(out);
+  }
+
   function fieldOptions(company, key, ctx) {
     var cat;
     if (window._coEditingCatalog && MeishiFields.norm(company) === MeishiFields.norm(currentCo)) {
@@ -1248,16 +1263,26 @@
       cat = MeishiStore.getCompanyProfileForEdit(company).catalog || MeishiCatalog.emptyCatalog();
     }
     if (key === "company") return MeishiStore.getCompanyList();
-    if (key === "aff1") return cat.aff1 || [];
-    if (key === "aff2") return MeishiCatalog.getAff2List(cat);
-    if (key === "aff3") return MeishiCatalog.getAff3List(cat);
-    if (key === "title") return MeishiCatalog.getTitleList(cat);
-    if (key === "postal") return MeishiFields.uniq((cat.locations || []).map(function (l) { return l.postal; }).concat(cat.postal || []));
-    if (key === "address") return MeishiFields.uniq((cat.locations || []).map(function (l) { return l.address; }).filter(Boolean));
-    if (key === "tel") return MeishiFields.uniq((cat.locations || []).map(function (l) { return l.tel; }).filter(Boolean));
-    if (key === "fax") return MeishiFields.uniq((cat.locations || []).map(function (l) { return l.fax; }).filter(Boolean));
-    if (key === "url") return cat.urls || [];
-    if (key === "category") return cat.categories || [];
+    if (key === "aff1") {
+      return MeishiFields.uniq((cat.aff1 || []).concat(recordFieldValues(company, "aff1")));
+    }
+    if (key === "aff2") {
+      return MeishiFields.uniq(MeishiCatalog.getAff2List(cat).concat(recordFieldValues(company, "aff2")));
+    }
+    if (key === "aff3") {
+      return MeishiFields.uniq(MeishiCatalog.getAff3List(cat).concat(recordFieldValues(company, "aff3")));
+    }
+    if (key === "title") {
+      // 共通データの役職マスタ ＋ 名刺データに既にある役職
+      return MeishiFields.uniq(MeishiCatalog.getTitleList(cat).concat(recordFieldValues(company, "title")))
+        .sort(function (a, b) { return String(a).localeCompare(String(b), "ja"); });
+    }
+    if (key === "postal") return MeishiFields.uniq((cat.locations || []).map(function (l) { return l.postal; }).concat(cat.postal || []).concat(recordFieldValues(company, "postal")));
+    if (key === "address") return MeishiFields.uniq((cat.locations || []).map(function (l) { return l.address; }).filter(Boolean).concat(recordFieldValues(company, "address")));
+    if (key === "tel") return MeishiFields.uniq((cat.locations || []).map(function (l) { return l.tel; }).filter(Boolean).concat(recordFieldValues(company, "tel")));
+    if (key === "fax") return MeishiFields.uniq((cat.locations || []).map(function (l) { return l.fax; }).filter(Boolean).concat(recordFieldValues(company, "fax")));
+    if (key === "url") return MeishiFields.uniq((cat.urls || []).concat(recordFieldValues(company, "url")));
+    if (key === "category") return MeishiFields.uniq((cat.categories || []).concat(recordFieldValues(company, "category")));
     return [];
   }
 
@@ -1351,10 +1376,10 @@
   function onRecFieldChange(ev) {
     var rec = readRecFromForm();
     var k = ev.target.getAttribute("data-k");
+    // 役職は所属に紐づかないマスタのため、所属変更ではクリアしない
     if (k === "company") { rec.aff1 = rec.aff2 = rec.aff3 = rec.title = ""; }
-    if (k === "aff1") { rec.aff2 = rec.aff3 = rec.title = ""; }
-    if (k === "aff2") { rec.aff3 = rec.title = ""; }
-    if (k === "aff3") rec.title = "";
+    if (k === "aff1") { rec.aff2 = rec.aff3 = ""; }
+    if (k === "aff2") { rec.aff3 = ""; }
     rebuildRecFormFields(rec);
   }
 
