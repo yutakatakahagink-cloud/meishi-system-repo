@@ -425,11 +425,12 @@
       box.innerHTML = '<span class="hint">会社がありません</span>';
       return;
     }
+    box.className = "img-lib-box admin-acc-companies";
     box.innerHTML = list.map(function (c, i) {
       var id = "adminAccCo" + i;
       var checked = selMap[MeishiFields.norm(c)] ? " checked" : "";
       return (
-        '<label style="display:flex;gap:8px;align-items:center;padding:3px 0;cursor:pointer">' +
+        '<label class="admin-acc-co-item">' +
         '<input type="checkbox" id="' + id + '" value="' + String(c).replace(/"/g, "&quot;") + '"' + checked + " />" +
         "<span>" + String(c).replace(/</g, "&lt;") + "</span></label>"
       );
@@ -459,9 +460,10 @@
     listEl.className = "img-lib-box";
     listEl.innerHTML = accounts.map(function (a) {
       return (
-        '<div class="img-lib-item" style="width:100%;max-width:100%;align-items:flex-start;flex-direction:row;justify-content:space-between">' +
-        "<div><strong>" + String(a.label || a.id).replace(/</g, "&lt;") + "</strong>" +
-        "（ID: " + String(a.id).replace(/</g, "&lt;") + "）<br /><span class=\"hint\">" +
+        '<div class="img-lib-item admin-acc-row">' +
+        '<div class="admin-acc-row-main"><strong>' + String(a.label || a.id).replace(/</g, "&lt;") + "</strong>" +
+        "（ID: " + String(a.id).replace(/</g, "&lt;") + "）" +
+        '<span class="hint admin-acc-companies-text">　担当: ' +
         (a.companies || []).map(function (c) { return String(c).replace(/</g, "&lt;"); }).join("、") +
         "</span></div>" +
         '<button type="button" class="btn sm danger" data-admin-del="' + String(a.id).replace(/"/g, "&quot;") + '">削除</button></div>'
@@ -1215,17 +1217,22 @@
   }
 
   function renderRecTable() {
-    var recs = MeishiStore.getRecords();
+    // getRecords() は毎回 clone のため indexOf では元 index が取れない。
+    // admin の会社フィルタ後にフォールバックすると別人の行が開くので、map 時の index を保持する。
+    var all = MeishiStore.getRecords();
+    var indexed = all.map(function (r, i) { return { r: r, i: i }; });
     if (window.MEISHI_ADMIN_PAGE && MeishiStore.adminCanEditCompany) {
-      recs = recs.filter(function (r) { return MeishiStore.adminCanEditCompany(r.company); });
+      indexed = indexed.filter(function (x) {
+        return MeishiStore.adminCanEditCompany(x.r.company);
+      });
     }
-    document.getElementById("recCount").textContent = recs.length + " 件";
+    document.getElementById("recCount").textContent = indexed.length + " 件";
     document.querySelector("#recTbl thead").innerHTML =
       "<tr>" + MeishiFields.COLUMNS.map(function (c) { return "<th>" + c.label + "</th>"; }).join("") + "</tr>";
     var q = recFilter.toLowerCase();
-    document.querySelector("#recTbl tbody").innerHTML = recs.map(function (r, i) {
-      var realIdx = MeishiStore.getRecords().indexOf(r);
-      if (realIdx < 0) realIdx = i;
+    document.querySelector("#recTbl tbody").innerHTML = indexed.map(function (x) {
+      var r = x.r;
+      var realIdx = x.i;
       var txt = MeishiFields.COLUMNS.map(function (c) { return r[c.key] || ""; }).join(" ");
       if (q && txt.toLowerCase().indexOf(q) < 0) return "";
       return "<tr data-i='" + realIdx + "' class='" + (realIdx === editRecIdx ? "sel" : "") + "'>" +
@@ -1820,6 +1827,41 @@
       var ADMIN_REMEMBER_KEY = "meishi_admin_saved_login";
       var loginView = document.getElementById("adminLoginView");
       var mainView = document.getElementById("adminMainView");
+      var loggingIn = false;
+      var EDITOR_SCRIPTS = [
+        "meishi-layout.js?v=20250714q",
+        "meishi-image-lib.js?v=20250714ad",
+        "meishi-card-ui.js?v=20250723b",
+        "meishi-back-card-ui.js?v=20250723b",
+        "meishi-print-sheet.js?v=20250714z",
+        "meishi-user-print.js?v=20250715k",
+        "meishi-preview-init.js?v=20250715m",
+      ];
+      var editorScriptsPromise = null;
+
+      function loadScript(src) {
+        return new Promise(function (resolve, reject) {
+          if (document.querySelector('script[src="' + src + '"]')) {
+            resolve();
+            return;
+          }
+          var s = document.createElement("script");
+          s.src = src;
+          s.onload = function () { resolve(); };
+          s.onerror = function () { reject(new Error("script load failed: " + src)); };
+          document.head.appendChild(s);
+        });
+      }
+
+      function ensureEditorScripts() {
+        if (window.MeishiCardUI && window.MeishiPreviewPanel) return Promise.resolve();
+        if (editorScriptsPromise) return editorScriptsPromise;
+        editorScriptsPromise = EDITOR_SCRIPTS.reduce(function (p, src) {
+          return p.then(function () { return loadScript(src); });
+        }, Promise.resolve());
+        return editorScriptsPromise;
+      }
+
       function restoreAdminSavedLogin() {
         try {
           var raw = localStorage.getItem(ADMIN_REMEMBER_KEY);
@@ -1851,13 +1893,7 @@
         refreshAdminWho();
         showTab("company");
       }
-      restoreAdminSavedLogin();
-      try { await MeishiStore.init(); } catch (e) {
-        alert(e.message || e);
-        return;
-      }
-      var sess = MeishiStore.getAdminSession && MeishiStore.getAdminSession();
-      if (sess) {
+      function wireAdminUi() {
         bindEvents();
         setBadge();
         fillCoPick();
@@ -1870,38 +1906,67 @@
           applyAdminUiLocks();
         });
         MeishiStore.onRecordsChange(function () { renderRecTable(); });
-        revealMain();
         applyAdminUiLocks();
+      }
+      async function enterMainAfterLogin() {
+        if (!MeishiStore.ready) {
+          try { await MeishiStore.init(); } catch (e) {
+            alert(e.message || e);
+            return false;
+          }
+        }
+        try { await ensureEditorScripts(); } catch (e) {
+          alert("画面の読み込みに失敗しました。再読み込みしてください。\n" + (e.message || e));
+          return false;
+        }
+        wireAdminUi();
+        revealMain();
+        return true;
+      }
+
+      restoreAdminSavedLogin();
+      // ログイン欄はすぐ使える。認証・管理者アカウントだけ先読み
+      try {
+        if (MeishiStore.initAuthFast) await MeishiStore.initAuthFast();
+      } catch (e) { console.warn(e); }
+      // 名刺データ等は裏で読み込み
+      void MeishiStore.init().catch(function (e) { console.warn("[Meishi] init", e); });
+      void ensureEditorScripts().catch(function () {});
+
+      var sess = MeishiStore.getAdminSession && MeishiStore.getAdminSession();
+      if (sess) {
+        await enterMainAfterLogin();
         return;
       }
+
       var btn = document.getElementById("btnAdminLogin");
       if (btn) {
-        btn.onclick = function () {
+        btn.onclick = async function () {
+          if (loggingIn) return;
           var id = (document.getElementById("adminLoginId").value || "").trim();
           var pass = document.getElementById("adminLoginPass").value || "";
-          var r = MeishiStore.verifyAdminLogin(id, pass);
           var err = document.getElementById("adminLoginErr");
-          if (!r || !r.ok) {
-            if (err) err.textContent = "ID またはパスワードが違います";
-            return;
+          loggingIn = true;
+          btn.disabled = true;
+          try {
+            if (MeishiStore.useFirebase() && MeishiStore.refreshAuthFromFirebase) {
+              try { await MeishiStore.initAuthFast(); } catch (e) {}
+            }
+            var r = MeishiStore.verifyAdminLogin(id, pass);
+            if (!r || !r.ok) {
+              if (err) err.textContent = "ID またはパスワードが違います";
+              return;
+            }
+            persistAdminRemember(id, pass);
+            MeishiStore.setAdminSession(r.account);
+            if (err) err.textContent = "読み込み中…";
+            var ok = await enterMainAfterLogin();
+            if (!ok && err) err.textContent = "";
+            else if (err) err.textContent = "";
+          } finally {
+            loggingIn = false;
+            btn.disabled = false;
           }
-          persistAdminRemember(id, pass);
-          MeishiStore.setAdminSession(r.account);
-          if (err) err.textContent = "";
-          bindEvents();
-          setBadge();
-          fillCoPick();
-          fillDeptPanel();
-          renderRecTable();
-          MeishiStore.onConfigChange(function () {
-            refreshAdminWho();
-            setBadge();
-            refreshCoPickOptions();
-            applyAdminUiLocks();
-          });
-          MeishiStore.onRecordsChange(function () { renderRecTable(); });
-          revealMain();
-          applyAdminUiLocks();
         };
       }
       var passEl = document.getElementById("adminLoginPass");
