@@ -1419,69 +1419,121 @@
     return rec;
   }
 
+  function fillRecNoSelect() {
+    var sel = document.getElementById("selRecNo");
+    if (!sel) return;
+    var all = MeishiStore.getRecords();
+    var indexed = all.map(function (r, i) { return { r: r, i: i }; });
+    if (window.MEISHI_ADMIN_PAGE && MeishiStore.adminCanEditCompany) {
+      indexed = indexed.filter(function (x) {
+        return MeishiStore.adminCanEditCompany(x.r.company);
+      });
+    }
+    var keep = sel.value;
+    sel.innerHTML = "<option value=''>氏名で選択</option>" + indexed.map(function (x) {
+      var label = (x.r.no ? String(x.r.no) + " " : "") + (x.r.name || "（無記名）");
+      return "<option value='" + esc(x.r.no || "") + "'>" + esc(label) + "</option>";
+    }).join("");
+    if (keep) sel.value = keep;
+  }
+
   function openRecForm(idx, copyFrom) {
     editRecIdx = idx;
     copySourceRec = copyFrom || null;
     var rec;
-    if (copyFrom) {
-      rec = JSON.parse(JSON.stringify(copyFrom));
-      rec.no = MeishiStore.nextRecordNo();
-      document.getElementById("recFormTitle").textContent = "データコピー（新規番号 " + rec.no + "）";
-    } else if (idx >= 0) {
-      rec = Object.assign({}, MeishiFields.emptyRecord(), MeishiStore.getRecords()[idx]);
-      document.getElementById("recFormTitle").textContent = "行 #" + rec.no + " を編集";
-    } else {
-      rec = MeishiFields.emptyRecord();
-      rec.no = MeishiStore.nextRecordNo();
-      document.getElementById("recFormTitle").textContent = "新規行（番号 " + rec.no + "）";
+    var titleEl = document.getElementById("recFormTitle");
+    var card = document.getElementById("recFormCard");
+    try {
+      if (copyFrom) {
+        rec = JSON.parse(JSON.stringify(copyFrom));
+        rec.no = MeishiStore.nextRecordNo();
+        if (titleEl) titleEl.textContent = "データコピー（新規番号 " + rec.no + "）";
+      } else if (idx >= 0) {
+        var row = MeishiStore.getRecords()[idx] || {};
+        rec = Object.assign({}, MeishiFields.emptyRecord(), row);
+        if (titleEl) titleEl.textContent = (rec.name ? rec.name + " を編集" : "行 #" + (rec.no || idx) + " を編集");
+      } else {
+        rec = MeishiFields.emptyRecord();
+        rec.no = MeishiStore.nextRecordNo();
+        if (titleEl) titleEl.textContent = "新規行（番号 " + rec.no + "）";
+      }
+      rebuildRecFormFields(rec);
+    } catch (e) {
+      console.warn("[Meishi] openRecForm", e);
+      if (titleEl) titleEl.textContent = "編集";
+      try {
+        rebuildRecFormFields(rec || MeishiFields.emptyRecord());
+      } catch (e2) {
+        var fields = document.getElementById("recFormFields");
+        if (fields) fields.innerHTML = "<p class='hint' style='color:#b3261e'>編集欄の表示に失敗しました。ページを再読み込みしてください。</p>";
+      }
     }
-    rebuildRecFormFields(rec);
-    document.getElementById("recFormCard").style.display = "";
+    if (card) {
+      card.style.display = "";
+      try { card.scrollIntoView({ behavior: "smooth", block: "nearest" }); } catch (e3) {}
+    }
     renderRecTable();
   }
 
   function bindEvents() {
-    document.getElementById("tabs").addEventListener("click", function (e) {
-      var b = e.target.closest("button[data-tab]");
-      if (b) showTab(b.getAttribute("data-tab"));
-    });
-    document.getElementById("btnSaveBasic").onclick = function () {
-      var ownerId = document.getElementById("ownerId").value.trim();
-      var ownerPass = document.getElementById("ownerPass").value;
-      if (!ownerId) return alert("ログインIDを入力してください");
-      if (!ownerPass) return alert("パスワードを入力してください");
-      var payload = {
-        title: document.getElementById("title").value.trim() || "名刺印刷システム",
-        ownerId: ownerId,
-        ownerPass: ownerPass,
-      };
-      var save = MeishiStore.saveConfigAsync
-        ? MeishiStore.saveConfigAsync(payload)
-        : Promise.resolve({ localOk: true, authOk: !MeishiStore.useFirebase() });
-      save.then(function (r) {
-        refreshUserUrlFields();
-        setBadge();
-        var msg = "保存しました";
-        if (MeishiStore.useFirebase() && (!r || !r.authOk)) {
-          msg += "\n\n※ ログイン情報の共有に失敗しました。ネットワークを確認し、もう一度「保存」を押してください。";
-        } else if (MeishiStore.useFirebase()) {
-          msg += "\n\n携帯・他PCは「使用者ページ」の本番URLから、同じ ID / パスワードでログインできます。";
-        }
-        alert(msg);
+    var tabs = document.getElementById("tabs");
+    if (tabs) {
+      tabs.addEventListener("click", function (e) {
+        var b = e.target.closest("button[data-tab]");
+        if (b) showTab(b.getAttribute("data-tab"));
       });
-    };
-    document.getElementById("btnCopy").onclick = function () {
-      var url = document.getElementById("userUrl").value || defaultUserPageUrl();
-      copyTextToClipboard(url, "使用者URLをコピーしました");
-    };
-    document.getElementById("btnQr").onclick = showUserQr;
-    document.getElementById("btnQrClose").onclick = hideUserQr;
-    document.getElementById("qrModal").onclick = function (e) {
-      if (e.target === document.getElementById("qrModal")) hideUserQr();
-    };
-    document.getElementById("btnOpen").onclick = function () {
-      openPageUrl(document.getElementById("userUrl").value || defaultUserPageUrl());
-    };
+    }
+    var btnSaveBasic = document.getElementById("btnSaveBasic");
+    if (btnSaveBasic) {
+      btnSaveBasic.onclick = function () {
+        var ownerId = document.getElementById("ownerId").value.trim();
+        var ownerPass = document.getElementById("ownerPass").value;
+        if (!ownerId) return alert("ログインIDを入力してください");
+        if (!ownerPass) return alert("パスワードを入力してください");
+        var payload = {
+          title: document.getElementById("title").value.trim() || "名刺印刷システム",
+          ownerId: ownerId,
+          ownerPass: ownerPass,
+        };
+        var save = MeishiStore.saveConfigAsync
+          ? MeishiStore.saveConfigAsync(payload)
+          : Promise.resolve({ localOk: true, authOk: !MeishiStore.useFirebase() });
+        save.then(function (r) {
+          refreshUserUrlFields();
+          setBadge();
+          var msg = "保存しました";
+          if (MeishiStore.useFirebase() && (!r || !r.authOk)) {
+            msg += "\n\n※ ログイン情報の共有に失敗しました。ネットワークを確認し、もう一度「保存」を押してください。";
+          } else if (MeishiStore.useFirebase()) {
+            msg += "\n\n携帯・他PCは「使用者ページ」の本番URLから、同じ ID / パスワードでログインできます。";
+          }
+          alert(msg);
+        });
+      };
+    }
+    var btnCopy = document.getElementById("btnCopy");
+    if (btnCopy) {
+      btnCopy.onclick = function () {
+        var url = document.getElementById("userUrl").value || defaultUserPageUrl();
+        copyTextToClipboard(url, "使用者URLをコピーしました");
+      };
+    }
+    var btnQr = document.getElementById("btnQr");
+    if (btnQr) btnQr.onclick = showUserQr;
+    var btnQrClose = document.getElementById("btnQrClose");
+    if (btnQrClose) btnQrClose.onclick = hideUserQr;
+    var qrModal = document.getElementById("qrModal");
+    if (qrModal) {
+      qrModal.onclick = function (e) {
+        if (e.target === qrModal) hideUserQr();
+      };
+    }
+    var btnOpen = document.getElementById("btnOpen");
+    if (btnOpen) {
+      btnOpen.onclick = function () {
+        openPageUrl(document.getElementById("userUrl").value || defaultUserPageUrl());
+      };
+    }
     var btnCopyOwner = document.getElementById("btnCopyOwner");
     if (btnCopyOwner) {
       btnCopyOwner.onclick = function () {
@@ -1563,9 +1615,12 @@
         alert("管理者アカウント設定を保存しました");
       };
     }
-    document.getElementById("btnImgLibAdd").onclick = addImagesToLibrary;
-    document.getElementById("btnImgLibRecover").onclick = recoverImagesFromBackup;
-    document.getElementById("imgLibFileInput").onchange = onImgLibFilesSelected;
+    var btnImgLibAdd = document.getElementById("btnImgLibAdd");
+    if (btnImgLibAdd) btnImgLibAdd.onclick = addImagesToLibrary;
+    var btnImgLibRecover = document.getElementById("btnImgLibRecover");
+    if (btnImgLibRecover) btnImgLibRecover.onclick = recoverImagesFromBackup;
+    var imgLibFileInput = document.getElementById("imgLibFileInput");
+    if (imgLibFileInput) imgLibFileInput.onchange = onImgLibFilesSelected;
     coPickIds().forEach(function (id) {
       var el = document.getElementById(id);
       if (el) el.onchange = onCoPickChange;
@@ -1757,53 +1812,81 @@
       if (deBackUI) deBackUI.invalidate();
       refreshDeptBackDesign();
     };
-    document.getElementById("recSearch").oninput = function () {
-      recFilter = this.value;
-      if (window._recSearchTimer) clearTimeout(window._recSearchTimer);
-      window._recSearchTimer = setTimeout(function () { renderRecTable(); }, 150);
-    };
-    document.querySelector("#recTbl tbody").addEventListener("click", function (e) {
-      var tr = e.target.closest("tr[data-i]");
-      if (tr) openRecForm(+tr.getAttribute("data-i"));
-    });
-    document.getElementById("btnRecNew").onclick = function () { copySourceRec = null; openRecForm(-1); };
-    document.getElementById("btnRecCopy").onclick = function () {
-      if (editRecIdx < 0) return alert("コピー元の行を一覧から選んでください");
-      openRecForm(-1, MeishiStore.getRecords()[editRecIdx]);
-    };
-    document.getElementById("btnRecCancel").onclick = function () {
-      editRecIdx = -1; copySourceRec = null;
-      document.getElementById("recFormCard").style.display = "none";
-      renderRecTable();
-    };
-    document.getElementById("btnRecSave").onclick = function () {
-      var rec = readRecFromForm();
-      if (!rec.name) return alert("氏名を入力してください");
-      if (!rec.company) return alert("会社を選択してください");
-      if (copySourceRec && MeishiCatalog.recordsEqual(rec, copySourceRec, true)) {
-        return alert("コピー元と内容が同一のため登録できません。変更してから保存してください。");
-      }
-      if (editRecIdx >= 0 && !copySourceRec) MeishiStore.updateRecord(editRecIdx, rec);
-      else MeishiStore.addRecord(rec);
-      editRecIdx = -1; copySourceRec = null;
-      document.getElementById("recFormCard").style.display = "none";
-      fillCoPick();
-      renderRecTable();
-      alert("保存しました");
-    };
-    document.getElementById("btnRecDel").onclick = function () {
-      if (editRecIdx < 0 || copySourceRec) return;
-      if (!confirm("削除しますか？")) return;
-      MeishiStore.deleteRecord(editRecIdx);
-      editRecIdx = -1;
-      document.getElementById("recFormCard").style.display = "none";
-      fillCoPick();
-      renderRecTable();
-    };
-    document.getElementById("selRecNo").onchange = function () {
-      var idx = MeishiStore.findRecordByNo(this.value);
-      if (idx >= 0) openRecForm(idx);
-    };
+    var recSearch = document.getElementById("recSearch");
+    if (recSearch) {
+      recSearch.oninput = function () {
+        recFilter = this.value;
+        if (window._recSearchTimer) clearTimeout(window._recSearchTimer);
+        window._recSearchTimer = setTimeout(function () { renderRecTable(); }, 150);
+      };
+    }
+    // #recTbl に委譲（tbody 差し替え・admin シェル後でも確実に反応）
+    var recTbl = document.getElementById("recTbl");
+    if (recTbl && !recTbl._meishiRecClickBound) {
+      recTbl._meishiRecClickBound = true;
+      recTbl.addEventListener("click", function (e) {
+        var tr = e.target.closest("tr[data-i]");
+        if (tr) openRecForm(+tr.getAttribute("data-i"));
+      });
+    }
+    var btnRecNew = document.getElementById("btnRecNew");
+    if (btnRecNew) {
+      btnRecNew.onclick = function () { copySourceRec = null; openRecForm(-1); };
+    }
+    var btnRecCopy = document.getElementById("btnRecCopy");
+    if (btnRecCopy) {
+      btnRecCopy.onclick = function () {
+        if (editRecIdx < 0) return alert("コピー元の行を一覧から選んでください");
+        openRecForm(-1, MeishiStore.getRecords()[editRecIdx]);
+      };
+    }
+    var btnRecCancel = document.getElementById("btnRecCancel");
+    if (btnRecCancel) {
+      btnRecCancel.onclick = function () {
+        editRecIdx = -1; copySourceRec = null;
+        document.getElementById("recFormCard").style.display = "none";
+        renderRecTable();
+      };
+    }
+    var btnRecSave = document.getElementById("btnRecSave");
+    if (btnRecSave) {
+      btnRecSave.onclick = function () {
+        var rec = readRecFromForm();
+        if (!rec.name) return alert("氏名を入力してください");
+        if (!rec.company) return alert("会社を選択してください");
+        if (copySourceRec && MeishiCatalog.recordsEqual(rec, copySourceRec, true)) {
+          return alert("コピー元と内容が同一のため登録できません。変更してから保存してください。");
+        }
+        if (editRecIdx >= 0 && !copySourceRec) MeishiStore.updateRecord(editRecIdx, rec);
+        else MeishiStore.addRecord(rec);
+        editRecIdx = -1; copySourceRec = null;
+        document.getElementById("recFormCard").style.display = "none";
+        fillCoPick();
+        fillRecNoSelect();
+        renderRecTable();
+        alert("保存しました");
+      };
+    }
+    var btnRecDel = document.getElementById("btnRecDel");
+    if (btnRecDel) {
+      btnRecDel.onclick = function () {
+        if (editRecIdx < 0 || copySourceRec) return;
+        if (!confirm("削除しますか？")) return;
+        MeishiStore.deleteRecord(editRecIdx);
+        editRecIdx = -1;
+        document.getElementById("recFormCard").style.display = "none";
+        fillCoPick();
+        fillRecNoSelect();
+        renderRecTable();
+      };
+    }
+    var selRecNo = document.getElementById("selRecNo");
+    if (selRecNo) {
+      selRecNo.onchange = function () {
+        var idx = MeishiStore.findRecordByNo(this.value);
+        if (idx >= 0) openRecForm(idx);
+      };
+    }
   }
 
   window.OwnerAdmin = {
@@ -1820,9 +1903,7 @@
       fillCoPick();
       fillDeptPanel();
       renderRecTable();
-      var nos = MeishiStore.getRecords().map(function (r) { return r.no; }).filter(Boolean);
-      document.getElementById("selRecNo").innerHTML =
-        "<option value=''>行番号で選択</option>" + nos.map(function (n) { return "<option>" + esc(n) + "</option>"; }).join("");
+      fillRecNoSelect();
       MeishiStore.onConfigChange(function () {
         if (window._coCatalogSyncing || window._deptSaving) return;
         fillBasic();
@@ -1841,10 +1922,8 @@
       MeishiStore.onRecordsChange(function () {
         refreshCoPickOptions();
         renderRecTable();
+        fillRecNoSelect();
         refreshRecFormIfOpen();
-        var nos2 = MeishiStore.getRecords().map(function (r) { return r.no; }).filter(Boolean);
-        document.getElementById("selRecNo").innerHTML =
-          "<option value=''>行番号で選択</option>" + nos2.map(function (n) { return "<option>" + esc(n) + "</option>"; }).join("");
       });
       applyPreviewOnlyMode();
     },
@@ -1893,6 +1972,7 @@
           fillCoPick();
           fillDeptPanel();
           renderRecTable();
+          fillRecNoSelect();
           applyAdminUiLocks();
         } catch (e) {
           console.warn("[Meishi] paintAdminPanels", e);
@@ -1900,23 +1980,30 @@
       }
       function wireAdminUiOnce() {
         if (uiWired) return;
-        uiWired = true;
-        bindEvents();
-        MeishiStore.onConfigChange(function () {
-          refreshAdminWho();
-          setBadge();
-          refreshCoPickOptions();
-          applyAdminUiLocks();
-          try { fillCoPanel(); } catch (e) {}
-        });
-        MeishiStore.onRecordsChange(function () {
-          renderRecTable();
-          refreshRecFormIfOpen();
-        });
+        try {
+          bindEvents();
+          MeishiStore.onConfigChange(function () {
+            refreshAdminWho();
+            setBadge();
+            refreshCoPickOptions();
+            applyAdminUiLocks();
+            try { fillCoPanel(); } catch (e) {}
+          });
+          MeishiStore.onRecordsChange(function () {
+            renderRecTable();
+            fillRecNoSelect();
+            refreshRecFormIfOpen();
+          });
+          uiWired = true;
+        } catch (e) {
+          console.warn("[Meishi] wireAdminUiOnce", e);
+          uiWired = false;
+        }
       }
       /** ログイン成功後は待たずに画面を開く。データは裏で描画 */
       function enterMainAfterLogin() {
         revealMain();
+        // setupAdminShell 後に接続（無い要素はスキップ。以前は btnSaveBasic 欠落で例外→行クリック未接続）
         wireAdminUiOnce();
         refreshAdminWho();
         applyAdminUiLocks();
@@ -1928,8 +2015,6 @@
           }).catch(function (e) {
             console.warn("[Meishi] init", e);
             if (e && e.message) {
-              var err = document.getElementById("adminLoginErr");
-              // 既にメイン表示済み。致命時のみアラート
               alert(e.message || e);
             }
           });
