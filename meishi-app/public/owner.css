@@ -205,9 +205,25 @@ th{background:#f3f6fb;position:sticky;top:0}tr.sel{background:#e8eef8}tr:hover{b
 .admin-acc-companies{display:flex;flex-wrap:nowrap;align-items:center;gap:8px 14px;overflow-x:auto;white-space:nowrap;max-height:none}
 .admin-acc-co-item{display:inline-flex;flex-shrink:0;gap:6px;align-items:center;cursor:pointer;white-space:nowrap;padding:0;margin:0}
 .admin-acc-co-item input{width:auto;margin:0;flex:0 0 auto}
-.admin-acc-row{width:100%;max-width:100%;flex-direction:row;justify-content:space-between;align-items:center}
-.admin-acc-row-main{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* 管理者アカウント一覧: 画像タイル(108px)用スタイルを打ち消し、欄内に収める */
+#adminAccountsList.img-lib-box{flex-direction:column;flex-wrap:nowrap;align-items:stretch;gap:8px;overflow:hidden}
+#adminAccountsList .img-lib-item.admin-acc-row,
+.img-lib-item.admin-acc-row{
+  position:relative;
+  display:flex;
+  flex-direction:row;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  width:100%;
+  max-width:100%;
+  box-sizing:border-box;
+  padding:10px 12px;
+  overflow:hidden;
+}
+.admin-acc-row-main{min-width:0;flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left;font-size:.88rem;line-height:1.4}
 .admin-acc-companies-text{white-space:nowrap}
+.img-lib-item.admin-acc-row .btn{flex:0 0 auto;position:static;margin:0}
 .img-lib-box.empty{align-items:center;justify-content:center;color:#7b8698;font-size:.88rem}
 .img-lib-item{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;width:108px;padding:8px;background:#fff;border:1px solid var(--line);border-radius:10px}
 .img-lib-item img{max-width:88px;max-height:56px;object-fit:contain}
