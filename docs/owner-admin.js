@@ -540,7 +540,7 @@
   }
 
   function withShareCacheBust(url) {
-    var ver = (window.MeishiStore && MeishiStore.sharePageVer) || window.MEISHI_PAGE_VER || "20250724j";
+    var ver = (window.MeishiStore && MeishiStore.sharePageVer) || window.MEISHI_PAGE_VER || "20250724k";
     try {
       var u = new URL(url, window.location.href);
       if (/\.html$/i.test(u.pathname)) u.searchParams.set("v", String(ver));
