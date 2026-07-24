@@ -54,6 +54,7 @@
       underline: 0,
       font: "",
       align: "left",
+      z: 20 + i,
     };
   }
 

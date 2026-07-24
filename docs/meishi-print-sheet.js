@@ -78,7 +78,7 @@
           n.textContent = stored;
         }
         if (!n.style.color) n.style.color = "#222222";
-        n.style.zIndex = "5";
+        // デザイン時の重ね順（inline z-index）を維持する
         n.style.visibility = "visible";
         n.style.opacity = "1";
       });

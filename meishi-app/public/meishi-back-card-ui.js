@@ -389,7 +389,107 @@
       st.y = pos.y;
       node.style.left = st.x + "px";
       node.style.top = st.y + "px";
-      node.style.zIndex = "5";
+      node.style.zIndex = String(ensureItemZ(st, 20));
+    }
+
+    function layerableItems(layout) {
+      var items = [];
+      ((layout && layout.texts) || []).forEach(function (t) { if (t) items.push(t); });
+      ((layout && layout.images) || []).forEach(function (im) { if (im) items.push(im); });
+      return items;
+    }
+
+    function ensureItemZ(st, fallback) {
+      var z = Number(st && st.z);
+      if (!isFinite(z)) {
+        z = fallback;
+        if (st) st.z = z;
+      } else {
+        z = Math.round(z);
+        st.z = z;
+      }
+      return z;
+    }
+
+    function nextLayerZ(layout) {
+      var max = 0;
+      layerableItems(layout).forEach(function (it) {
+        var z = Number(it.z);
+        if (isFinite(z) && z > max) max = z;
+      });
+      return Math.max(10, Math.round(max) + 1);
+    }
+
+    function rawImageIdFromSel(selId) {
+      if (!isImgSel(selId)) return "";
+      return String(selId).replace(/^__img:/, "");
+    }
+
+    function getSelectedLayerTarget() {
+      if (!sel) return null;
+      var layout = getLayout();
+      if (!layout) return null;
+      if (isImgSel(sel)) {
+        var imgId = rawImageIdFromSel(sel);
+        var im = ((layout.images) || []).find(function (x) { return x && x.id === imgId; });
+        if (!im) return null;
+        return { kind: "image", st: im, node: imgNodes[imgId] ? imgNodes[imgId].wrap : null };
+      }
+      if (textNodes[sel]) {
+        var tx = ((layout.texts) || []).find(function (t) { return t && t.id === sel; });
+        if (!tx) return null;
+        return { kind: "text", st: tx, node: textNodes[sel] };
+      }
+      return null;
+    }
+
+    function applyLayerZToNode(hit) {
+      if (!hit || !hit.st) return;
+      var z = ensureItemZ(hit.st, hit.kind === "image" ? 10 : 20);
+      if (hit.node) hit.node.style.zIndex = String(z);
+    }
+
+    function bringSelectedToFront() {
+      if (readOnly) return false;
+      var hit = getSelectedLayerTarget();
+      if (!hit) return false;
+      var layout = getLayout();
+      hit.st.z = nextLayerZ(layout);
+      applyLayerZToNode(hit);
+      saveLayout();
+      if (panelShowDesign) panelShowDesign();
+      return true;
+    }
+
+    function sendSelectedToBack() {
+      if (readOnly) return false;
+      var hit = getSelectedLayerTarget();
+      if (!hit) return false;
+      var layout = getLayout();
+      var min = Infinity;
+      layerableItems(layout).forEach(function (it) {
+        if (it === hit.st) return;
+        var z = ensureItemZ(it, 10);
+        if (z < min) min = z;
+      });
+      if (!isFinite(min)) min = 10;
+      hit.st.z = min - 1;
+      if (hit.st.z < 1) {
+        var shift = 1 - hit.st.z;
+        layerableItems(layout).forEach(function (it) {
+          it.z = ensureItemZ(it, 10) + shift;
+        });
+      }
+      applyLayerZToNode(hit);
+      ((layout.texts) || []).forEach(function (t) {
+        if (t && textNodes[t.id]) textNodes[t.id].style.zIndex = String(ensureItemZ(t, 20));
+      });
+      ((layout.images) || []).forEach(function (im) {
+        if (im && imgNodes[im.id]) imgNodes[im.id].wrap.style.zIndex = String(ensureItemZ(im, 10));
+      });
+      saveLayout();
+      if (panelShowDesign) panelShowDesign();
+      return true;
     }
 
     function syncTextContentFromNode(node, st) {
@@ -905,6 +1005,7 @@
           n.wrap.style.top = raw.y + "px";
           n.wrap.style.width = raw.w + "px";
           n.wrap.style.height = raw.h + "px";
+          n.wrap.style.zIndex = String(ensureItemZ(raw, 10));
         });
       }
       Object.keys(imgNodes).forEach(function (id) {
@@ -1009,14 +1110,19 @@
       var textDelete = q("textDelete", "backDesTextDelete");
       var textDeleteRow = textDelete ? textDelete.closest(".des-row") : null;
       var backDesFont = q("font", "backDesFont");
+      var layerRow = q("layerRow", "backDesignLayerRow");
+      var desFront = q("front", "backDesFront");
+      var desBack = q("back", "backDesBack");
       var alignAttr = panelIds.alignAttr || "data-back-al";
 
       function showDesign() {
         if (!designCtl || !designNone) return;
+        var layerHit = getSelectedLayerTarget();
+        if (layerRow) layerRow.style.display = layerHit ? "" : "none";
         if (!sel || isImgSel(sel)) {
           designCtl.style.display = "none";
           designNone.style.display = "";
-          if (isImgSel(sel)) designNone.textContent = "画像が選択されています。ドラッグで移動、右下でサイズ変更できます。";
+          if (isImgSel(sel)) designNone.textContent = "画像が選択されています。ドラッグで移動、右下でサイズ変更。重ね順は下のボタンで変更できます。";
           else designNone.textContent = "テキストをクリックして直接入力できます。書式は右のパネルで変更してください。";
           if (textDeleteRow) textDeleteRow.style.display = "none";
           return;
@@ -1109,6 +1215,8 @@
           removeTextBlock(hit.st.id);
         });
       }
+      if (desFront) desFront.addEventListener("click", function () { bringSelectedToFront(); });
+      if (desBack) desBack.addEventListener("click", function () { sendSelectedToBack(); });
 
       return { showDesign: showDesign };
     }
@@ -1125,6 +1233,9 @@
       getCenterDivider: getCenterDivider,
       getSelection: function () { return sel; },
       setSelection: function (v) { sel = v; updateSelectionHighlight(); },
+      bringSelectedToFront: bringSelectedToFront,
+      sendSelectedToBack: sendSelectedToBack,
+      nextLayerZ: function () { return nextLayerZ(getLayout()); },
     };
   }
 

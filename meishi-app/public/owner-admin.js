@@ -278,11 +278,26 @@
     previewPanel.init();
   }
 
+  function nextLayoutLayerZ(layout) {
+    var max = 0;
+    function consider(list) {
+      (list || []).forEach(function (it) {
+        var z = Number(it && it.z);
+        if (isFinite(z) && z > max) max = z;
+      });
+    }
+    consider(layout && layout.texts);
+    consider(layout && layout.images);
+    return Math.max(10, Math.round(max) + 1);
+  }
+
   function pickImagesIntoLayout(layout, prefix, done) {
     MeishiImageLib.pick(function (items) {
       layout.images = layout.images || [];
       items.forEach(function (item, i) {
-        layout.images.push(MeishiImageLib.createDefaultImage(item, i, prefix));
+        var im = MeishiImageLib.createDefaultImage(item, i, prefix);
+        im.z = nextLayoutLayerZ(layout);
+        layout.images.push(im);
       });
       if (typeof done === "function") done();
     }, { company: currentCo || MeishiStore.getImageLibraryContext() });
@@ -1290,12 +1305,24 @@
         onSelect: function () {
           var none = document.getElementById("deDesignNone");
           var ctl = document.getElementById("deDesignCtl");
+          var layer = document.getElementById("deDesignLayerRow");
           if (none) none.style.display = "none";
           if (ctl) ctl.style.display = "";
+          if (layer) layer.style.display = "";
           var tgt = document.getElementById("deDesTarget");
           if (tgt) tgt.textContent = "部署画像（ドラッグで移動・右下でサイズ変更）";
         },
       });
+      var deFront = document.getElementById("deDesFront");
+      var deBack = document.getElementById("deDesBack");
+      if (deFront && !deFront._layerBound) {
+        deFront._layerBound = true;
+        deFront.onclick = function () { if (deUI && deUI.bringSelectedToFront) deUI.bringSelectedToFront(); };
+      }
+      if (deBack && !deBack._layerBound) {
+        deBack._layerBound = true;
+        deBack.onclick = function () { if (deUI && deUI.sendSelectedToBack) deUI.sendSelectedToBack(); };
+      }
     }
     deCoUI.renderCard();
     deUI.renderCard();
@@ -1364,6 +1391,9 @@
         underline: "deBackDesUnderline",
         ctl: "deBackDesignCtl",
         none: "deBackDesignNone",
+        layerRow: "deBackDesignLayerRow",
+        front: "deBackDesFront",
+        back: "deBackDesBack",
         textDelete: "deBackDesTextDelete",
         font: "deBackDesFont",
         alignAttr: "data-de-back-al",
@@ -2005,6 +2035,7 @@
       coLayout = MeishiCatalog.normalizeLayout(coLayout);
       coLayout.texts = coLayout.texts || [];
       var block = MeishiLayout.defTextBlock(coLayout.texts.length);
+      block.z = nextLayoutLayerZ(coLayout);
       coLayout.texts.push(block);
       if (coUI) coUI.invalidate();
       refreshCoDesign();
@@ -2030,6 +2061,7 @@
       if (!coLayoutBack) coLayoutBack = MeishiLayout.defBackLayout();
       coLayoutBack.texts = coLayoutBack.texts || [];
       var block = MeishiLayout.defTextBlock(coLayoutBack.texts.length);
+      block.z = nextLayoutLayerZ(coLayoutBack);
       coLayoutBack.texts.push(block);
       if (coBackUI) coBackUI.invalidate();
       refreshCoBackDesign();
@@ -2094,6 +2126,7 @@
       if (!deLayoutBack) deLayoutBack = MeishiLayout.defBackLayout();
       deLayoutBack.texts = deLayoutBack.texts || [];
       var block = MeishiLayout.defTextBlock(deLayoutBack.texts.length);
+      block.z = nextLayoutLayerZ(deLayoutBack);
       deLayoutBack.texts.push(block);
       if (deBackUI) deBackUI.invalidate();
       refreshDeptBackDesign();

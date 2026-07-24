@@ -113,6 +113,7 @@
       y: i * 12,
       w: 80,
       h: 44,
+      z: 10 + i,
     };
     if (item.id) out.libId = item.id;
     if (item.company) out.company = item.company;

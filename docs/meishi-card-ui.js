@@ -832,6 +832,7 @@
         n.wrap.style.top = raw.y + "px";
         n.wrap.style.width = raw.w + "px";
         n.wrap.style.height = raw.h + "px";
+        n.wrap.style.zIndex = String(ensureItemZ(raw, 10));
       });
       Object.keys(imgNodes).forEach(function (id) {
         if (!ids[id]) {
@@ -953,7 +954,103 @@
       st.y = pos.y;
       node.style.left = st.x + "px";
       node.style.top = st.y + "px";
-      node.style.zIndex = "5";
+      node.style.zIndex = String(ensureItemZ(st, 20));
+    }
+
+    function layerableItems(layout) {
+      var items = [];
+      ((layout && layout.texts) || []).forEach(function (t) { if (t) items.push(t); });
+      ((layout && layout.images) || []).forEach(function (im) { if (im) items.push(im); });
+      return items;
+    }
+
+    function ensureItemZ(st, fallback) {
+      var z = Number(st && st.z);
+      if (!isFinite(z)) {
+        z = fallback;
+        if (st) st.z = z;
+      } else {
+        z = Math.round(z);
+        st.z = z;
+      }
+      return z;
+    }
+
+    function nextLayerZ(layout) {
+      var max = 0;
+      layerableItems(layout).forEach(function (it) {
+        var z = Number(it.z);
+        if (isFinite(z) && z > max) max = z;
+      });
+      return Math.max(10, Math.round(max) + 1);
+    }
+
+    function getSelectedLayerTarget() {
+      if (!sel) return null;
+      var layout = getLayout();
+      if (!layout) return null;
+      if (isImgSel(sel)) {
+        var imgId = rawImageIdFromSel(sel);
+        var im = ((layout.images) || []).find(function (x) { return x && x.id === imgId; });
+        if (!im) return null;
+        return { kind: "image", st: im, node: imgNodes[imgId] ? imgNodes[imgId].wrap : null };
+      }
+      if (textNodes[sel]) {
+        var tx = ((layout.texts) || []).find(function (t) { return t && t.id === sel; });
+        if (!tx) return null;
+        return { kind: "text", st: tx, node: textNodes[sel] };
+      }
+      return null;
+    }
+
+    function applyLayerZToNode(hit) {
+      if (!hit || !hit.st) return;
+      var z = ensureItemZ(hit.st, hit.kind === "image" ? 10 : 20);
+      if (hit.node) hit.node.style.zIndex = String(z);
+    }
+
+    function bringSelectedToFront() {
+      if (readOnly) return false;
+      var hit = getSelectedLayerTarget();
+      if (!hit) return false;
+      var layout = getLayout();
+      hit.st.z = nextLayerZ(layout);
+      applyLayerZToNode(hit);
+      saveLayout();
+      if (panelShowDesign) panelShowDesign();
+      return true;
+    }
+
+    function sendSelectedToBack() {
+      if (readOnly) return false;
+      var hit = getSelectedLayerTarget();
+      if (!hit) return false;
+      var layout = getLayout();
+      var min = Infinity;
+      layerableItems(layout).forEach(function (it) {
+        if (it === hit.st) return;
+        var z = ensureItemZ(it, 10);
+        if (z < min) min = z;
+      });
+      if (!isFinite(min)) min = 10;
+      hit.st.z = min - 1;
+      if (hit.st.z < 1) {
+        var shift = 1 - hit.st.z;
+        layerableItems(layout).forEach(function (it) {
+          it.z = ensureItemZ(it, 10) + shift;
+        });
+      }
+      applyLayerZToNode(hit);
+      // 他ノードの z も再反映
+      ((layout.texts) || []).forEach(function (t) {
+        if (t && textNodes[t.id]) textNodes[t.id].style.zIndex = String(ensureItemZ(t, 20));
+      });
+      ((layout.images) || []).forEach(function (im) {
+        if (im && imgNodes[im.id]) imgNodes[im.id].wrap.style.zIndex = String(ensureItemZ(im, 10));
+      });
+      saveLayout();
+      if (panelShowDesign) panelShowDesign();
+      return true;
     }
 
     function syncFreeTextContentFromNode(node, st) {
@@ -1220,6 +1317,16 @@
       }
       addItem("コピー", function () { copyFreeText(st, node); });
       addItem("ペースト", function () { pasteFreeText(st, node); });
+      addItem("最前面", function () {
+        sel = st.id;
+        updateSelectionHighlight();
+        bringSelectedToFront();
+      });
+      addItem("最背面", function () {
+        sel = st.id;
+        updateSelectionHighlight();
+        sendSelectedToBack();
+      });
       addItem("削除", function () {
         if (editingId === st.id) exitInlineEdit(node, st);
         removeTextBlock(st.id);
@@ -1541,13 +1648,18 @@
       var desHide = panel.querySelector("#desHide");
       var desShowRow = desShow ? desShow.closest(".des-row") : null;
       var desFont = panel.querySelector("#desFont");
+      var desLayerRow = panel.querySelector("#designLayerRow");
+      var desFront = panel.querySelector("#desFront");
+      var desBack = panel.querySelector("#desBack");
 
       function showDesign() {
         if (!designCtl || !designNone) return;
+        var layerHit = getSelectedLayerTarget();
+        if (desLayerRow) desLayerRow.style.display = layerHit ? "" : "none";
         if (!sel || isImgSel(sel)) {
           designCtl.style.display = "none";
           designNone.style.display = "";
-          if (isImgSel(sel)) designNone.textContent = "画像が選択されています。右下の青い丸でサイズ変更、ドラッグで移動できます。";
+          if (isImgSel(sel)) designNone.textContent = "画像が選択されています。右下の青い丸でサイズ変更、ドラッグで移動。重ね順は下のボタンで変更できます。";
           else designNone.textContent = "項目またはテキストをクリックすると、ここで文字サイズ・書体・色などを変更できます。";
           return;
         }
@@ -1642,6 +1754,8 @@
           removeTextBlock(hit.st.id);
         });
       }
+      if (desFront) desFront.addEventListener("click", function () { bringSelectedToFront(); });
+      if (desBack) desBack.addEventListener("click", function () { sendSelectedToBack(); });
       var _showDesignPrev = showDesign;
       showDesign = function () {
         _showDesignPrev();
@@ -1667,6 +1781,7 @@
       var layout = MeishiCatalog.normalizeLayout(getLayout());
       layout.texts = layout.texts || [];
       var block = MeishiLayout.defTextBlock(layout.texts.length);
+      block.z = nextLayerZ(layout);
       layout.texts.push(block);
       saveLayout();
       renderCard();
@@ -1769,6 +1884,9 @@
       commitAllTextEdits: commitAllTextEdits,
       setCenterDivider: setCenterDivider,
       getCenterDivider: getCenterDivider,
+      bringSelectedToFront: bringSelectedToFront,
+      sendSelectedToBack: sendSelectedToBack,
+      nextLayerZ: function () { return nextLayerZ(getLayout()); },
     };
   }
 
