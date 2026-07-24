@@ -540,7 +540,7 @@
   }
 
   function withShareCacheBust(url) {
-    var ver = (window.MeishiStore && MeishiStore.sharePageVer) || window.MEISHI_PAGE_VER || "20250724m";
+    var ver = (window.MeishiStore && MeishiStore.sharePageVer) || window.MEISHI_PAGE_VER || "20250724n";
     try {
       var u = new URL(url, window.location.href);
       if (/\.html$/i.test(u.pathname)) u.searchParams.set("v", String(ver));
@@ -1557,7 +1557,9 @@
   }
 
   var recPreviewUI = null;
+  var recPreviewPersonalUI = null;
   var recPreviewLayout = null;
+  var recPreviewPersonalLayout = null;
 
   function recPreviewElText(rec, id) {
     rec = rec || {};
@@ -1579,11 +1581,21 @@
     return "";
   }
 
+  function newRecPreviewPersonalLayout() {
+    var layout = MeishiLayout.defLayout();
+    MeishiLayout.ELS.forEach(function (e) {
+      if (layout.el[e.id]) layout.el[e.id].hidden = true;
+    });
+    layout.images = [];
+    return layout;
+  }
+
   function hideRecPreview() {
     var modal = document.getElementById("recPreviewModal");
     if (modal) modal.hidden = true;
   }
 
+  /** プレビュータブと同じ 2倍スケール枠で表を表示 */
   function showRecPreview() {
     var card = document.getElementById("recFormCard");
     if (!card || card.style.display === "none") {
@@ -1596,16 +1608,22 @@
     }
     var modal = document.getElementById("recPreviewModal");
     var cardEl = document.getElementById("recPreviewCard");
+    var personalEl = document.getElementById("recPreviewCardPersonal");
     if (!modal || !cardEl) return alert("プレビュー画面がありません");
 
+    showRecPreview._rec = rec;
     recPreviewLayout = MeishiCatalog.normalizeLayout(MeishiLayout.clone(
       MeishiStore.getEffectiveLayout(rec.company, rec.aff1, rec.aff2)
     )) || MeishiLayout.defLayout();
 
-    var personal = [];
+    var personalImgs = [];
     if (rec.no && MeishiStore.getPreviewPersonalImages) {
-      personal = MeishiStore.getPreviewPersonalImages(rec.no) || [];
+      personalImgs = MeishiStore.getPreviewPersonalImages(rec.no) || [];
     }
+    if (!recPreviewPersonalLayout) recPreviewPersonalLayout = newRecPreviewPersonalLayout();
+    recPreviewPersonalLayout.images = window.MeishiImageLib
+      ? MeishiImageLib.resolveImages(personalImgs, rec.company)
+      : (personalImgs.slice ? personalImgs.slice() : []);
 
     if (!recPreviewUI) {
       recPreviewUI = MeishiCardUI.createCardUI({
@@ -1616,7 +1634,7 @@
         getImages: function () {
           var r = showRecPreview._rec || {};
           if (MeishiStore.getPrintImages) {
-            return MeishiStore.getPrintImages(r.company, r.aff1, r.aff2, showRecPreview._personal || []);
+            return MeishiStore.getPrintImages(r.company, r.aff1, r.aff2);
           }
           var imgs = (recPreviewLayout && recPreviewLayout.images) || [];
           return window.MeishiImageLib ? MeishiImageLib.resolveImages(imgs) : imgs;
@@ -1627,8 +1645,25 @@
     } else if (recPreviewUI.invalidate) {
       recPreviewUI.invalidate();
     }
-    showRecPreview._rec = rec;
-    showRecPreview._personal = personal;
+
+    if (personalEl) {
+      if (!recPreviewPersonalUI) {
+        recPreviewPersonalUI = MeishiCardUI.createCardUI({
+          cardEl: personalEl,
+          readOnly: true,
+          hideElements: true,
+          getLayout: function () { return recPreviewPersonalLayout; },
+          getElText: function () { return ""; },
+          getImages: function () { return (recPreviewPersonalLayout && recPreviewPersonalLayout.images) || []; },
+          onLayoutChange: function () {},
+          onSelect: function () {},
+        });
+      } else if (recPreviewPersonalUI.invalidate) {
+        recPreviewPersonalUI.invalidate();
+      }
+      recPreviewPersonalUI.renderCard();
+    }
+
     recPreviewUI.renderCard();
     modal.hidden = false;
   }

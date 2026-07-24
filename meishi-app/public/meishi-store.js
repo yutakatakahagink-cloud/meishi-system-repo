@@ -108,7 +108,7 @@
     return window.location.origin + dir + rel;
   }
   /** 共有HTMLのキャッシュ回避（owner「開く」で古い admin が開くのを防ぐ） */
-  var SHARE_PAGE_VER = "20250724m";
+  var SHARE_PAGE_VER = "20250724n";
 
   /** 共有用ページ URL（携帯・他PC向け）。MEISHI_BASE_URL があれば常に本番URLを返す。 */
   function sharePageUrl(page, opts) {
