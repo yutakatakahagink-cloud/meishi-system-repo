@@ -1568,12 +1568,15 @@
     if (id === "title") return rec.title || "";
     if (id === "name") return rec.name || "";
     if (id === "qual") return rec.qual || "";
-    if (id === "koji") return "";
+    if (id === "koji") {
+      if (rec.no && MeishiStore.getPreviewKoji) return MeishiStore.getPreviewKoji(rec.no) || "";
+      return "";
+    }
     if (id === "address") {
       return (rec.postal ? "〒" + rec.postal + " " : "") + (rec.address || "");
     }
     if (id === "telfax") {
-      return [rec.tel ? "TEL " + rec.tel : "", rec.fax ? "FAX " + rec.fax : ""].filter(Boolean).join("　");
+      return [rec.tel ? "TEL " + rec.tel : "", rec.fax ? "FAX " + rec.fax : ""].filter(Boolean).join("\u3000");
     }
     if (id === "mobile") return rec.mobile ? "携帯 " + rec.mobile : "";
     if (id === "email") return rec.email || "";
@@ -1590,12 +1593,21 @@
     return layout;
   }
 
+  function destroyRecPreviewUI() {
+    recPreviewUI = null;
+    recPreviewPersonalUI = null;
+    var cardEl = document.getElementById("recPreviewCard");
+    var personalEl = document.getElementById("recPreviewCardPersonal");
+    if (cardEl) cardEl.innerHTML = "";
+    if (personalEl) personalEl.innerHTML = "";
+  }
+
   function hideRecPreview() {
     var modal = document.getElementById("recPreviewModal");
     if (modal) modal.hidden = true;
   }
 
-  /** プレビュータブと同じ 2倍スケール枠で表を表示 */
+  /** プレビュータブと同じ textFlow・レイアウト・個人画像で表を表示 */
   function showRecPreview() {
     var card = document.getElementById("recFormCard");
     if (!card || card.style.display === "none") {
@@ -1625,23 +1637,28 @@
       ? MeishiImageLib.resolveImages(personalImgs, rec.company)
       : (personalImgs.slice ? personalImgs.slice() : []);
 
-    if (!recPreviewUI) {
+    // プレビュータブ（MeishiPreviewPanel）と同じ textFlow:true で描画
+    if (!recPreviewUI || !recPreviewUI._recTextFlow) {
+      destroyRecPreviewUI();
       recPreviewUI = MeishiCardUI.createCardUI({
         cardEl: cardEl,
         readOnly: true,
+        textFlow: true,
         getLayout: function () { return recPreviewLayout; },
         getElText: function (id) { return recPreviewElText(showRecPreview._rec || {}, id); },
         getImages: function () {
           var r = showRecPreview._rec || {};
+          if (!r.company) return [];
           if (MeishiStore.getPrintImages) {
             return MeishiStore.getPrintImages(r.company, r.aff1, r.aff2);
           }
           var imgs = (recPreviewLayout && recPreviewLayout.images) || [];
-          return window.MeishiImageLib ? MeishiImageLib.resolveImages(imgs) : imgs;
+          return window.MeishiImageLib ? MeishiImageLib.resolveImages(imgs, r.company) : imgs;
         },
         onLayoutChange: function () {},
         onSelect: function () {},
       });
+      recPreviewUI._recTextFlow = true;
     } else if (recPreviewUI.invalidate) {
       recPreviewUI.invalidate();
     }
@@ -1666,6 +1683,23 @@
 
     recPreviewUI.renderCard();
     modal.hidden = false;
+  }
+
+  /** ヘッダ直下にタブを sticky 固定（スクロールしても「プレビュー」「名刺データ編集」が残る） */
+  function setupStickyChrome() {
+    var header = document.querySelector("header");
+    var tabs = document.getElementById("tabs");
+    if (!header || !tabs) return;
+    function sync() {
+      var h = Math.ceil(header.getBoundingClientRect().height) || 52;
+      document.documentElement.style.setProperty("--app-header-h", h + "px");
+    }
+    sync();
+    if (typeof ResizeObserver !== "undefined") {
+      var ro = new ResizeObserver(sync);
+      ro.observe(header);
+    }
+    window.addEventListener("resize", sync);
   }
 
   /** owner と同じ: 編集カードを閉じる */
@@ -2141,6 +2175,7 @@
   window.OwnerAdmin = {
     init: async function () {
       bindEvents();
+      setupStickyChrome();
       refreshUserUrlFields();
       try { await MeishiStore.init(); } catch (e) {
         alert(e.message || e);
@@ -2211,6 +2246,7 @@
         if (loginView) loginView.hidden = true;
         if (mainView) mainView.hidden = false;
         setupAdminShell();
+        setupStickyChrome();
         refreshAdminWho();
         showTab("company");
       }
