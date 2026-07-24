@@ -2132,25 +2132,27 @@
         if (copySourceRec && MeishiCatalog.recordsEqual(rec, copySourceRec, true)) {
           return alert("コピー元と内容が同一のため登録できません。変更してから保存してください。");
         }
-        var keepIdx = -1;
-        if (editRecIdx >= 0 && !copySourceRec) {
-          MeishiStore.updateRecord(editRecIdx, rec);
-          keepIdx = editRecIdx;
-        } else {
-          MeishiStore.addRecord(rec);
-          keepIdx = MeishiStore.findRecordByNo(rec.no);
-          if (keepIdx < 0) keepIdx = MeishiStore.getRecords().length - 1;
-        }
+        var keepNo = rec.no;
+        if (editRecIdx >= 0 && !copySourceRec) MeishiStore.updateRecord(editRecIdx, rec);
+        else MeishiStore.addRecord(rec);
         copySourceRec = null;
-        fillCoPick();
+        // 共通データ欄の再描画はしない（画面上部へ戻ったように見えるのを防ぐ）
         fillRecNoSelect();
-        // 保存後も同じ氏名の編集画面を維持
+        var keepIdx = keepNo != null && keepNo !== ""
+          ? MeishiStore.findRecordByNo(keepNo)
+          : -1;
+        if (keepIdx < 0) keepIdx = editRecIdx;
+        if (keepIdx < 0) {
+          var all = MeishiStore.getRecords();
+          keepIdx = all.length ? all.length - 1 : -1;
+        }
+        alert("保存しました");
+        // owner / admin 共通: 保存後も同じ行の編集画面を維持
         if (keepIdx >= 0) openRecForm(keepIdx);
         else {
           hideRecForm();
           renderRecTable();
         }
-        alert("保存しました");
       };
     }
     var btnRecPreview = document.getElementById("btnRecPreview");
