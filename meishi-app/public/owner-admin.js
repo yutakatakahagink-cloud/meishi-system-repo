@@ -540,7 +540,7 @@
   }
 
   function withShareCacheBust(url) {
-    var ver = (window.MeishiStore && MeishiStore.sharePageVer) || window.MEISHI_PAGE_VER || "20250724i";
+    var ver = (window.MeishiStore && MeishiStore.sharePageVer) || window.MEISHI_PAGE_VER || "20250724j";
     try {
       var u = new URL(url, window.location.href);
       if (/\.html$/i.test(u.pathname)) u.searchParams.set("v", String(ver));
@@ -1556,6 +1556,83 @@
     if (keep) sel.value = keep;
   }
 
+  var recPreviewUI = null;
+  var recPreviewLayout = null;
+
+  function recPreviewElText(rec, id) {
+    rec = rec || {};
+    if (id === "company") return rec.company || "";
+    if (id === "aff") return [rec.aff1, rec.aff2, rec.aff3].filter(Boolean).join("　");
+    if (id === "title") return rec.title || "";
+    if (id === "name") return rec.name || "";
+    if (id === "qual") return rec.qual || "";
+    if (id === "koji") return "";
+    if (id === "address") {
+      return (rec.postal ? "〒" + rec.postal + " " : "") + (rec.address || "");
+    }
+    if (id === "telfax") {
+      return [rec.tel ? "TEL " + rec.tel : "", rec.fax ? "FAX " + rec.fax : ""].filter(Boolean).join("　");
+    }
+    if (id === "mobile") return rec.mobile ? "携帯 " + rec.mobile : "";
+    if (id === "email") return rec.email || "";
+    if (id === "url") return rec.url || "";
+    return "";
+  }
+
+  function hideRecPreview() {
+    var modal = document.getElementById("recPreviewModal");
+    if (modal) modal.hidden = true;
+  }
+
+  function showRecPreview() {
+    var card = document.getElementById("recFormCard");
+    if (!card || card.style.display === "none") {
+      return alert("先に一覧から行を選ぶか、「行を追加」で編集欄を開いてください");
+    }
+    var rec = readRecFromForm();
+    if (!rec.company) return alert("会社・団体名を選択してからプレビューしてください");
+    if (!window.MeishiCardUI || !MeishiStore.getEffectiveLayout) {
+      return alert("プレビュー機能を読み込めませんでした。ページを再読み込みしてください");
+    }
+    var modal = document.getElementById("recPreviewModal");
+    var cardEl = document.getElementById("recPreviewCard");
+    if (!modal || !cardEl) return alert("プレビュー画面がありません");
+
+    recPreviewLayout = MeishiCatalog.normalizeLayout(MeishiLayout.clone(
+      MeishiStore.getEffectiveLayout(rec.company, rec.aff1, rec.aff2)
+    )) || MeishiLayout.defLayout();
+
+    var personal = [];
+    if (rec.no && MeishiStore.getPreviewPersonalImages) {
+      personal = MeishiStore.getPreviewPersonalImages(rec.no) || [];
+    }
+
+    if (!recPreviewUI) {
+      recPreviewUI = MeishiCardUI.createCardUI({
+        cardEl: cardEl,
+        readOnly: true,
+        getLayout: function () { return recPreviewLayout; },
+        getElText: function (id) { return recPreviewElText(showRecPreview._rec || {}, id); },
+        getImages: function () {
+          var r = showRecPreview._rec || {};
+          if (MeishiStore.getPrintImages) {
+            return MeishiStore.getPrintImages(r.company, r.aff1, r.aff2, showRecPreview._personal || []);
+          }
+          var imgs = (recPreviewLayout && recPreviewLayout.images) || [];
+          return window.MeishiImageLib ? MeishiImageLib.resolveImages(imgs) : imgs;
+        },
+        onLayoutChange: function () {},
+        onSelect: function () {},
+      });
+    } else if (recPreviewUI.invalidate) {
+      recPreviewUI.invalidate();
+    }
+    showRecPreview._rec = rec;
+    showRecPreview._personal = personal;
+    recPreviewUI.renderCard();
+    modal.hidden = false;
+  }
+
   /** owner と同じ: 編集カードを閉じる */
   function hideRecForm() {
     editRecIdx = -1;
@@ -1993,6 +2070,16 @@
         fillRecNoSelect();
         renderRecTable();
         alert("保存しました");
+      };
+    }
+    var btnRecPreview = document.getElementById("btnRecPreview");
+    if (btnRecPreview) btnRecPreview.onclick = showRecPreview;
+    var btnRecPreviewClose = document.getElementById("btnRecPreviewClose");
+    if (btnRecPreviewClose) btnRecPreviewClose.onclick = hideRecPreview;
+    var recPreviewModal = document.getElementById("recPreviewModal");
+    if (recPreviewModal) {
+      recPreviewModal.onclick = function (e) {
+        if (e.target === recPreviewModal) hideRecPreview();
       };
     }
     var btnRecDel = document.getElementById("btnRecDel");
