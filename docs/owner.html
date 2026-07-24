@@ -23,7 +23,7 @@
     <script src="meishi-preview-init.js?v=20250724u"></script>
     <link rel="stylesheet" href="meishi-print-sheet.css?v=20250714z" />
     <meta http-equiv="Cache-Control" content="no-store" />
-    <link rel="stylesheet" href="owner.20250724z.css" />
+    <link rel="stylesheet" href="owner.20250724aa.css" />
   </head>
   <body>
     <header>
@@ -137,58 +137,62 @@
             </div>
             <div id="coFrontDesign">
             <p class="hint">画像は <strong>画像保存ボックス</strong> に登録済みのものから選択します。自由テキストも追加できます。中央線があるときは薄い帯をドラッグして左右に移動できます。</p>
-            <div class="btn-row">
-              <button type="button" class="btn sm ghost" id="btnCoFrontText">＋テキスト</button>
-              <button type="button" class="btn sm ghost" id="btnCoImgPick">＋画像</button>
-              <button type="button" class="btn sm ghost" id="btnCoFrontDivider">中央線を削除</button>
-              <button type="button" class="btn sm ghost" id="btnCoDesReset">初期化</button>
-            </div>
-            <div id="coImgList" class="img-list"></div>
             <div class="editor co-design-editor">
               <div class="preview-scale-box co-design-scale">
                 <div class="stage"><div class="meishi" id="coDesCard"></div></div>
               </div>
-              <div class="card inner" id="coDesignPanel">
-                <div id="designNone" class="hint">項目またはテキストをクリック</div>
-                <div id="designCtl" style="display:none">
-                  <div id="desTarget" class="hint bold"></div>
-                  <div class="des-row"><label>文字</label><div class="size-step"><button type="button" id="desSizeUp" title="大きく">▲</button><span id="desSizeV">12px</span><button type="button" id="desSizeDown" title="小さく">▼</button></div></div>
-                  <div class="des-row"><label>色</label><input type="color" id="desColor" /></div>
-                  <div class="des-row"><label>背景色</label><div class="des-bg-row"><input type="color" id="desBg" /><button type="button" class="btn sm ghost" id="desBgNone">なし</button></div></div>
-                  <div class="des-row"><label>書体</label><select id="desFont" class="des-font-select"></select></div>
-                  <div class="des-row"><label>太さ</label><div class="seg"><button type="button" id="desNorm">標準</button><button type="button" id="desBold">太字</button></div></div>
-                  <div class="des-row"><label>配置</label><div class="seg"><button type="button" data-al="left">左</button><button type="button" data-al="center">中</button><button type="button" data-al="right">右</button></div></div>
-                  <div class="des-row"><label>表示</label><div class="seg"><button type="button" id="desShow">表示</button><button type="button" id="desHide">非表示</button></div></div>
-                  <div class="des-row" style="display:none"><label>操作</label><button type="button" class="btn sm" id="desTextDelete">テキストを削除</button></div>
+              <div class="co-design-side">
+                <div class="btn-row co-design-tools">
+                  <button type="button" class="btn sm ghost" id="btnCoFrontText">＋テキスト</button>
+                  <button type="button" class="btn sm ghost" id="btnCoImgPick">＋画像</button>
+                  <button type="button" class="btn sm ghost" id="btnCoFrontDivider">中央線を削除</button>
+                  <button type="button" class="btn sm ghost" id="btnCoDesReset">初期化</button>
+                </div>
+                <div id="coImgList" class="img-list"></div>
+                <div class="card inner" id="coDesignPanel">
+                  <div id="designNone" class="hint">項目またはテキストをクリック</div>
+                  <div id="designCtl" style="display:none">
+                    <div id="desTarget" class="hint bold"></div>
+                    <div class="des-row"><label>文字</label><div class="size-step"><button type="button" id="desSizeUp" title="大きく">▲</button><span id="desSizeV">12px</span><button type="button" id="desSizeDown" title="小さく">▼</button></div></div>
+                    <div class="des-row"><label>色</label><input type="color" id="desColor" /></div>
+                    <div class="des-row"><label>背景色</label><div class="des-bg-row"><input type="color" id="desBg" /><button type="button" class="btn sm ghost" id="desBgNone">なし</button></div></div>
+                    <div class="des-row"><label>書体</label><select id="desFont" class="des-font-select"></select></div>
+                    <div class="des-row"><label>太さ</label><div class="seg"><button type="button" id="desNorm">標準</button><button type="button" id="desBold">太字</button></div></div>
+                    <div class="des-row"><label>配置</label><div class="seg"><button type="button" data-al="left">左</button><button type="button" data-al="center">中</button><button type="button" data-al="right">右</button></div></div>
+                    <div class="des-row"><label>表示</label><div class="seg"><button type="button" id="desShow">表示</button><button type="button" id="desHide">非表示</button></div></div>
+                    <div class="des-row" style="display:none"><label>操作</label><button type="button" class="btn sm" id="desTextDelete">テキストを削除</button></div>
+                  </div>
                 </div>
               </div>
             </div>
             </div>
             <div id="coBackDesign" style="display:none">
               <p class="hint">裏面は名刺上でテキストを直接入力できます。書式は右のパネルで変更してください。中央線の追加・削除もできます。</p>
-              <div class="btn-row">
-                <button type="button" class="btn sm ghost" id="btnCoBackText">＋テキスト</button>
-                <button type="button" class="btn sm ghost" id="btnCoBackImgPick">＋画像</button>
-                <button type="button" class="btn sm ghost" id="btnCoBackDivider">中央線を追加</button>
-                <button type="button" class="btn sm ghost" id="btnCoBackDesReset">裏面を初期化</button>
-              </div>
-              <div id="coBackImgList" class="img-list"></div>
               <div class="editor co-design-editor">
                 <div class="preview-scale-box co-design-scale">
                   <div class="stage"><div class="meishi" id="coDesCardBack"></div></div>
                 </div>
-                <div class="card inner" id="coBackDesignPanel">
-                  <div id="backDesignNone" class="hint">テキストまたは画像をクリック</div>
-                  <div id="backDesignCtl" style="display:none">
-                    <p class="hint" style="margin:0 0 8px">内容は名刺上で直接入力。書式は下のボタンで変更できます。</p>
-                    <div class="des-row"><label>文字</label><div class="size-step"><button type="button" id="backDesSizeUp" title="大きく">▲</button><span id="backDesSizeV">12px</span><button type="button" id="backDesSizeDown" title="小さく">▼</button></div></div>
-                    <div class="des-row"><label>色</label><input type="color" id="backDesColor" /></div>
-                    <div class="des-row"><label>背景色</label><div class="des-bg-row"><input type="color" id="backDesBg" /><button type="button" class="btn sm ghost" id="backDesBgNone">なし</button></div></div>
-                    <div class="des-row"><label>書体</label><select id="backDesFont" class="des-font-select"></select></div>
-                    <div class="des-row"><label>太さ</label><div class="seg"><button type="button" id="backDesNorm">標準</button><button type="button" id="backDesBold">太字</button></div></div>
-                    <div class="des-row"><label>装飾</label><div class="seg"><button type="button" id="backDesItalic">斜体</button><button type="button" id="backDesUnderline">下線</button></div></div>
-                    <div class="des-row"><label>配置</label><div class="seg"><button type="button" data-back-al="left">左</button><button type="button" data-back-al="center">中</button><button type="button" data-back-al="right">右</button></div></div>
-                    <div class="des-row" style="display:none"><label>操作</label><button type="button" class="btn sm" id="backDesTextDelete">テキストを削除</button></div>
+                <div class="co-design-side">
+                  <div class="btn-row co-design-tools">
+                    <button type="button" class="btn sm ghost" id="btnCoBackText">＋テキスト</button>
+                    <button type="button" class="btn sm ghost" id="btnCoBackImgPick">＋画像</button>
+                    <button type="button" class="btn sm ghost" id="btnCoBackDivider">中央線を追加</button>
+                    <button type="button" class="btn sm ghost" id="btnCoBackDesReset">裏面を初期化</button>
+                  </div>
+                  <div id="coBackImgList" class="img-list"></div>
+                  <div class="card inner" id="coBackDesignPanel">
+                    <div id="backDesignNone" class="hint">テキストまたは画像をクリック</div>
+                    <div id="backDesignCtl" style="display:none">
+                      <p class="hint" style="margin:0 0 8px">内容は名刺上で直接入力。書式は下のボタンで変更できます。</p>
+                      <div class="des-row"><label>文字</label><div class="size-step"><button type="button" id="backDesSizeUp" title="大きく">▲</button><span id="backDesSizeV">12px</span><button type="button" id="backDesSizeDown" title="小さく">▼</button></div></div>
+                      <div class="des-row"><label>色</label><input type="color" id="backDesColor" /></div>
+                      <div class="des-row"><label>背景色</label><div class="des-bg-row"><input type="color" id="backDesBg" /><button type="button" class="btn sm ghost" id="backDesBgNone">なし</button></div></div>
+                      <div class="des-row"><label>書体</label><select id="backDesFont" class="des-font-select"></select></div>
+                      <div class="des-row"><label>太さ</label><div class="seg"><button type="button" id="backDesNorm">標準</button><button type="button" id="backDesBold">太字</button></div></div>
+                      <div class="des-row"><label>装飾</label><div class="seg"><button type="button" id="backDesItalic">斜体</button><button type="button" id="backDesUnderline">下線</button></div></div>
+                      <div class="des-row"><label>配置</label><div class="seg"><button type="button" data-back-al="left">左</button><button type="button" data-back-al="center">中</button><button type="button" data-back-al="right">右</button></div></div>
+                      <div class="des-row" style="display:none"><label>操作</label><button type="button" class="btn sm" id="backDesTextDelete">テキストを削除</button></div>
+                    </div>
                   </div>
                 </div>
               </div>

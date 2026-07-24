@@ -102,10 +102,43 @@ header .btn.ghost:active:not(:disabled){background:rgba(255,255,255,.32);box-sha
 }
 .co-hidden-row input{width:auto;margin:0;flex:0 0 auto}
 .co-hidden-row span{flex:1 1 auto;line-height:1.4}
+/* 会社共通デザイン: 左=2倍名刺 / 右=ツール・画像・書式 */
 #panel-company .co-design-editor{
-  grid-template-columns:minmax(0,auto) 220px;align-items:start;overflow-x:auto;
+  display:grid;
+  grid-template-columns:minmax(0,auto) minmax(220px,280px);
+  gap:12px;
+  align-items:start;
+  margin-top:8px;
+  overflow-x:auto;
 }
-#panel-company .co-design-scale{margin:0}
+#panel-company .co-design-side{
+  display:flex;flex-direction:column;gap:8px;min-width:220px;
+}
+#panel-company .co-design-tools{margin:0;flex-wrap:wrap}
+#panel-company .co-design-side .img-list{
+  margin:0;min-height:40px;max-height:120px;overflow:auto;
+  padding:6px;border:1px dashed var(--line);border-radius:8px;background:#fafbfd;
+}
+#panel-company .co-design-side .card.inner{margin:0}
+/* 2倍表示の上下グレー余白を均等にし、下側切れを防ぐ */
+#panel-company .co-design-scale{
+  --stage-pad:16px;
+  --stage-pad-x:32px;
+  width:calc((var(--card-w) + var(--stage-pad-x)) * var(--preview-scale));
+  height:calc(var(--stage-pad) * 2 + (var(--card-h) + var(--stage-pad-x)) * var(--preview-scale));
+  max-width:none;
+  margin:0;
+  overflow:hidden;
+  background:#cfd6e0;
+  border-radius:12px;
+}
+#panel-company .co-design-scale > .stage{
+  background:transparent;
+  border-radius:0;
+}
+@media(max-width:900px){
+  #panel-company .co-design-editor{grid-template-columns:1fr}
+}
 .form-row-1{
   display:flex;flex-wrap:nowrap;align-items:flex-end;gap:10px;
 }
