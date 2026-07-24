@@ -539,7 +539,7 @@
   }
 
   function withShareCacheBust(url) {
-    var ver = (window.MeishiStore && MeishiStore.sharePageVer) || window.MEISHI_PAGE_VER || "20250724f";
+    var ver = (window.MeishiStore && MeishiStore.sharePageVer) || window.MEISHI_PAGE_VER || "20250724g";
     try {
       var u = new URL(url, window.location.href);
       if (/\.html$/i.test(u.pathname)) u.searchParams.set("v", String(ver));
@@ -675,8 +675,12 @@
     window._coCatalogMutations = [];
     var p = MeishiStore.getCompanyProfileForEdit(currentCo);
     var cat = (p && p.catalog) ? p.catalog : MeishiCatalog.emptyCatalog();
+    if (MeishiCatalog.normalizeCatalog) cat = MeishiCatalog.normalizeCatalog(cat);
     window._coSavedCatalogSnapshot = cloneCat(cat);
     window._coEditingCatalog = cloneCat(cat) || MeishiCatalog.emptyCatalog();
+    if (MeishiCatalog.normalizeCatalog) {
+      window._coEditingCatalog = MeishiCatalog.normalizeCatalog(window._coEditingCatalog);
+    }
     window._coSyncBaseline = cloneCat(window._coEditingCatalog);
     if (!window._catCtx || prevCo !== currentCo) {
       window._catCtx = { field: "aff1" };
@@ -1333,34 +1337,53 @@
   }
 
   function fieldOptions(company, key, ctx) {
-    var cat;
-    if (window._coEditingCatalog && MeishiFields.norm(company) === MeishiFields.norm(currentCo)) {
-      cat = window._coEditingCatalog;
-    } else {
-      cat = MeishiStore.getCompanyProfileForEdit(company).catalog || MeishiCatalog.emptyCatalog();
+    try {
+      var cat;
+      if (window._coEditingCatalog && MeishiFields.norm(company) === MeishiFields.norm(currentCo)) {
+        cat = window._coEditingCatalog;
+      } else if (company) {
+        var prof = MeishiStore.getCompanyProfileForEdit(company);
+        cat = (prof && prof.catalog) || MeishiCatalog.emptyCatalog();
+      } else {
+        cat = MeishiCatalog.emptyCatalog();
+      }
+      if (MeishiCatalog.normalizeCatalog) cat = MeishiCatalog.normalizeCatalog(cat);
+      if (key === "company") {
+        var list = MeishiStore.getCompanyList() || [];
+        if (window.MEISHI_ADMIN_PAGE && MeishiStore.adminCanEditCompany) {
+          list = list.filter(function (c) { return MeishiStore.adminCanEditCompany(c); });
+        }
+        if (company && list.indexOf(company) < 0) list = list.concat([company]);
+        return MeishiFields.uniq(list);
+      }
+      if (key === "aff1") {
+        return MeishiFields.uniq((cat.aff1 || []).concat(recordFieldValues(company, "aff1")));
+      }
+      if (key === "aff2") {
+        return MeishiFields.uniq(MeishiCatalog.getAff2List(cat).concat(recordFieldValues(company, "aff2")));
+      }
+      if (key === "aff3") {
+        return MeishiFields.uniq(MeishiCatalog.getAff3List(cat).concat(recordFieldValues(company, "aff3")));
+      }
+      if (key === "title") {
+        // 共通データの役職マスタ ＋ 名刺データに既にある役職
+        return MeishiFields.uniq(MeishiCatalog.getTitleList(cat).concat(recordFieldValues(company, "title")))
+          .sort(function (a, b) { return String(a).localeCompare(String(b), "ja"); });
+      }
+      if (key === "postal") return MeishiFields.uniq((cat.locations || []).map(function (l) { return l.postal; }).concat(cat.postal || []).concat(recordFieldValues(company, "postal")));
+      if (key === "address") return MeishiFields.uniq((cat.locations || []).map(function (l) { return l.address; }).filter(Boolean).concat(recordFieldValues(company, "address")));
+      if (key === "tel") return MeishiFields.uniq((cat.locations || []).map(function (l) { return l.tel; }).filter(Boolean).concat(recordFieldValues(company, "tel")));
+      if (key === "fax") return MeishiFields.uniq((cat.locations || []).map(function (l) { return l.fax; }).filter(Boolean).concat(recordFieldValues(company, "fax")));
+      if (key === "url") return MeishiFields.uniq((cat.urls || []).concat(recordFieldValues(company, "url")));
+      if (key === "category") return MeishiFields.uniq((cat.categories || []).concat(recordFieldValues(company, "category")));
+      return [];
+    } catch (e) {
+      console.warn("[Meishi] fieldOptions", key, e);
+      if (key === "title" || key === "aff1" || key === "aff2" || key === "aff3") {
+        return recordFieldValues(company, key);
+      }
+      return [];
     }
-    if (key === "company") return MeishiStore.getCompanyList();
-    if (key === "aff1") {
-      return MeishiFields.uniq((cat.aff1 || []).concat(recordFieldValues(company, "aff1")));
-    }
-    if (key === "aff2") {
-      return MeishiFields.uniq(MeishiCatalog.getAff2List(cat).concat(recordFieldValues(company, "aff2")));
-    }
-    if (key === "aff3") {
-      return MeishiFields.uniq(MeishiCatalog.getAff3List(cat).concat(recordFieldValues(company, "aff3")));
-    }
-    if (key === "title") {
-      // 共通データの役職マスタ ＋ 名刺データに既にある役職
-      return MeishiFields.uniq(MeishiCatalog.getTitleList(cat).concat(recordFieldValues(company, "title")))
-        .sort(function (a, b) { return String(a).localeCompare(String(b), "ja"); });
-    }
-    if (key === "postal") return MeishiFields.uniq((cat.locations || []).map(function (l) { return l.postal; }).concat(cat.postal || []).concat(recordFieldValues(company, "postal")));
-    if (key === "address") return MeishiFields.uniq((cat.locations || []).map(function (l) { return l.address; }).filter(Boolean).concat(recordFieldValues(company, "address")));
-    if (key === "tel") return MeishiFields.uniq((cat.locations || []).map(function (l) { return l.tel; }).filter(Boolean).concat(recordFieldValues(company, "tel")));
-    if (key === "fax") return MeishiFields.uniq((cat.locations || []).map(function (l) { return l.fax; }).filter(Boolean).concat(recordFieldValues(company, "fax")));
-    if (key === "url") return MeishiFields.uniq((cat.urls || []).concat(recordFieldValues(company, "url")));
-    if (key === "category") return MeishiFields.uniq((cat.categories || []).concat(recordFieldValues(company, "category")));
-    return [];
   }
 
   function textFieldHtml(c, rec) {
@@ -1428,26 +1451,33 @@
 
   function rebuildRecFormFields(rec) {
     rec = rec || MeishiFields.emptyRecord();
+    var fieldsEl = document.getElementById("recFormFields");
+    if (!fieldsEl) throw new Error("recFormFields がありません");
     var ctx = {
       company: rec.company, aff1: rec.aff1, aff2: rec.aff2, aff3: rec.aff3, title: rec.title, postal: rec.postal,
     };
     var html = bindingSummaryHtml(ctx);
     MeishiFields.COLUMNS.forEach(function (c) {
-      if (c.key === "no") {
-        html += "<div class='field'><label>" + c.label + "</label><input data-k='no' value='" + esc(rec.no || "") + "' readonly /></div>";
-        return;
-      }
-      if (REC_TEXT_INPUT_KEYS[c.key]) {
+      try {
+        if (c.key === "no") {
+          html += "<div class='field'><label>" + c.label + "</label><input data-k='no' value='" + esc(rec.no || "") + "' readonly /></div>";
+          return;
+        }
+        if (REC_TEXT_INPUT_KEYS[c.key]) {
+          html += textFieldHtml(c, rec);
+          return;
+        }
+        html += selectFieldHtml(c, rec, ctx);
+      } catch (e) {
+        console.warn("[Meishi] rebuild field", c.key, e);
         html += textFieldHtml(c, rec);
-        return;
       }
-      html += selectFieldHtml(c, rec, ctx);
     });
-    document.getElementById("recFormFields").innerHTML = html;
-    document.querySelectorAll("#recFormFields select[data-k]").forEach(function (sel) {
+    fieldsEl.innerHTML = html;
+    fieldsEl.querySelectorAll("select[data-k]").forEach(function (sel) {
       sel.addEventListener("change", onRecFieldChange);
     });
-    applyLocAuto();
+    try { applyLocAuto(); } catch (e2) { console.warn("[Meishi] applyLocAuto", e2); }
   }
 
   function onRecFieldChange(ev) {
@@ -1461,15 +1491,19 @@
   }
 
   function applyLocAuto() {
-    var co = (document.querySelector("[data-k='company']") || {}).value;
-    var po = (document.querySelector("[data-k='postal']") || {}).value;
+    var root = document.getElementById("recFormFields") || document;
+    var coEl = root.querySelector("[data-k='company']");
+    var poEl = root.querySelector("[data-k='postal']");
+    var co = coEl ? coEl.value : "";
+    var po = poEl ? poEl.value : "";
     if (!co || !po) return;
     var p = MeishiStore.getCompanyProfileForEdit(co);
+    if (!p || !p.catalog) return;
     var loc = (p.catalog.locations || []).find(function (l) { return l.postal === po; });
     if (!loc) return;
     function setSel(k, v) {
       if (!v) return;
-      var el = document.querySelector("#recFormFields [data-k='" + k + "']");
+      var el = root.querySelector("[data-k='" + k + "']");
       if (!el || el.tagName !== "SELECT") return;
       var hit = false;
       Array.prototype.forEach.call(el.options, function (opt) {
@@ -1543,9 +1577,17 @@
         var row = MeishiStore.getRecords()[idx] || {};
         rec = Object.assign({}, MeishiFields.emptyRecord(), row);
         if (titleEl) titleEl.textContent = (rec.name ? rec.name + " を編集" : "行 #" + (rec.no || idx) + " を編集");
-        // 編集中の会社を共通データ側にも合わせる
+        // 編集中の会社を共通データ側にも合わせ、役職マスタを名刺データから再読込
         if (rec.company) {
-          try { syncCoPickValue(rec.company); } catch (e0) {}
+          try {
+            syncCoPickValue(rec.company);
+            var pOpen = MeishiStore.getCompanyProfileForEdit(rec.company);
+            window._coEditingCatalog = cloneCat(pOpen.catalog) || MeishiCatalog.emptyCatalog();
+            window._coSyncBaseline = cloneCat(window._coEditingCatalog);
+            renderCatalogEditor(window._coEditingCatalog);
+          } catch (e0) {
+            console.warn("[Meishi] openRecForm catalog sync", e0);
+          }
         }
       } else {
         rec = MeishiFields.emptyRecord();
@@ -1560,8 +1602,13 @@
       try {
         rebuildRecFormFields(rec || MeishiFields.emptyRecord());
       } catch (e2) {
+        console.warn("[Meishi] openRecForm retry", e2);
         var fields = document.getElementById("recFormFields");
-        if (fields) fields.innerHTML = "<p class='hint' style='color:#b3261e'>編集欄の表示に失敗しました。ページを再読み込みしてください。</p>";
+        if (fields) {
+          fields.innerHTML =
+            "<p class='hint' style='color:#b3261e;grid-column:1/-1'>編集欄の表示に失敗しました。ページを再読み込み（Ctrl+Shift+R）してください。</p>" +
+            "<p class='hint' style='grid-column:1/-1'>" + esc(String((e && e.message) || e2.message || e2)) + "</p>";
+        }
       }
     }
     if (card) {

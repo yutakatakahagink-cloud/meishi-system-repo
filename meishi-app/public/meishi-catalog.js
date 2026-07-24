@@ -41,8 +41,33 @@
   }
 
   function ensureList(obj, key) {
-    if (!obj[key]) obj[key] = [];
+    if (!obj || typeof obj !== "object") return [];
+    if (!obj[key] || !Array.isArray(obj[key])) obj[key] = [];
     return obj[key];
+  }
+
+  /** 保存データが欠けていても共通データ編集が落ちないよう形を揃える */
+  function normalizeCatalog(cat) {
+    var out = emptyCatalog();
+    if (!cat || typeof cat !== "object") return out;
+    out.aff1 = Array.isArray(cat.aff1) ? cat.aff1.slice() : [];
+    ["aff2", "aff3", "title", "qual", "mobile", "email"].forEach(function (k) {
+      var v = cat[k];
+      if (Array.isArray(v)) {
+        out[k] = { "*": v.map(function (x) { return String(x == null ? "" : x).trim(); }).filter(Boolean) };
+      } else if (v && typeof v === "object") {
+        out[k] = v;
+      } else {
+        out[k] = {};
+      }
+    });
+    out.names = Array.isArray(cat.names) ? cat.names.slice() : [];
+    out.postal = Array.isArray(cat.postal) ? cat.postal.slice() : [];
+    out.locations = Array.isArray(cat.locations) ? cat.locations.slice() : [];
+    out.urls = Array.isArray(cat.urls) ? cat.urls.slice() : [];
+    out.categories = Array.isArray(cat.categories) ? cat.categories.slice() : [];
+    out.notes = Array.isArray(cat.notes) ? cat.notes.slice() : [];
+    return out;
   }
 
   function getListByPath(map, aff1, aff2, aff3, title) {
@@ -342,6 +367,7 @@
   window.MeishiCatalog = {
     emptyCatalog: emptyCatalog,
     emptyCompanyProfile: emptyCompanyProfile,
+    normalizeCatalog: normalizeCatalog,
     pathKey: pathKey,
     buildCatalogFromRecords: buildCatalogFromRecords,
     mergeCatalog: mergeCatalog,

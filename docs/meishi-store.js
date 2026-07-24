@@ -108,7 +108,7 @@
     return window.location.origin + dir + rel;
   }
   /** 共有HTMLのキャッシュ回避（owner「開く」で古い admin が開くのを防ぐ） */
-  var SHARE_PAGE_VER = "20250724f";
+  var SHARE_PAGE_VER = "20250724g";
 
   /** 共有用ページ URL（携帯・他PC向け）。MEISHI_BASE_URL があれば常に本番URLを返す。 */
   function sharePageUrl(page, opts) {
@@ -1457,16 +1457,26 @@
     var key = MeishiFields.norm(company);
     var raw = findCompanySettingsRaw(key);
     var p = buildProfileFromRaw(raw, key);
-    p.catalog = clone(p.catalog) || MeishiCatalog.emptyCatalog();
+    var baseCat = MeishiCatalog.normalizeCatalog
+      ? MeishiCatalog.normalizeCatalog(clone(p.catalog))
+      : (clone(p.catalog) || MeishiCatalog.emptyCatalog());
+    p.catalog = baseCat;
     var fromRec = MeishiCatalog.buildCatalogFromRecords(_records, key);
     if (!hasSavedCatalog(raw)) {
       p.catalog = MeishiCatalog.mergeCatalog(fromRec, MeishiCatalog.emptyCatalog());
     } else {
-      // 保存済み共通データがあっても、名刺データ上の役職は選択肢に反映する
+      // 保存済み共通データがあっても、名刺データの役職・所属を候補に載せる
+      p.catalog.title = p.catalog.title && typeof p.catalog.title === "object" && !Array.isArray(p.catalog.title)
+        ? p.catalog.title
+        : {};
       MeishiCatalog.getTitleList(fromRec).forEach(function (t) {
         MeishiCatalog.addUnique(MeishiCatalog.ensureList(p.catalog.title, "*"), t);
       });
+      (fromRec.aff1 || []).forEach(function (a) {
+        MeishiCatalog.addUnique(p.catalog.aff1, a);
+      });
     }
+    if (MeishiCatalog.normalizeCatalog) p.catalog = MeishiCatalog.normalizeCatalog(p.catalog);
     if (p.url && (!p.catalog.urls || !p.catalog.urls.length)) {
       p.catalog.urls = MeishiFields.uniq([p.url].concat(p.catalog.urls || []));
     }
