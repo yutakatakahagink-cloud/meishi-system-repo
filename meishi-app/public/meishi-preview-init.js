@@ -323,11 +323,33 @@
       }
     }
 
+    /** 名刺データ編集の内容をプレビュータブと同じ描画へ反映 */
+    function applyRecord(rec) {
+      init();
+      if (!userPrint || !userPrint.applyRecord) return;
+      var koji = "";
+      if (rec && rec.no && MeishiStore.getPreviewKoji) {
+        koji = MeishiStore.getPreviewKoji(rec.no) || "";
+      }
+      userPrint.applyRecord(rec, { koji: koji });
+      if (userPrint.setPreviewSide) userPrint.setPreviewSide("front");
+      var tg = document.getElementById("pvSideToggle");
+      if (tg) {
+        tg.querySelectorAll("button[data-side]").forEach(function (btn) {
+          btn.classList.toggle("on", btn.getAttribute("data-side") === "front");
+        });
+      }
+      loadPreviewPersonalImages();
+      if (userPrint.renderCard) userPrint.renderCard();
+      refreshPreviewPersonal();
+    }
+
     return {
       init: init,
       rebuild: function () {
         if (userPrint) userPrint.rebuild();
       },
+      applyRecord: applyRecord,
     };
   }
 

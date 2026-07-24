@@ -1646,7 +1646,27 @@
     if (modal) modal.hidden = true;
   }
 
-  /** プレビュータブと同じ textFlow・レイアウト・個人画像で表を表示 */
+  /** プレビュータブで描画した結果をモーダルへ複製（画像・デザインを完全一致） */
+  function syncRecPreviewModalFromPreviewTab() {
+    var src = document.getElementById("pvFrontWrap");
+    var dstParent = document.getElementById("recPreviewPrintArea");
+    if (!src || !dstParent) return false;
+    destroyRecPreviewUI();
+    dstParent.innerHTML = "";
+    var clone = src.cloneNode(true);
+    clone.id = "recPreviewFrontWrap";
+    clone.querySelectorAll("[id]").forEach(function (n) {
+      n.id = "recPrev_" + n.id;
+    });
+    // モーダル内は閲覧のみ
+    clone.querySelectorAll(".meishi").forEach(function (n) {
+      n.classList.add("print-readonly");
+    });
+    dstParent.appendChild(clone);
+    return true;
+  }
+
+  /** プレビュータブと同じ描画エンジンで表を表示 */
   function showRecPreview() {
     var card = document.getElementById("recFormCard");
     if (!card || card.style.display === "none") {
@@ -1654,74 +1674,29 @@
     }
     var rec = readRecFromForm();
     if (!rec.company) return alert("会社・団体名を選択してからプレビューしてください");
-    if (!window.MeishiCardUI || !MeishiStore.getEffectiveLayout) {
+    var modal = document.getElementById("recPreviewModal");
+    var dstParent = document.getElementById("recPreviewPrintArea");
+    if (!modal || !dstParent) return alert("プレビュー画面がありません");
+
+    initPreviewPanel();
+    if (!previewPanel || typeof previewPanel.applyRecord !== "function") {
       return alert("プレビュー機能を読み込めませんでした。ページを再読み込みしてください");
     }
-    var modal = document.getElementById("recPreviewModal");
-    var cardEl = document.getElementById("recPreviewCard");
-    var personalEl = document.getElementById("recPreviewCardPersonal");
-    if (!modal || !cardEl) return alert("プレビュー画面がありません");
-
-    showRecPreview._rec = rec;
-    recPreviewLayout = MeishiCatalog.normalizeLayout(MeishiLayout.clone(
-      MeishiStore.getEffectiveLayout(rec.company, rec.aff1, rec.aff2)
-    )) || MeishiLayout.defLayout();
-
-    var personalImgs = [];
-    if (rec.no && MeishiStore.getPreviewPersonalImages) {
-      personalImgs = MeishiStore.getPreviewPersonalImages(rec.no) || [];
+    if (rec.company && MeishiStore.setImageLibraryContext) {
+      MeishiStore.setImageLibraryContext(rec.company);
     }
-    if (!recPreviewPersonalLayout) recPreviewPersonalLayout = newRecPreviewPersonalLayout();
-    recPreviewPersonalLayout.images = window.MeishiImageLib
-      ? MeishiImageLib.resolveImages(personalImgs, rec.company)
-      : (personalImgs.slice ? personalImgs.slice() : []);
+    previewPanel.applyRecord(rec);
 
-    // プレビュータブ（MeishiPreviewPanel）と同じ textFlow:true で描画
-    if (!recPreviewUI || !recPreviewUI._recTextFlow) {
-      destroyRecPreviewUI();
-      recPreviewUI = MeishiCardUI.createCardUI({
-        cardEl: cardEl,
-        readOnly: true,
-        textFlow: true,
-        getLayout: function () { return recPreviewLayout; },
-        getElText: function (id) { return recPreviewElText(showRecPreview._rec || {}, id); },
-        getImages: function () {
-          var r = showRecPreview._rec || {};
-          if (!r.company) return [];
-          if (MeishiStore.getPrintImages) {
-            return MeishiStore.getPrintImages(r.company, r.aff1, r.aff2);
-          }
-          var imgs = (recPreviewLayout && recPreviewLayout.images) || [];
-          return window.MeishiImageLib ? MeishiImageLib.resolveImages(imgs, r.company) : imgs;
-        },
-        onLayoutChange: function () {},
-        onSelect: function () {},
-      });
-      recPreviewUI._recTextFlow = true;
-    } else if (recPreviewUI.invalidate) {
-      recPreviewUI.invalidate();
-    }
-
-    if (personalEl) {
-      if (!recPreviewPersonalUI) {
-        recPreviewPersonalUI = MeishiCardUI.createCardUI({
-          cardEl: personalEl,
-          readOnly: true,
-          hideElements: true,
-          getLayout: function () { return recPreviewPersonalLayout; },
-          getElText: function () { return ""; },
-          getImages: function () { return (recPreviewPersonalLayout && recPreviewPersonalLayout.images) || []; },
-          onLayoutChange: function () {},
-          onSelect: function () {},
-        });
-      } else if (recPreviewPersonalUI.invalidate) {
-        recPreviewPersonalUI.invalidate();
+    function reveal() {
+      if (!syncRecPreviewModalFromPreviewTab()) {
+        return alert("プレビューの複製に失敗しました。ページを再読み込みしてください");
       }
-      recPreviewPersonalUI.renderCard();
+      modal.hidden = false;
     }
-
-    recPreviewUI.renderCard();
-    modal.hidden = false;
+    // 画像・レイアウト描画完了後に複製
+    requestAnimationFrame(function () {
+      requestAnimationFrame(reveal);
+    });
   }
 
   /** ヘッダ直下にタブを sticky 固定（スクロールしても「プレビュー」「名刺データ編集」が残る） */

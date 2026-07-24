@@ -954,6 +954,73 @@
       rebuild();
     }
 
+    function forceSelectValue(selEl, value) {
+      if (!selEl) return;
+      var v = String(value == null ? "" : value);
+      if (v && ![].some.call(selEl.options || [], function (o) { return o.value === v; })) {
+        var opt = document.createElement("option");
+        opt.value = v;
+        opt.textContent = v;
+        selEl.appendChild(opt);
+      }
+      selEl.value = v;
+    }
+
+    /** 名刺データ編集などから、プレビューと同じ描画状態へ反映 */
+    function applyRecord(rec, opts) {
+      opts = opts || {};
+      rec = rec || {};
+      reloadRecords();
+      S.name = String(rec.name || "").trim();
+      S.company = String(rec.company || "").trim();
+      S.aff1 = String(rec.aff1 || "").trim();
+      S.aff2 = String(rec.aff2 || "").trim();
+      S.aff3 = String(rec.aff3 || "").trim();
+      S.title = String(rec.title || "").trim();
+      S.postal = String(rec.postal || "").trim();
+      S.mobile = String(rec.mobile || "").trim();
+
+      var nameInp = el("selName");
+      if (nameInp) nameInp.value = S.name;
+      forceSelectValue(el("selCompany"), S.company);
+      forceSelectValue(el("selAff1"), S.aff1);
+      forceSelectValue(el("selAff2"), S.aff2);
+      forceSelectValue(el("selAff3"), S.aff3);
+      forceSelectValue(el("selTitle"), S.title);
+      forceSelectValue(el("selPostal"), S.postal);
+      forceSelectValue(el("selMobile"), S.mobile);
+
+      var qualEl = el("inQual");
+      if (qualEl) qualEl.value = rec.qual || "";
+      var addrEl = el("inAddress");
+      if (addrEl) addrEl.value = rec.address || "";
+      var telEl = el("inTel");
+      if (telEl) telEl.value = rec.tel || "";
+      var faxEl = el("inFax");
+      if (faxEl) faxEl.value = rec.fax || "";
+      var emailEl = el("inEmail");
+      if (emailEl) emailEl.value = rec.email || "";
+      var urlEl = el("inUrl");
+      if (urlEl) urlEl.value = rec.url || "";
+      var kojiEl = el("inKoji");
+      if (kojiEl) {
+        if (opts.koji != null) kojiEl.value = String(opts.koji);
+        else if (rec.no && MeishiStore.getPreviewKoji) kojiEl.value = MeishiStore.getPreviewKoji(rec.no) || "";
+        else kojiEl.value = "";
+      }
+
+      if (S.company && MeishiStore.setImageLibraryContext) {
+        MeishiStore.setImageLibraryContext(S.company);
+      }
+      previewSide = "front";
+      refreshLayoutFromStore();
+      if (!layout) layout = MeishiCatalog.normalizeLayout(resolveStdLayout());
+      if (cardUI && cardUI.invalidate) cardUI.invalidate();
+      ensureCardUI();
+      renderCard();
+      if (typeof opts.onApplied === "function") opts.onApplied();
+    }
+
     return {
       init: init,
       rebuild: rebuild,
@@ -961,6 +1028,7 @@
       renderBackCard: renderBackCard,
       setPreviewSide: setPreviewSide,
       scheduleRenderCard: scheduleRenderCard,
+      applyRecord: applyRecord,
       clear: clear,
     };
   }
