@@ -25,7 +25,7 @@
     <script src="meishi-preview-init.js?v=20250724u"></script>
     <link rel="stylesheet" href="meishi-print-sheet.css?v=20250714z" />
     <meta http-equiv="Cache-Control" content="no-store" />
-    <link rel="stylesheet" href="owner.20250724aa.css" />
+    <link rel="stylesheet" href="owner.20250724ab.css" />
   </head>
   <body>
     <header>
@@ -237,56 +237,64 @@
             </div>
             <div id="deFrontDesign">
             <p class="hint">下層＝会社共通（編集不可）。上層＝部署用画像を <strong>画像保存ボックス</strong> から追加・配置できます。</p>
-            <div class="btn-row">
-              <button type="button" class="btn sm ghost" id="btnDeImgPick">＋部署画像</button>
-              <button type="button" class="btn sm ghost" id="btnDeDesReset">部署画像をクリア</button>
-              <button type="button" class="btn sm" id="btnSaveDept">部署共通を保存</button>
-            </div>
-            <div id="deImgList" class="img-list"></div>
-            <div class="editor">
-              <div class="stage stack">
-                <div class="meishi under" id="deCoBaseCard"></div>
-                <div class="meishi over" id="deDesCard"></div>
+            <div class="editor co-design-editor">
+              <div class="preview-scale-box co-design-scale">
+                <div class="stage stack">
+                  <div class="meishi under" id="deCoBaseCard"></div>
+                  <div class="meishi over" id="deDesCard"></div>
+                </div>
               </div>
-              <div class="card inner" id="deDesignPanel">
-                <div id="deDesignNone" class="hint">部署画像をクリック</div>
-                <div id="deDesignCtl" style="display:none">
-                  <div id="deDesTarget" class="hint bold"></div>
-                  <p class="hint">文字書式は会社共通設定で編集してください。</p>
+              <div class="co-design-side">
+                <div class="btn-row co-design-tools">
+                  <button type="button" class="btn sm ghost" id="btnDeImgPick">＋部署画像</button>
+                  <button type="button" class="btn sm ghost" id="btnDeDesReset">部署画像をクリア</button>
+                </div>
+                <div id="deImgList" class="img-list"></div>
+                <div class="card inner" id="deDesignPanel">
+                  <div id="deDesignNone" class="hint">部署画像をクリック</div>
+                  <div id="deDesignCtl" style="display:none">
+                    <div id="deDesTarget" class="hint bold"></div>
+                    <p class="hint">文字書式は会社共通設定で編集してください。</p>
+                  </div>
                 </div>
               </div>
             </div>
             </div>
             <div id="deBackDesign" style="display:none">
               <p class="hint">下層＝会社共通の裏面（編集不可）。上層＝部署用テキスト・画像。テキストは名刺上で直接入力。中央線の追加・削除もできます。</p>
-              <div class="btn-row">
-                <button type="button" class="btn sm ghost" id="btnDeBackText">＋テキスト</button>
-                <button type="button" class="btn sm ghost" id="btnDeBackImgPick">＋部署画像</button>
-                <button type="button" class="btn sm ghost" id="btnDeBackDivider">中央線を追加</button>
-                <button type="button" class="btn sm ghost" id="btnDeBackDesReset">裏面をクリア</button>
-              </div>
-              <div id="deBackImgList" class="img-list"></div>
-              <div class="editor">
-                <div class="stage stack">
-                  <div class="meishi under" id="deCoBaseCardBack"></div>
-                  <div class="meishi over" id="deDesCardBack"></div>
+              <div class="editor co-design-editor">
+                <div class="preview-scale-box co-design-scale">
+                  <div class="stage stack">
+                    <div class="meishi under" id="deCoBaseCardBack"></div>
+                    <div class="meishi over" id="deDesCardBack"></div>
+                  </div>
                 </div>
-                <div class="card inner" id="deBackDesignPanel">
-                  <div id="deBackDesignNone" class="hint">テキストまたは画像をクリック</div>
-                  <div id="deBackDesignCtl" style="display:none">
-                    <p class="hint" style="margin:0 0 8px">内容は名刺上で直接入力。書式は下のボタンで変更できます。</p>
-                    <div class="des-row"><label>文字</label><div class="size-step"><button type="button" id="deBackDesSizeUp" title="大きく">▲</button><span id="deBackDesSizeV">12px</span><button type="button" id="deBackDesSizeDown" title="小さく">▼</button></div></div>
-                    <div class="des-row"><label>色</label><input type="color" id="deBackDesColor" /></div>
-                    <div class="des-row"><label>背景色</label><div class="des-bg-row"><input type="color" id="deBackDesBg" /><button type="button" class="btn sm ghost" id="deBackDesBgNone">なし</button></div></div>
-                    <div class="des-row"><label>書体</label><select id="deBackDesFont" class="des-font-select"></select></div>
-                    <div class="des-row"><label>太さ</label><div class="seg"><button type="button" id="deBackDesNorm">標準</button><button type="button" id="deBackDesBold">太字</button></div></div>
-                    <div class="des-row"><label>装飾</label><div class="seg"><button type="button" id="deBackDesItalic">斜体</button><button type="button" id="deBackDesUnderline">下線</button></div></div>
-                    <div class="des-row"><label>配置</label><div class="seg"><button type="button" data-de-back-al="left">左</button><button type="button" data-de-back-al="center">中</button><button type="button" data-de-back-al="right">右</button></div></div>
-                    <div class="des-row" style="display:none"><label>操作</label><button type="button" class="btn sm" id="deBackDesTextDelete">テキストを削除</button></div>
+                <div class="co-design-side">
+                  <div class="btn-row co-design-tools">
+                    <button type="button" class="btn sm ghost" id="btnDeBackText">＋テキスト</button>
+                    <button type="button" class="btn sm ghost" id="btnDeBackImgPick">＋部署画像</button>
+                    <button type="button" class="btn sm ghost" id="btnDeBackDivider">中央線を追加</button>
+                    <button type="button" class="btn sm ghost" id="btnDeBackDesReset">裏面をクリア</button>
+                  </div>
+                  <div id="deBackImgList" class="img-list"></div>
+                  <div class="card inner" id="deBackDesignPanel">
+                    <div id="deBackDesignNone" class="hint">テキストまたは画像をクリック</div>
+                    <div id="deBackDesignCtl" style="display:none">
+                      <p class="hint" style="margin:0 0 8px">内容は名刺上で直接入力。書式は下のボタンで変更できます。</p>
+                      <div class="des-row"><label>文字</label><div class="size-step"><button type="button" id="deBackDesSizeUp" title="大きく">▲</button><span id="deBackDesSizeV">12px</span><button type="button" id="deBackDesSizeDown" title="小さく">▼</button></div></div>
+                      <div class="des-row"><label>色</label><input type="color" id="deBackDesColor" /></div>
+                      <div class="des-row"><label>背景色</label><div class="des-bg-row"><input type="color" id="deBackDesBg" /><button type="button" class="btn sm ghost" id="deBackDesBgNone">なし</button></div></div>
+                      <div class="des-row"><label>書体</label><select id="deBackDesFont" class="des-font-select"></select></div>
+                      <div class="des-row"><label>太さ</label><div class="seg"><button type="button" id="deBackDesNorm">標準</button><button type="button" id="deBackDesBold">太字</button></div></div>
+                      <div class="des-row"><label>装飾</label><div class="seg"><button type="button" id="deBackDesItalic">斜体</button><button type="button" id="deBackDesUnderline">下線</button></div></div>
+                      <div class="des-row"><label>配置</label><div class="seg"><button type="button" data-de-back-al="left">左</button><button type="button" data-de-back-al="center">中</button><button type="button" data-de-back-al="right">右</button></div></div>
+                      <div class="des-row" style="display:none"><label>操作</label><button type="button" class="btn sm" id="deBackDesTextDelete">テキストを削除</button></div>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
+            <button type="button" class="btn" id="btnSaveDept" style="margin-top:12px">部署共通を保存</button>
         </div>
       </section>
 

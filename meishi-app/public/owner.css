@@ -102,8 +102,9 @@ header .btn.ghost:active:not(:disabled){background:rgba(255,255,255,.32);box-sha
 }
 .co-hidden-row input{width:auto;margin:0;flex:0 0 auto}
 .co-hidden-row span{flex:1 1 auto;line-height:1.4}
-/* 会社共通デザイン: 左=2倍名刺 / 右=ツール・画像・書式 */
-#panel-company .co-design-editor{
+/* 会社／部署共通デザイン: 左=2倍名刺 / 右=ツール・画像・書式 */
+#panel-company .co-design-editor,
+#panel-dept .co-design-editor{
   display:grid;
   grid-template-columns:minmax(0,auto) minmax(220px,280px);
   gap:12px;
@@ -111,17 +112,22 @@ header .btn.ghost:active:not(:disabled){background:rgba(255,255,255,.32);box-sha
   margin-top:8px;
   overflow-x:auto;
 }
-#panel-company .co-design-side{
+#panel-company .co-design-side,
+#panel-dept .co-design-side{
   display:flex;flex-direction:column;gap:8px;min-width:220px;
 }
-#panel-company .co-design-tools{margin:0;flex-wrap:wrap}
-#panel-company .co-design-side .img-list{
+#panel-company .co-design-tools,
+#panel-dept .co-design-tools{margin:0;flex-wrap:wrap}
+#panel-company .co-design-side .img-list,
+#panel-dept .co-design-side .img-list{
   margin:0;min-height:40px;max-height:120px;overflow:auto;
   padding:6px;border:1px dashed var(--line);border-radius:8px;background:#fafbfd;
 }
-#panel-company .co-design-side .card.inner{margin:0}
+#panel-company .co-design-side .card.inner,
+#panel-dept .co-design-side .card.inner{margin:0}
 /* 2倍表示の上下グレー余白を均等にし、下側切れを防ぐ */
-#panel-company .co-design-scale{
+#panel-company .co-design-scale,
+#panel-dept .co-design-scale{
   --stage-pad:16px;
   --stage-pad-x:32px;
   width:calc((var(--card-w) + var(--stage-pad-x)) * var(--preview-scale));
@@ -132,12 +138,22 @@ header .btn.ghost:active:not(:disabled){background:rgba(255,255,255,.32);box-sha
   background:#cfd6e0;
   border-radius:12px;
 }
-#panel-company .co-design-scale > .stage{
+#panel-company .co-design-scale > .stage,
+#panel-dept .co-design-scale > .stage{
   background:transparent;
   border-radius:0;
 }
+/* 部署の重なり名刺も2倍枠内で揃える */
+#panel-dept .co-design-scale > .stage.stack{
+  min-height:calc(var(--card-h) + var(--stage-pad-x));
+  box-sizing:border-box;
+}
+#panel-dept .co-design-scale > .stage.stack .meishi.over{
+  top:var(--stage-pad);
+}
 @media(max-width:900px){
-  #panel-company .co-design-editor{grid-template-columns:1fr}
+  #panel-company .co-design-editor,
+  #panel-dept .co-design-editor{grid-template-columns:1fr}
 }
 .form-row-1{
   display:flex;flex-wrap:nowrap;align-items:flex-end;gap:10px;
