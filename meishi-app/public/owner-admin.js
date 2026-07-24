@@ -1642,10 +1642,20 @@
     restorePvFrontWrapHome();
     host.innerHTML = "";
     host.appendChild(wrap);
+    // プレビュータブ表示時と同じく編集枠を出さない
+    wrap.querySelectorAll(".meishi").forEach(function (n) {
+      n.classList.add("print-readonly");
+    });
     modal.hidden = false;
 
     function paint() {
       previewPanel.applyRecord(rec);
+      wrap.querySelectorAll(".meishi").forEach(function (n) {
+        n.classList.add("print-readonly");
+      });
+      wrap.querySelectorAll(".rs").forEach(function (n) {
+        n.style.display = "none";
+      });
     }
     paint();
     requestAnimationFrame(function () {

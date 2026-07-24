@@ -223,7 +223,8 @@ th{background:#f3f6fb;position:sticky;top:0}tr.sel{background:#e8eef8}tr:hover{b
 .qr-modal[hidden]{display:none!important}
 .qr-dialog{background:#fff;border-radius:14px;padding:20px;max-width:320px;width:100%;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,.2)}
 .qr-dialog h3{margin:0 0 8px;color:var(--brand-d);font-size:1rem}
-.qr-dialog img{display:block;margin:12px auto;border:1px solid var(--line);border-radius:8px}
+/* QR用のみ（名刺プレビュー内の img には当てない） */
+.qr-dialog > img,#qrImg{display:block;margin:12px auto;border:1px solid var(--line);border-radius:8px}
 /* プレビュータブと同じ preview-scale-box（2倍）をモーダルで使う */
 .rec-preview-dialog{
   max-width:min(98vw,860px);
@@ -231,7 +232,11 @@ th{background:#f3f6fb;position:sticky;top:0}tr.sel{background:#e8eef8}tr:hover{b
   box-sizing:border-box;
   padding:20px 24px 18px;
   overflow:auto;
+  text-align:left;
 }
+.rec-preview-dialog > h3,
+.rec-preview-dialog > .hint,
+.rec-preview-dialog > .btn{text-align:center}
 .rec-preview-stage{margin:12px 0 16px;width:100%}
 #recPreviewPrintArea{
   width:fit-content;
@@ -239,6 +244,27 @@ th{background:#f3f6fb;position:sticky;top:0}tr.sel{background:#e8eef8}tr:hover{b
   margin-left:auto;
   margin-right:auto;
 }
+/* プレビュータブ（#pvPrintArea）と同じ見た目：枠・リサイズハンドルを消す */
+#recPreviewPrintArea .meishi img,
+.rec-preview-dialog .meishi img{
+  margin:0!important;
+  border:none!important;
+  border-radius:0!important;
+  display:block;
+}
+#recPreviewPrintArea .el,
+#recPreviewPrintArea .imgel,
+#recPreviewPrintArea .btel{
+  border-color:transparent!important;
+  background:transparent;
+}
+#recPreviewPrintArea .el.sel,
+#recPreviewPrintArea .imgel.sel,
+#recPreviewPrintArea .btel.sel{
+  border-color:transparent!important;
+  background:transparent!important;
+}
+#recPreviewPrintArea .rs{display:none!important}
 #recPreviewFrontWrap{max-width:100%}
 .img-picker-modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:110;padding:16px}
 .img-picker-modal[hidden]{display:none!important}
