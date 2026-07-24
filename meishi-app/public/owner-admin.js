@@ -1159,39 +1159,7 @@
   }
 
   function fillDeptReadonly() {
-    var pk = getDeptPickers();
-    pk.aff1 = document.getElementById("deAff1Pick").value;
-    pk.aff2 = document.getElementById("deAff2Pick").value;
-    var d = companyDefaults(pk.co);
-    var p = MeishiStore.getCompanyProfile(pk.co);
-    var cat = p.catalog || {};
-    var summary = document.getElementById("deRoSummary");
-    var aff2Label = pk.aff2 ? pk.aff2 : "（所属1共通）";
-    summary.innerHTML =
-      "<div><strong>選択:</strong> " + esc(pk.co) + " / " + esc(pk.aff1 || "—") + " / " + esc(aff2Label) + "</div>";
-    if (!pk.aff2 && pk.aff1) {
-      var aff2list = MeishiCatalog.getAff2List(cat, pk.aff1);
-      if (MeishiFields.isUnaffiliatedAff1(pk.aff1)) {
-        summary.innerHTML += "<div class='hint'>「無所属」は名刺データの所属1が空の人に適用されます。</div>";
-      } else {
-        summary.innerHTML += "<div class='hint'>この設定は「" + esc(pk.aff1) + "」配下の所属2";
-        if (aff2list.length) summary.innerHTML += "（" + esc(aff2list.join("、")) + "）";
-        summary.innerHTML += "すべてに適用されます。</div>";
-      }
-    }
-    summary.innerHTML +=
-      "<div><strong>URL:</strong> " + esc(d.url || "—") + "</div>" +
-      "<div><strong>郵便番号:</strong> " + esc(d.postal || "—") + " / <strong>住所:</strong> " + esc(d.address || "—") + "</div>" +
-      "<div><strong>TEL:</strong> " + esc(d.tel || "—") + " / <strong>FAX:</strong> " + esc(d.fax || "—") + "</div>";
-
-    var catHtml = "<div><strong>所属1:</strong> " + esc((cat.aff1 || []).join("、")) + "</div>";
-    if (pk.aff1) {
-      catHtml += "<div><strong>所属2（" + esc(pk.aff1) + "）:</strong> " + esc(MeishiCatalog.getAff2List(cat, pk.aff1).join("、")) + "</div>";
-    }
-    if (pk.aff1 && pk.aff2) {
-      catHtml += "<div><strong>所属3:</strong> " + esc(MeishiCatalog.getAff3List(cat, pk.aff1, pk.aff2).join("、")) + "</div>";
-    }
-    document.getElementById("deRoCatalog").innerHTML = catHtml;
+    // 部署選択サマリー／会社共通データ（参照のみ）表示は廃止
   }
 
   function newDeptLayout() {

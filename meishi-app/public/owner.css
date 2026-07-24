@@ -96,6 +96,16 @@ header .btn.ghost:active:not(:disabled){background:rgba(255,255,255,.32);box-sha
 .url-box .btn{flex-shrink:0}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}@media(max-width:900px){.grid2{grid-template-columns:1fr}}
 /* 基本・URL: ログイン情報／管理者アカウントを横1列 */
+.co-hidden-row{
+  display:flex;align-items:center;gap:10px;width:100%;margin-top:12px;cursor:pointer;
+  padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:#f7f9fc;box-sizing:border-box;
+}
+.co-hidden-row input{width:auto;margin:0;flex:0 0 auto}
+.co-hidden-row span{flex:1 1 auto;line-height:1.4}
+#panel-company .co-design-editor{
+  grid-template-columns:minmax(0,auto) 220px;align-items:start;overflow-x:auto;
+}
+#panel-company .co-design-scale{margin:0}
 .form-row-1{
   display:flex;flex-wrap:nowrap;align-items:flex-end;gap:10px;
 }

@@ -15,7 +15,7 @@
     <script src="meishi-catalog.js?v=20250724h"></script>
     <script src="meishi-catalog-sync.js?v=20250615c"></script>
     <script src="meishi-catalog-editor.js?v=20250715m"></script>
-    <script src="meishi-store.js?v=20250724y"></script>
+    <script src="meishi-store.js?v=20250724z"></script>
     <script src="meishi-layout.js?v=20250714q"></script>
     <script src="meishi-image-lib.js?v=20250714ad"></script>
     <script src="meishi-card-ui.js?v=20250723b"></script>
@@ -25,7 +25,7 @@
     <script src="meishi-preview-init.js?v=20250724u"></script>
     <link rel="stylesheet" href="meishi-print-sheet.css?v=20250714z" />
     <meta http-equiv="Cache-Control" content="no-store" />
-    <link rel="stylesheet" href="owner.20250724y.css" />
+    <link rel="stylesheet" href="owner.20250724z.css" />
   </head>
   <body>
     <header>
@@ -142,9 +142,9 @@
             <button type="button" class="btn sm danger" id="btnCoDel">削除</button>
             <button type="button" class="btn sm ghost" id="btnCoSyncCat">データからマスタ取込</button>
           </div>
-          <label class="hint" style="display:inline-flex;gap:6px;align-items:center;margin-top:10px;cursor:pointer;width:fit-content">
-            <span>この会社・団体を <strong>user（使用者）に非公開</strong>にする（一覧・印刷不可）</span>
+          <label class="co-hidden-row hint" for="coHiddenForUser">
             <input type="checkbox" id="coHiddenForUser" />
+            <span>この会社・団体を <strong>user（使用者）に非公開</strong>にする（一覧・印刷不可）</span>
           </label>
         </div>
         <div class="card">
@@ -162,8 +162,10 @@
               <button type="button" class="btn sm ghost" id="btnCoDesReset">初期化</button>
             </div>
             <div id="coImgList" class="img-list"></div>
-            <div class="editor">
-              <div class="stage"><div class="meishi" id="coDesCard"></div></div>
+            <div class="editor co-design-editor">
+              <div class="preview-scale-box co-design-scale">
+                <div class="stage"><div class="meishi" id="coDesCard"></div></div>
+              </div>
               <div class="card inner" id="coDesignPanel">
                 <div id="designNone" class="hint">項目またはテキストをクリック</div>
                 <div id="designCtl" style="display:none">
@@ -189,8 +191,10 @@
                 <button type="button" class="btn sm ghost" id="btnCoBackDesReset">裏面を初期化</button>
               </div>
               <div id="coBackImgList" class="img-list"></div>
-              <div class="editor">
-                <div class="stage"><div class="meishi" id="coDesCardBack"></div></div>
+              <div class="editor co-design-editor">
+                <div class="preview-scale-box co-design-scale">
+                  <div class="stage"><div class="meishi" id="coDesCardBack"></div></div>
+                </div>
                 <div class="card inner" id="coBackDesignPanel">
                   <div id="backDesignNone" class="hint">テキストまたは画像をクリック</div>
                   <div id="backDesignCtl" style="display:none">
@@ -215,19 +219,13 @@
         <div class="card">
           <h2>部署共通設定</h2>
           <p class="hint">所属1を選び、所属2は「所属1共通」または個別の所属2を選んでデザインを設定します。所属1共通はその所属1配下すべてに適用されます。<br />所属1が空の氏名は「無所属（所属1なし）」で設定できます。</p>
-          <div class="grid2">
+          <div class="form-row-1 dept-pick-row">
             <div class="field"><label>会社</label><select id="deCoPick"></select></div>
             <div class="field"><label>所属1</label><select id="deAff1Pick"></select></div>
             <div class="field"><label>所属2</label><select id="deAff2Pick"></select></div>
           </div>
-          <div class="readonly-box" id="deRoSummary"></div>
         </div>
-        <div class="grid2">
-          <div class="card">
-            <h2>会社共通データ（参照のみ）</h2>
-            <div class="readonly-box" id="deRoCatalog"></div>
-          </div>
-          <div class="card">
+        <div class="card">
             <h2>名刺デザイン（部署別）</h2>
             <div class="seg card-side-toggle" id="deSideToggle">
               <button type="button" data-side="front" class="on">表</button>
@@ -285,7 +283,6 @@
                 </div>
               </div>
             </div>
-          </div>
         </div>
       </section>
 
@@ -416,7 +413,7 @@
         <button type="button" class="btn sm" id="btnQrClose">閉じる</button>
       </div>
     </div>
-    <script src="owner-admin.20250724y.js"></script>
+    <script src="owner-admin.20250724z.js"></script>
     <script>OwnerAdmin.initAdmin();</script>
   </body>
 </html>
