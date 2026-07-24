@@ -15,7 +15,7 @@
     <script src="meishi-catalog.js?v=20250724h"></script>
     <script src="meishi-catalog-sync.js?v=20250615c"></script>
     <script src="meishi-catalog-editor.js?v=20250715m"></script>
-    <script src="meishi-store.js?v=20250724u"></script>
+    <script src="meishi-store.js?v=20250724v"></script>
     <script src="meishi-layout.js?v=20250714q"></script>
     <script src="meishi-image-lib.js?v=20250714ad"></script>
     <script src="meishi-card-ui.js?v=20250723b"></script>
@@ -395,14 +395,8 @@
         <h3>名刺プレビュー（表）</h3>
         <p class="hint">編集中の内容で表面デザインを表示しています（未保存でも確認できます）。プレビュータブと同じ拡大表示です。</p>
         <div class="print-stagewrap rec-preview-stage">
-          <div id="recPreviewPrintArea">
-            <div class="preview-scale-box preview-scale-box--stack" id="recPreviewFrontWrap">
-              <div class="stage stack">
-                <div class="meishi under print-readonly" id="recPreviewCard"></div>
-                <div class="meishi over print-readonly" id="recPreviewCardPersonal"></div>
-              </div>
-            </div>
-          </div>
+          <!-- プレビュータブの #pvFrontWrap をここに移動して同一描画を表示 -->
+          <div id="recPreviewPrintArea"></div>
         </div>
         <button type="button" class="btn sm" id="btnRecPreviewClose">閉じる</button>
       </div>
@@ -416,7 +410,7 @@
         <button type="button" class="btn sm" id="btnQrClose">閉じる</button>
       </div>
     </div>
-    <script src="owner-admin.20250724u.js"></script>
+    <script src="owner-admin.20250724v.js"></script>
     <script>OwnerAdmin.initAdmin();</script>
   </body>
 </html>
