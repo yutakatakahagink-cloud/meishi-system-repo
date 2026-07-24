@@ -192,27 +192,45 @@ th{background:#f3f6fb;position:sticky;top:0}tr.sel{background:#e8eef8}tr:hover{b
 .qr-dialog{background:#fff;border-radius:14px;padding:20px;max-width:320px;width:100%;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,.2)}
 .qr-dialog h3{margin:0 0 8px;color:var(--brand-d);font-size:1rem}
 .qr-dialog img{display:block;margin:12px auto;border:1px solid var(--line);border-radius:8px}
-.rec-preview-dialog{max-width:min(96vw,560px);width:auto;padding:22px 24px}
+/* 拡大表示分の幅を確保（transform だけではレイアウト幅が増えない） */
+.rec-preview-dialog{
+  max-width:min(98vw,820px);
+  width:min(98vw,820px);
+  box-sizing:border-box;
+  padding:22px 28px;
+  overflow-x:hidden;
+}
 .rec-preview-stage{
   display:flex;justify-content:center;align-items:center;
-  margin:18px 0 20px;overflow:auto;
-  min-height:calc(55mm * 1.45 + 24px);
-  padding:12px 8px;
+  margin:18px 0 20px;
+  overflow:visible;
+  width:100%;
+  padding:8px 0;
+}
+.rec-preview-scale-wrap{
+  width:calc(91mm * 1.55);
+  height:calc(55mm * 1.55);
+  max-width:100%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  margin:0 auto;
 }
 .rec-preview-stage .meishi{
-  margin:0 auto;
-  transform:scale(1.45);
+  margin:0;
+  transform:scale(1.55);
   transform-origin:center center;
   box-shadow:0 6px 22px rgba(0,0,0,.22);
+  flex-shrink:0;
 }
-@media(max-width:560px){
-  .rec-preview-dialog{max-width:96vw;padding:16px}
-  .rec-preview-stage{min-height:calc(55mm * 1.15 + 16px)}
-  .rec-preview-stage .meishi{transform:scale(1.15)}
+@media(max-width:700px){
+  .rec-preview-dialog{width:min(98vw,820px);padding:16px}
+  .rec-preview-scale-wrap{width:calc(91mm * 1.25);height:calc(55mm * 1.25)}
+  .rec-preview-stage .meishi{transform:scale(1.25)}
 }
-@media(max-width:380px){
-  .rec-preview-stage{min-height:calc(55mm * 1.0 + 12px)}
-  .rec-preview-stage .meishi{transform:scale(1.0)}
+@media(max-width:420px){
+  .rec-preview-scale-wrap{width:calc(91mm * 1.05);height:calc(55mm * 1.05)}
+  .rec-preview-stage .meishi{transform:scale(1.05)}
 }
 .img-picker-modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:110;padding:16px}
 .img-picker-modal[hidden]{display:none!important}

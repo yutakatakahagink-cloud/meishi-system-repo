@@ -22,7 +22,7 @@
     <script src="meishi-user-print.js?v=20250715k"></script>
     <script src="meishi-preview-init.js?v=20250715m"></script>
     <link rel="stylesheet" href="meishi-print-sheet.css?v=20250714z" />
-    <link rel="stylesheet" href="owner.css?v=20250724k" />
+    <link rel="stylesheet" href="owner.css?v=20250724m" />
   </head>
   <body>
     <header>
@@ -371,7 +371,9 @@
         <h3>名刺プレビュー（表）</h3>
         <p class="hint">編集中の内容で表面デザインを表示しています（未保存でも確認できます）。</p>
         <div class="rec-preview-stage">
-          <div class="meishi print-readonly" id="recPreviewCard"></div>
+          <div class="rec-preview-scale-wrap">
+            <div class="meishi print-readonly" id="recPreviewCard"></div>
+          </div>
         </div>
         <button type="button" class="btn sm" id="btnRecPreviewClose">閉じる</button>
       </div>
