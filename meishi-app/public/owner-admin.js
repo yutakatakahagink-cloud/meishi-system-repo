@@ -91,11 +91,11 @@
     }
     if (id === "preview") initPreviewPanel();
     if (id === "records") {
+      // owner と同じ: 共通データ描画 → 一覧 → 開いていれば編集欄更新
       try { fillCoPanel(); } catch (e) { console.warn("[Meishi] fillCoPanel(records)", e); }
       renderRecTable();
       fillRecNoSelect();
-      if (editRecIdx < 0 && !copySourceRec) showRecFormPlaceholder();
-      else refreshRecFormIfOpen();
+      refreshRecFormIfOpen();
       applyAdminUiLocks();
     }
   }
@@ -133,12 +133,13 @@
       var el = document.getElementById(id);
       if (el) el.disabled = !can;
     });
-    var formOpen = !!document.querySelector("#recFormFields [data-k]");
-    var canRec = formOpen && adminCanEditRecRow();
+    // 名刺データ編集の保存・削除は owner 同様、編集中のみ担当会社チェック
+    var recCard = document.getElementById("recFormCard");
+    var formOpen = !!(recCard && recCard.style.display !== "none" && document.querySelector("#recFormFields [data-k]"));
     var btnRecSave = document.getElementById("btnRecSave");
     var btnRecDel = document.getElementById("btnRecDel");
-    if (btnRecSave) btnRecSave.disabled = !canRec;
-    if (btnRecDel) btnRecDel.disabled = !(canRec && editRecIdx >= 0 && !copySourceRec);
+    if (btnRecSave) btnRecSave.disabled = formOpen && !adminCanEditRecRow();
+    if (btnRecDel) btnRecDel.disabled = !(formOpen && editRecIdx >= 0 && !copySourceRec && adminCanEditRecRow());
     var hint = document.getElementById("adminEditHint");
     if (hint) {
       hint.style.display = can || !currentCo ? "none" : "";
@@ -539,7 +540,7 @@
   }
 
   function withShareCacheBust(url) {
-    var ver = (window.MeishiStore && MeishiStore.sharePageVer) || window.MEISHI_PAGE_VER || "20250724g";
+    var ver = (window.MeishiStore && MeishiStore.sharePageVer) || window.MEISHI_PAGE_VER || "20250724h";
     try {
       var u = new URL(url, window.location.href);
       if (/\.html$/i.test(u.pathname)) u.searchParams.set("v", String(ver));
@@ -1429,16 +1430,23 @@
   function refreshRecFormIfOpen() {
     var card = document.getElementById("recFormCard");
     if (!card || card.style.display === "none") return;
+    // 編集未選択（owner と同じく非表示）のときは触らない
+    if (editRecIdx < 0 && !copySourceRec) return;
+    if (!document.querySelector("#recFormFields [data-k]") && editRecIdx < 0) return;
     var rec;
-    if (editRecIdx >= 0 && !copySourceRec) {
-      var rows = MeishiStore.getRecords();
-      rec = editRecIdx < rows.length
-        ? Object.assign({}, MeishiFields.emptyRecord(), rows[editRecIdx])
-        : readRecFromForm();
-    } else {
-      rec = readRecFromForm();
+    try {
+      if (editRecIdx >= 0 && !copySourceRec) {
+        var rows = MeishiStore.getRecords();
+        rec = editRecIdx < rows.length
+          ? Object.assign({}, MeishiFields.emptyRecord(), rows[editRecIdx])
+          : readRecFromForm();
+      } else {
+        rec = readRecFromForm();
+      }
+      rebuildRecFormFields(rec);
+    } catch (e) {
+      console.warn("[Meishi] refreshRecFormIfOpen", e);
     }
-    rebuildRecFormFields(rec);
   }
 
   function readRecFormCtx() {
@@ -1548,72 +1556,47 @@
     if (keep) sel.value = keep;
   }
 
-  function showRecFormPlaceholder() {
+  /** owner と同じ: 編集カードを閉じる */
+  function hideRecForm() {
     editRecIdx = -1;
     copySourceRec = null;
     var card = document.getElementById("recFormCard");
-    var titleEl = document.getElementById("recFormTitle");
+    if (card) card.style.display = "none";
     var fields = document.getElementById("recFormFields");
-    if (card) card.style.display = "";
-    if (titleEl) titleEl.textContent = "編集";
-    if (fields) {
-      fields.innerHTML = "<p class='hint' style='grid-column:1/-1'>上の一覧または「氏名で選択」から行を選ぶと、ここに編集欄が表示されます。</p>";
-    }
+    if (fields) fields.innerHTML = "";
     applyAdminUiLocks();
   }
 
+  /** owner と同じ手順で編集欄を開く */
   function openRecForm(idx, copyFrom) {
     editRecIdx = idx;
     copySourceRec = copyFrom || null;
     var rec;
     var titleEl = document.getElementById("recFormTitle");
     var card = document.getElementById("recFormCard");
-    try {
-      if (copyFrom) {
-        rec = JSON.parse(JSON.stringify(copyFrom));
-        rec.no = MeishiStore.nextRecordNo();
-        if (titleEl) titleEl.textContent = "データコピー（新規番号 " + rec.no + "）";
-      } else if (idx >= 0) {
-        var row = MeishiStore.getRecords()[idx] || {};
-        rec = Object.assign({}, MeishiFields.emptyRecord(), row);
-        if (titleEl) titleEl.textContent = (rec.name ? rec.name + " を編集" : "行 #" + (rec.no || idx) + " を編集");
-        // 編集中の会社を共通データ側にも合わせ、役職マスタを名刺データから再読込
-        if (rec.company) {
-          try {
-            syncCoPickValue(rec.company);
-            var pOpen = MeishiStore.getCompanyProfileForEdit(rec.company);
-            window._coEditingCatalog = cloneCat(pOpen.catalog) || MeishiCatalog.emptyCatalog();
-            window._coSyncBaseline = cloneCat(window._coEditingCatalog);
-            renderCatalogEditor(window._coEditingCatalog);
-          } catch (e0) {
-            console.warn("[Meishi] openRecForm catalog sync", e0);
-          }
-        }
-      } else {
-        rec = MeishiFields.emptyRecord();
-        rec.no = MeishiStore.nextRecordNo();
-        if (currentCo) rec.company = currentCo;
-        if (titleEl) titleEl.textContent = "新規行（番号 " + rec.no + "）";
-      }
-      rebuildRecFormFields(rec);
-    } catch (e) {
-      console.warn("[Meishi] openRecForm", e);
-      if (titleEl) titleEl.textContent = "編集";
-      try {
-        rebuildRecFormFields(rec || MeishiFields.emptyRecord());
-      } catch (e2) {
-        console.warn("[Meishi] openRecForm retry", e2);
-        var fields = document.getElementById("recFormFields");
-        if (fields) {
-          fields.innerHTML =
-            "<p class='hint' style='color:#b3261e;grid-column:1/-1'>編集欄の表示に失敗しました。ページを再読み込み（Ctrl+Shift+R）してください。</p>" +
-            "<p class='hint' style='grid-column:1/-1'>" + esc(String((e && e.message) || e2.message || e2)) + "</p>";
-        }
-      }
+    if (copyFrom) {
+      rec = JSON.parse(JSON.stringify(copyFrom));
+      rec.no = MeishiStore.nextRecordNo();
+      if (titleEl) titleEl.textContent = "データコピー（新規番号 " + rec.no + "）";
+    } else if (idx >= 0) {
+      var row = MeishiStore.getRecords()[idx] || {};
+      rec = Object.assign({}, MeishiFields.emptyRecord(), row);
+      if (titleEl) titleEl.textContent = "行 #" + (rec.no || idx) + " を編集";
+    } else {
+      rec = MeishiFields.emptyRecord();
+      rec.no = MeishiStore.nextRecordNo();
+      if (currentCo) rec.company = currentCo;
+      if (titleEl) titleEl.textContent = "新規行（番号 " + rec.no + "）";
     }
+    // 先に会社を合わせ共通データ（役職マスタ）を読み、その後に編集欄を組み立てる（owner と同じデータ源）
+    if (rec.company) {
+      try { syncCoPickValue(rec.company); } catch (e0) {}
+    }
+    try { fillCoPanel(); } catch (e1) { console.warn("[Meishi] fillCoPanel before openRec", e1); }
+    rebuildRecFormFields(rec);
     if (card) {
       card.style.display = "";
-      try { card.scrollIntoView({ behavior: "smooth", block: "nearest" }); } catch (e3) {}
+      try { card.scrollIntoView({ behavior: "smooth", block: "nearest" }); } catch (e2) {}
     }
     applyAdminUiLocks();
     renderRecTable();
@@ -1987,7 +1970,7 @@
     var btnRecCancel = document.getElementById("btnRecCancel");
     if (btnRecCancel) {
       btnRecCancel.onclick = function () {
-        showRecFormPlaceholder();
+        hideRecForm();
         renderRecTable();
       };
     }
@@ -2005,7 +1988,7 @@
         }
         if (editRecIdx >= 0 && !copySourceRec) MeishiStore.updateRecord(editRecIdx, rec);
         else MeishiStore.addRecord(rec);
-        showRecFormPlaceholder();
+        hideRecForm();
         fillCoPick();
         fillRecNoSelect();
         renderRecTable();
@@ -2018,7 +2001,7 @@
         if (editRecIdx < 0 || copySourceRec) return;
         if (!confirm("削除しますか？")) return;
         MeishiStore.deleteRecord(editRecIdx);
-        showRecFormPlaceholder();
+        hideRecForm();
         fillCoPick();
         fillRecNoSelect();
         renderRecTable();
@@ -2109,31 +2092,39 @@
         refreshAdminWho();
         showTab("company");
       }
-      function paintAdminPanels() {
-        try { setBadge(); } catch (e0) { console.warn(e0); }
-        try { refreshCoPickOptions(); } catch (e1) { console.warn(e1); }
-        try { fillCoPanel(); } catch (e2) { console.warn("[Meishi] fillCoPanel", e2); }
-        try { fillDeptPanel(); } catch (e3) { console.warn(e3); }
-        try {
-          renderRecTable();
-          fillRecNoSelect();
-          if (editRecIdx < 0 && !copySourceRec) showRecFormPlaceholder();
-          else refreshRecFormIfOpen();
-        } catch (e4) { console.warn(e4); }
-        try { applyAdminUiLocks(); } catch (e5) { console.warn(e5); }
+      /** owner の init() と同じデータ描画順 */
+      function paintAdminPanelsLikeOwner() {
+        setBadge();
+        fillCoPick();
+        fillDeptPanel();
+        renderRecTable();
+        fillRecNoSelect();
+        refreshRecFormIfOpen();
+        applyAdminUiLocks();
       }
       function wireAdminUiOnce() {
         if (uiWired) return;
         try {
           bindEvents();
+          // owner の onConfigChange / onRecordsChange と同じ扱い
           MeishiStore.onConfigChange(function () {
+            if (window._coCatalogSyncing || window._deptSaving) return;
             refreshAdminWho();
             setBadge();
             refreshCoPickOptions();
+            fillImgLibCoPick();
+            renderImgLibBox();
+            var coOn = document.getElementById("panel-company") && document.getElementById("panel-company").classList.contains("on");
+            var recOn = document.getElementById("panel-records") && document.getElementById("panel-records").classList.contains("on");
+            if (coOn || recOn) {
+              try { fillCoPanel(); } catch (e) {}
+            }
+            fillDeptPanel();
+            refreshRecFormIfOpen();
             applyAdminUiLocks();
-            try { fillCoPanel(); } catch (e) {}
           });
           MeishiStore.onRecordsChange(function () {
+            refreshCoPickOptions();
             renderRecTable();
             fillRecNoSelect();
             refreshRecFormIfOpen();
@@ -2144,45 +2135,39 @@
           uiWired = false;
         }
       }
-      /** ログイン成功後は待たずに画面を開く。データは裏で描画 */
-      function enterMainAfterLogin() {
+      /** owner と同様、データ初期化完了後に一覧・共通データを描画 */
+      async function enterMainAfterLogin() {
         revealMain();
-        // setupAdminShell 後に接続（無い要素はスキップ。以前は btnSaveBasic 欠落で例外→行クリック未接続）
         wireAdminUiOnce();
         refreshAdminWho();
-        applyAdminUiLocks();
-        paintAdminPanels();
-        if (!MeishiStore.ready) {
-          void MeishiStore.init().then(function () {
-            paintAdminPanels();
-            setBadge();
-          }).catch(function (e) {
-            console.warn("[Meishi] init", e);
-            if (e && e.message) {
-              alert(e.message || e);
-            }
-          });
+        var err = document.getElementById("adminLoginErr");
+        try {
+          if (!MeishiStore.ready) {
+            if (err) err.textContent = "";
+            await MeishiStore.init();
+          }
+        } catch (e) {
+          console.warn("[Meishi] init", e);
+          alert(e.message || e);
         }
+        paintAdminPanelsLikeOwner();
         return true;
       }
 
       restoreAdminSavedLogin();
-      // 認証・管理者アカウントだけ先読み（待っても最大数秒）
       try {
         if (MeishiStore.initAuthFast) await MeishiStore.initAuthFast();
       } catch (e) { console.warn(e); }
-      // 名刺データ等は裏で読み込み（ログインをブロックしない）
-      void MeishiStore.init().catch(function (e) { console.warn("[Meishi] init", e); });
 
       var sess = MeishiStore.getAdminSession && MeishiStore.getAdminSession();
       if (sess) {
-        enterMainAfterLogin();
+        await enterMainAfterLogin();
         return;
       }
 
       var btn = document.getElementById("btnAdminLogin");
       if (btn) {
-        btn.onclick = function () {
+        btn.onclick = async function () {
           if (loggingIn) return;
           var id = (document.getElementById("adminLoginId").value || "").trim();
           var pass = document.getElementById("adminLoginPass").value || "";
@@ -2192,46 +2177,27 @@
           try {
             var r = MeishiStore.verifyAdminLogin(id, pass);
             if (!r || !r.ok) {
-              // ローカルにアカウントが無いときだけ短時間リモート再取得
               if (!(MeishiStore.getAdminAccounts() || []).length && MeishiStore.initAuthFast) {
                 if (err) err.textContent = "アカウント確認中…";
-                MeishiStore.initAuthFast().then(function () {
-                  var r2 = MeishiStore.verifyAdminLogin(id, pass);
-                  if (!r2 || !r2.ok) {
-                    if (err) err.textContent = "ID またはパスワードが違います";
-                    loggingIn = false;
-                    btn.disabled = false;
-                    return;
-                  }
-                  persistAdminRemember(id, pass);
-                  MeishiStore.setAdminSession(r2.account);
-                  if (err) err.textContent = "";
-                  enterMainAfterLogin();
-                  loggingIn = false;
-                  btn.disabled = false;
-                }).catch(function () {
-                  if (err) err.textContent = "ID またはパスワードが違います";
-                  loggingIn = false;
-                  btn.disabled = false;
-                });
+                try { await MeishiStore.initAuthFast(); } catch (eAuth) {}
+                r = MeishiStore.verifyAdminLogin(id, pass);
+              }
+              if (!r || !r.ok) {
+                if (err) err.textContent = "ID またはパスワードが違います";
                 return;
               }
-              if (err) err.textContent = "ID またはパスワードが違います";
-              return;
             }
             persistAdminRemember(id, pass);
             MeishiStore.setAdminSession(r.account);
+            if (err) err.textContent = "読込中…";
+            await enterMainAfterLogin();
             if (err) err.textContent = "";
-            enterMainAfterLogin();
+          } catch (eLogin) {
+            console.warn(eLogin);
+            if (err) err.textContent = "ログイン後の読込に失敗しました";
           } finally {
-            if (loggingIn) {
-              // 非同期経路以外はここで解除
-              var stillWaiting = err && err.textContent === "アカウント確認中…";
-              if (!stillWaiting) {
-                loggingIn = false;
-                btn.disabled = false;
-              }
-            }
+            loggingIn = false;
+            btn.disabled = false;
           }
         };
       }
