@@ -370,9 +370,11 @@
           </div>
           <div class="tbl-wrap"><table id="recTbl"><thead></thead><tbody></tbody></table></div>
         </div>
-        <div class="card" id="recFormCard" style="display:none">
+        <div class="card" id="recFormCard">
           <h2 id="recFormTitle">編集</h2>
-          <div id="recFormFields" class="grid2"></div>
+          <div id="recFormFields" class="grid2">
+            <p class="hint" style="grid-column:1/-1">上の一覧または「氏名で選択」から行を選ぶと、ここに編集欄が表示されます。</p>
+          </div>
           <div class="btn-row">
             <button class="btn" id="btnRecSave">保存</button>
             <button class="btn sm danger" id="btnRecDel">削除</button>
@@ -390,7 +392,7 @@
         <button type="button" class="btn sm" id="btnQrClose">閉じる</button>
       </div>
     </div>
-    <script src="owner-admin.js?v=20250724d"></script>
+    <script src="owner-admin.js?v=20250724e"></script>
     <script>OwnerAdmin.initAdmin();</script>
   </body>
 </html>
