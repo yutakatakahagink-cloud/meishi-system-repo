@@ -27,6 +27,27 @@
   var deSide = "front";
   var currentDeptKey = "";
   var previewPanel = null;
+  var toastTimer = null;
+
+  /** OK不要の上部トースト表示 */
+  function showToast(msg, ms) {
+    var el = document.getElementById("appToast");
+    if (!el) {
+      el = document.createElement("div");
+      el.id = "appToast";
+      el.className = "app-toast";
+      el.setAttribute("role", "status");
+      el.setAttribute("aria-live", "polite");
+      document.body.appendChild(el);
+    }
+    el.textContent = msg || "";
+    el.classList.add("is-on");
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () {
+      el.classList.remove("is-on");
+      toastTimer = null;
+    }, ms || 2200);
+  }
 
   function esc(s) {
     return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) {
@@ -2146,13 +2167,13 @@
           var all = MeishiStore.getRecords();
           keepIdx = all.length ? all.length - 1 : -1;
         }
-        alert("保存しました");
         // owner / admin 共通: 保存後も同じ行の編集画面を維持
         if (keepIdx >= 0) openRecForm(keepIdx);
         else {
           hideRecForm();
           renderRecTable();
         }
+        showToast("保存しました");
       };
     }
     var btnRecPreview = document.getElementById("btnRecPreview");
