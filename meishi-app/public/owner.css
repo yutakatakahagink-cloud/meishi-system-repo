@@ -315,25 +315,18 @@ th{background:#f3f6fb;position:sticky;top:0}tr.sel{background:#e8eef8}tr:hover{b
 .img-picker-item img{width:100%;max-height:72px;object-fit:contain}
 .img-picker-item span{font-size:.75rem;text-align:center;color:#54607a;word-break:break-all}
 .img-lib-box{display:flex;flex-wrap:wrap;gap:12px;margin-top:12px;min-height:48px;padding:12px;border:1px dashed var(--line);border-radius:12px;background:#f8fafc}
-/* 管理者アカウント一覧: 画像タイル(108px)用スタイルを打ち消し、横1列に収める */
-#adminAccountsList.img-lib-box{flex-direction:column;flex-wrap:nowrap;align-items:stretch;gap:8px;overflow:hidden}
-#adminAccountsList .img-lib-item.admin-acc-row,
-.img-lib-item.admin-acc-row{
-  position:relative;
-  display:flex;
-  flex-direction:row;
-  align-items:center;
-  justify-content:space-between;
-  gap:10px;
-  width:100%;
-  max-width:100%;
-  box-sizing:border-box;
-  padding:10px 12px;
-  overflow:hidden;
+/* 管理者アカウント一覧: 各アカウントを横1列の入力欄で表示 */
+#adminAccountsList.img-lib-box,
+#adminAccountsList.admin-accounts-list{
+  flex-direction:column;flex-wrap:nowrap;align-items:stretch;gap:10px;overflow:visible;
+  min-height:0;padding:12px;background:#f8fafc;
 }
-.admin-acc-row-main{min-width:0;flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left;font-size:.88rem;line-height:1.4}
-.admin-acc-companies-text{white-space:nowrap}
-.img-lib-item.admin-acc-row .btn{flex:0 0 auto;position:static;margin:0}
+#adminAccountsList .admin-acc-row{
+  width:100%;max-width:100%;box-sizing:border-box;
+  padding:10px 12px;background:#fff;border:1px solid var(--line);border-radius:10px;
+  overflow:visible;
+}
+#adminAccountsList.img-lib-box.empty{align-items:center;justify-content:center;min-height:48px}
 .img-lib-box.empty{align-items:center;justify-content:center;color:#7b8698;font-size:.88rem}
 .img-lib-item{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;width:108px;padding:8px;background:#fff;border:1px solid var(--line);border-radius:10px}
 .img-lib-item img{max-width:88px;max-height:56px;object-fit:contain}

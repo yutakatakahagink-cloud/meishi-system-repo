@@ -13,7 +13,7 @@
     <script src="meishi-catalog.js?v=20250724h"></script>
     <script src="meishi-catalog-sync.js?v=20250615c"></script>
     <script src="meishi-catalog-editor.js?v=20250715m"></script>
-    <script src="meishi-store.js?v=20250724x"></script>
+    <script src="meishi-store.js?v=20250724y"></script>
     <script src="meishi-layout.js?v=20250714q"></script>
     <script src="meishi-image-lib.js?v=20250714ad"></script>
     <script src="meishi-card-ui.js?v=20250723b"></script>
@@ -23,7 +23,7 @@
     <script src="meishi-preview-init.js?v=20250724u"></script>
     <link rel="stylesheet" href="meishi-print-sheet.css?v=20250714z" />
     <meta http-equiv="Cache-Control" content="no-store" />
-    <link rel="stylesheet" href="owner.20250724x.css" />
+    <link rel="stylesheet" href="owner.20250724y.css" />
   </head>
   <body>
     <header>
@@ -77,9 +77,9 @@
         </div>
         <div class="card">
           <h2>管理者アカウント</h2>
-          <p class="hint">各アカウントに ID／パスワードと、編集を許可する会社・団体を割り当てます。admin.html からログインします。</p>
+          <p class="hint">登録済みアカウントは各行で表示名・ログインID・パスワード・担当会社を編集できます。新規は下の行から追加し、「一覧を保存」で確定します。</p>
           <div id="adminAccountsList" class="img-lib-box empty">（未登録）</div>
-          <div class="form-row-1 admin-acc-form-row" style="margin-top:10px">
+          <div class="form-row-1 admin-acc-form-row admin-acc-new-row" style="margin-top:10px">
             <div class="field"><label>表示名</label><input id="adminAccLabel" placeholder="例: 山岳会管理者" /></div>
             <div class="field"><label>ログインID</label><input id="adminAccId" placeholder="例: sangaku" /></div>
             <div class="field"><label>パスワード</label><input id="adminAccPass" type="password" /></div>
@@ -398,7 +398,7 @@
         <button type="button" class="btn sm" id="btnQrClose">閉じる</button>
       </div>
     </div>
-    <script src="owner-admin.20250724x.js"></script>
+    <script src="owner-admin.20250724y.js"></script>
     <script>OwnerAdmin.init();</script>
   </body>
 </html>

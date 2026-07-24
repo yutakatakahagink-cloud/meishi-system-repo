@@ -488,49 +488,99 @@
     }
   }
 
-  function updateAdminCompaniesSummary() {
-    var summary = document.getElementById("adminAccCompaniesSummary");
-    if (!summary) return;
-    var selected = collectAdminCompanyChecks();
-    if (!selected.length) summary.textContent = "担当会社を選択";
-    else if (selected.length === 1) summary.textContent = selected[0];
-    else summary.textContent = selected[0] + " 他" + (selected.length - 1) + "社";
+  function attrEsc(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;")
+      .replace(/"/g, "&quot;")
+      .replace(/</g, "&lt;");
   }
 
-  function renderAdminCompaniesChecks(selected) {
-    var box = document.getElementById("adminAccCompanies");
-    if (!box) return;
+  function setAdminCompaniesSummary(summaryEl, selected) {
+    if (!summaryEl) return;
+    selected = selected || [];
+    if (!selected.length) summaryEl.textContent = "担当会社を選択";
+    else if (selected.length === 1) summaryEl.textContent = selected[0];
+    else summaryEl.textContent = selected[0] + " 他" + (selected.length - 1) + "社";
+  }
+
+  function fillAdminCompanyMenu(menuEl, summaryEl, selected, idPrefix) {
+    if (!menuEl) return;
     selected = selected || [];
     var selMap = {};
     selected.forEach(function (c) { selMap[MeishiFields.norm(c)] = true; });
     var list = MeishiStore.getCompanyList();
     if (!list.length) {
-      box.innerHTML = '<span class="hint">会社がありません</span>';
-      updateAdminCompaniesSummary();
+      menuEl.innerHTML = '<span class="hint">会社がありません</span>';
+      setAdminCompaniesSummary(summaryEl, []);
       return;
     }
-    box.className = "admin-acc-co-menu";
-    box.innerHTML = list.map(function (c, i) {
-      var id = "adminAccCo" + i;
+    menuEl.className = "admin-acc-co-menu";
+    menuEl.innerHTML = list.map(function (c, i) {
+      var id = (idPrefix || "adminAccCo") + i;
       var checked = selMap[MeishiFields.norm(c)] ? " checked" : "";
       return (
         '<label class="admin-acc-co-item">' +
-        '<input type="checkbox" id="' + id + '" value="' + String(c).replace(/"/g, "&quot;") + '"' + checked + " />" +
-        "<span>" + String(c).replace(/</g, "&lt;") + "</span></label>"
+        '<input type="checkbox" id="' + id + '" value="' + attrEsc(c) + '"' + checked + " />" +
+        "<span>" + esc(c) + "</span></label>"
       );
     }).join("");
-    box.querySelectorAll('input[type="checkbox"]').forEach(function (el) {
-      el.onchange = updateAdminCompaniesSummary;
+    menuEl.querySelectorAll('input[type="checkbox"]').forEach(function (el) {
+      el.onchange = function () {
+        setAdminCompaniesSummary(summaryEl, collectCompaniesFromMenu(menuEl));
+      };
     });
-    updateAdminCompaniesSummary();
+    setAdminCompaniesSummary(summaryEl, selected);
+  }
+
+  function collectCompaniesFromMenu(menuEl) {
+    if (!menuEl) return [];
+    var out = [];
+    menuEl.querySelectorAll('input[type="checkbox"]:checked').forEach(function (el) {
+      out.push(el.value);
+    });
+    return out;
+  }
+
+  function updateAdminCompaniesSummary() {
+    setAdminCompaniesSummary(
+      document.getElementById("adminAccCompaniesSummary"),
+      collectAdminCompanyChecks()
+    );
+  }
+
+  function renderAdminCompaniesChecks(selected) {
+    fillAdminCompanyMenu(
+      document.getElementById("adminAccCompanies"),
+      document.getElementById("adminAccCompaniesSummary"),
+      selected || [],
+      "adminAccCoNew"
+    );
   }
 
   function collectAdminCompanyChecks() {
-    var box = document.getElementById("adminAccCompanies");
-    if (!box) return [];
+    return collectCompaniesFromMenu(document.getElementById("adminAccCompanies"));
+  }
+
+  function collectAdminAccountsFromList() {
+    var listEl = document.getElementById("adminAccountsList");
+    if (!listEl) return [];
     var out = [];
-    box.querySelectorAll('input[type="checkbox"]:checked').forEach(function (el) {
-      out.push(el.value);
+    listEl.querySelectorAll(".admin-acc-row[data-admin-row]").forEach(function (row) {
+      var idEl = row.querySelector('[data-k="id"]');
+      var passEl = row.querySelector('[data-k="pass"]');
+      var labelEl = row.querySelector('[data-k="label"]');
+      var menu = row.querySelector("[data-admin-co-menu]");
+      var id = idEl ? String(idEl.value || "").trim() : "";
+      var pass = passEl ? String(passEl.value || "") : "";
+      var label = labelEl ? String(labelEl.value || "").trim() : "";
+      var companies = collectCompaniesFromMenu(menu);
+      if (!id) return;
+      out.push({
+        id: id,
+        pass: pass,
+        label: label || id,
+        companies: companies,
+      });
     });
     return out;
   }
@@ -545,23 +595,45 @@
       listEl.textContent = "（未登録）下のフォームから追加してください。";
       return;
     }
-    listEl.className = "img-lib-box";
-    listEl.innerHTML = accounts.map(function (a) {
+    listEl.className = "img-lib-box admin-accounts-list";
+    listEl.innerHTML = accounts.map(function (a, i) {
+      var companies = a.companies || [];
+      var coSummary = !companies.length
+        ? "担当会社を選択"
+        : (companies.length === 1 ? companies[0] : companies[0] + " 他" + (companies.length - 1) + "社");
       return (
-        '<div class="img-lib-item admin-acc-row">' +
-        '<div class="admin-acc-row-main"><strong>' + String(a.label || a.id).replace(/</g, "&lt;") + "</strong>" +
-        "（ID: " + String(a.id).replace(/</g, "&lt;") + "）" +
-        '<span class="hint admin-acc-companies-text">　担当: ' +
-        (a.companies || []).map(function (c) { return String(c).replace(/</g, "&lt;"); }).join("、") +
-        "</span></div>" +
-        '<button type="button" class="btn sm danger" data-admin-del="' + String(a.id).replace(/"/g, "&quot;") + '">削除</button></div>'
+        '<div class="form-row-1 admin-acc-row" data-admin-row data-admin-idx="' + i + '">' +
+        '<div class="field"><label>表示名</label>' +
+        '<input data-k="label" value="' + attrEsc(a.label || a.id || "") + '" /></div>' +
+        '<div class="field"><label>ログインID</label>' +
+        '<input data-k="id" value="' + attrEsc(a.id || "") + '" autocomplete="off" /></div>' +
+        '<div class="field"><label>パスワード</label>' +
+        '<input data-k="pass" type="password" value="' + attrEsc(a.pass || "") + '" autocomplete="new-password" /></div>' +
+        '<div class="field field-co"><label>担当会社・団体</label>' +
+        '<details class="admin-acc-co-drop">' +
+        '<summary class="admin-acc-co-summary" data-admin-co-summary>' + esc(coSummary) + "</summary>" +
+        '<div class="admin-acc-co-menu" data-admin-co-menu></div>' +
+        "</details></div>" +
+        '<div class="field field-action"><label>&nbsp;</label>' +
+        '<button type="button" class="btn sm danger" data-admin-del="' + attrEsc(a.id || "") + '">削除</button></div>' +
+        "</div>"
       );
     }).join("");
+    listEl.querySelectorAll(".admin-acc-row[data-admin-row]").forEach(function (row, i) {
+      var a = accounts[i] || {};
+      fillAdminCompanyMenu(
+        row.querySelector("[data-admin-co-menu]"),
+        row.querySelector("[data-admin-co-summary]"),
+        a.companies || [],
+        "adminAccCo" + i + "_"
+      );
+    });
     listEl.querySelectorAll("[data-admin-del]").forEach(function (btn) {
       btn.onclick = function () {
         var id = btn.getAttribute("data-admin-del");
         if (!confirm("管理者アカウント「" + id + "」を削除しますか？")) return;
-        var next = (MeishiStore.getAdminAccounts() || []).filter(function (a) { return a.id !== id; });
+        // 一覧の入力内容を一度取り込んでから削除（他行の編集を失わない）
+        var next = collectAdminAccountsFromList().filter(function (a) { return a.id !== id; });
         MeishiStore.saveAdminAccounts(next);
         syncRemoteAfterSave();
         renderAdminAccountsUi();
@@ -1875,9 +1947,22 @@
     var btnAdminAccSave = document.getElementById("btnAdminAccSave");
     if (btnAdminAccSave) {
       btnAdminAccSave.onclick = function () {
-        MeishiStore.saveAdminAccounts(MeishiStore.getAdminAccounts() || []);
+        var next = collectAdminAccountsFromList();
+        for (var i = 0; i < next.length; i++) {
+          if (!next[i].pass) return alert("ログインID「" + next[i].id + "」のパスワードを入力してください");
+          if (!(next[i].companies || []).length) {
+            return alert("ログインID「" + next[i].id + "」の担当会社を1つ以上選んでください");
+          }
+        }
+        var ids = {};
+        for (var j = 0; j < next.length; j++) {
+          if (ids[next[j].id]) return alert("ログインID「" + next[j].id + "」が重複しています");
+          ids[next[j].id] = 1;
+        }
+        MeishiStore.saveAdminAccounts(next);
         syncRemoteAfterSave();
-        alert("管理者アカウント設定を保存しました");
+        renderAdminAccountsUi();
+        showToast("管理者アカウント設定を保存しました");
       };
     }
     var btnImgLibAdd = document.getElementById("btnImgLibAdd");
