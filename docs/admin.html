@@ -15,7 +15,7 @@
     <script src="meishi-catalog.js?v=20250724h"></script>
     <script src="meishi-catalog-sync.js?v=20250615c"></script>
     <script src="meishi-catalog-editor.js?v=20250715m"></script>
-    <script src="meishi-store.js?v=20250724r"></script>
+    <script src="meishi-store.js?v=20250724s"></script>
     <script src="meishi-layout.js?v=20250714q"></script>
     <script src="meishi-image-lib.js?v=20250714ad"></script>
     <script src="meishi-card-ui.js?v=20250723b"></script>
@@ -24,7 +24,8 @@
     <script src="meishi-user-print.js?v=20250715k"></script>
     <script src="meishi-preview-init.js?v=20250715m"></script>
     <link rel="stylesheet" href="meishi-print-sheet.css?v=20250714z" />
-    <link rel="stylesheet" href="owner.css?v=20250724r" />
+    <meta http-equiv="Cache-Control" content="no-store" />
+    <link rel="stylesheet" href="owner.20250724s.css" />
   </head>
   <body>
     <header>
@@ -377,9 +378,10 @@
           <div id="recFormFields" class="grid2"></div>
           <div class="btn-row">
             <button type="button" class="btn" id="btnRecSave">保存</button>
+            <span id="recSaveMsg" class="rec-save-msg" role="status" aria-live="polite" hidden></span>
             <button type="button" class="btn sm" id="btnRecPreview">プレビュー</button>
-            <button class="btn sm danger" id="btnRecDel">削除</button>
-            <button class="btn sm ghost" id="btnRecCancel">キャンセル</button>
+            <button type="button" class="btn sm danger" id="btnRecDel">削除</button>
+            <button type="button" class="btn sm ghost" id="btnRecCancel">キャンセル</button>
           </div>
         </div>
       </section>
@@ -410,7 +412,7 @@
         <button type="button" class="btn sm" id="btnQrClose">閉じる</button>
       </div>
     </div>
-    <script src="owner-admin.js?v=20250724r"></script>
+    <script src="owner-admin.20250724s.js"></script>
     <script>OwnerAdmin.initAdmin();</script>
   </body>
 </html>

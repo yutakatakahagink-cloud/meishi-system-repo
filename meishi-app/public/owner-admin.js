@@ -29,7 +29,7 @@
   var previewPanel = null;
   var toastTimer = null;
 
-  /** OK不要の上部トースト表示 */
+  /** OK不要の上部トースト表示（alert は使わない） */
   function showToast(msg, ms) {
     var el = document.getElementById("appToast");
     if (!el) {
@@ -47,6 +47,24 @@
       el.classList.remove("is-on");
       toastTimer = null;
     }, ms || 2200);
+  }
+
+  /** 編集欄内＋上部トースト（OKボタンなし） */
+  function showRecSavedFeedback(msg) {
+    msg = msg || "保存しました";
+    var local = document.getElementById("recSaveMsg");
+    if (local) {
+      local.textContent = msg;
+      local.hidden = false;
+      local.classList.add("is-on");
+      clearTimeout(showRecSavedFeedback._t);
+      showRecSavedFeedback._t = setTimeout(function () {
+        local.classList.remove("is-on");
+        local.hidden = true;
+        local.textContent = "";
+      }, 2500);
+    }
+    showToast(msg);
   }
 
   function esc(s) {
@@ -1960,7 +1978,7 @@
         var pending = collectCoSaveMutations();
         MeishiStore.saveCompanyProfile(currentCo, collectCoCatalogProfile(), pending);
         afterCoCatalogSaveRefresh();
-        alert("共通データを保存し、関連データを更新しました");
+        showToast("共通データを保存しました");
       };
     }
     var btnSaveDesign = document.getElementById("btnSaveCoDesign");
@@ -2143,7 +2161,9 @@
     }
     var btnRecSave = document.getElementById("btnRecSave");
     if (btnRecSave) {
-      btnRecSave.onclick = function () {
+      btnRecSave.onclick = null;
+      btnRecSave.onclick = function (ev) {
+        if (ev && ev.preventDefault) ev.preventDefault();
         var rec = readRecFromForm();
         if (!rec.name) return alert("氏名を入力してください");
         if (!rec.company) return alert("会社を選択してください");
@@ -2173,7 +2193,8 @@
           hideRecForm();
           renderRecTable();
         }
-        showToast("保存しました");
+        // OK付き alert は使わない（編集欄内＋トーストのみ）
+        showRecSavedFeedback("保存しました");
       };
     }
     var btnRecPreview = document.getElementById("btnRecPreview");
