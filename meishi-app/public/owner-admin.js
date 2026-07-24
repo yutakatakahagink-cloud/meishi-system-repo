@@ -431,16 +431,18 @@
   }
 
   function refreshUserUrlFields() {
-    var userUrl = defaultUserPageUrl();
-    document.getElementById("userUrl").value = userUrl;
+    var userEl = document.getElementById("userUrl");
+    if (userEl) userEl.value = withShareCacheBust(defaultUserPageUrl());
     var ownerInp = document.getElementById("ownerUrl");
-    if (ownerInp) ownerInp.value = MeishiStore.ownerUrl();
+    if (ownerInp) ownerInp.value = withShareCacheBust(MeishiStore.ownerUrl());
     var adminInp = document.getElementById("adminUrl");
     if (adminInp) {
-      // user / owner と同様、共有用の本番 URL（他PC・携帯向け）
-      adminInp.value = MeishiStore.adminUrl
-        ? MeishiStore.adminUrl()
-        : MeishiStore.sharePageUrl("admin.html");
+      // ?v= 付きで最新HTMLを開く（キャッシュされた古い admin を避ける）
+      adminInp.value = withShareCacheBust(
+        MeishiStore.adminUrl
+          ? MeishiStore.adminUrl()
+          : MeishiStore.sharePageUrl("admin.html")
+      );
     }
   }
 
@@ -536,9 +538,22 @@
     document.body.removeChild(ta);
   }
 
+  function withShareCacheBust(url) {
+    var ver = (window.MeishiStore && MeishiStore.sharePageVer) || window.MEISHI_PAGE_VER || "20250724f";
+    try {
+      var u = new URL(url, window.location.href);
+      if (/\.html$/i.test(u.pathname)) u.searchParams.set("v", String(ver));
+      return u.href;
+    } catch (e) {
+      if (!url) return url;
+      if (/[?&]v=/.test(url)) return url.replace(/([?&])v=[^&#]*/i, "$1v=" + encodeURIComponent(ver));
+      return url + (url.indexOf("?") >= 0 ? "&" : "?") + "v=" + encodeURIComponent(ver);
+    }
+  }
+
   function openPageUrl(url) {
     try {
-      url = new URL(url, window.location.href).href;
+      url = withShareCacheBust(new URL(url, window.location.href).href);
     } catch (e) {
       return;
     }

@@ -107,6 +107,9 @@
     if (dir === "") dir = "/";
     return window.location.origin + dir + rel;
   }
+  /** 共有HTMLのキャッシュ回避（owner「開く」で古い admin が開くのを防ぐ） */
+  var SHARE_PAGE_VER = "20250724f";
+
   /** 共有用ページ URL（携帯・他PC向け）。MEISHI_BASE_URL があれば常に本番URLを返す。 */
   function sharePageUrl(page, opts) {
     opts = opts || {};
@@ -122,6 +125,15 @@
         url = new URL(p, window.location.href).href;
       } catch (e) {
         url = p;
+      }
+    }
+    // admin/user/owner の HTML は ?v= を付けてブラウザ／CDNキャッシュを回避
+    if (/\.html($|\?)/i.test(p) || /\.html($|\?|#)/i.test(url)) {
+      var ver = (opts && opts.v) || window.MEISHI_PAGE_VER || SHARE_PAGE_VER;
+      if (/[?&]v=/.test(url)) {
+        url = url.replace(/([?&])v=[^&#]*/i, "$1v=" + encodeURIComponent(ver));
+      } else {
+        url += (url.indexOf("?") >= 0 ? "&" : "?") + "v=" + encodeURIComponent(ver);
       }
     }
     if (opts.hash) url += "#" + String(opts.hash).replace(/^#/, "");
@@ -2683,6 +2695,7 @@
     userUrl: function () { return sharePageUrl("user.html"); },
     ownerUrl: function () { return sharePageUrl("owner.html"); },
     adminUrl: function () { return sharePageUrl("admin.html"); },
+    sharePageVer: SHARE_PAGE_VER,
     publicPageUrl: publicPageUrl,
     sharePageUrl: sharePageUrl,
     get ready() { return _ready; },
