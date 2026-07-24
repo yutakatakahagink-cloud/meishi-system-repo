@@ -95,6 +95,45 @@ header .btn.ghost:active:not(:disabled){background:rgba(255,255,255,.32);box-sha
 .url-box input{flex:1;min-width:180px;width:auto;font-size:.85rem;background:#f7f9fc}
 .url-box .btn{flex-shrink:0}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}@media(max-width:900px){.grid2{grid-template-columns:1fr}}
+/* 基本・URL: ログイン情報／管理者アカウントを横1列 */
+.form-row-1{
+  display:flex;flex-wrap:nowrap;align-items:flex-end;gap:10px;
+}
+.form-row-1 .field{flex:1 1 0;min-width:0;margin-bottom:0}
+.form-row-1 .field-co{flex:1.15 1 140px;min-width:140px;max-width:260px}
+.form-row-1 .field-action{flex:0 0 auto;margin-bottom:0}
+.form-row-1 .field-action .btn,
+.form-row-1 .field-action .btn-row{width:auto}
+.admin-acc-co-drop{position:relative;width:100%}
+.admin-acc-co-summary{
+  position:relative;list-style:none;cursor:pointer;user-select:none;
+  width:100%;padding:9px 28px 9px 11px;border:1px solid var(--line);border-radius:8px;
+  background:#fff;font-size:.92rem;color:#1c2533;line-height:1.3;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-sizing:border-box;
+}
+.admin-acc-co-summary::-webkit-details-marker{display:none}
+.admin-acc-co-summary::after{
+  content:"";position:absolute;right:12px;top:50%;width:7px;height:7px;
+  border-right:2px solid #54607a;border-bottom:2px solid #54607a;
+  transform:translateY(-65%) rotate(45deg);
+}
+.admin-acc-co-drop[open] > .admin-acc-co-summary::after{transform:translateY(-20%) rotate(-135deg)}
+.admin-acc-co-menu{
+  position:absolute;z-index:30;left:0;right:0;top:calc(100% + 4px);
+  max-height:220px;overflow:auto;margin:0;padding:6px 0;
+  background:#fff;border:1px solid var(--line);border-radius:8px;
+  box-shadow:0 8px 20px rgba(20,35,70,.12);
+}
+.admin-acc-co-menu .admin-acc-co-item{
+  display:flex;align-items:center;gap:8px;padding:7px 12px;cursor:pointer;white-space:nowrap;
+}
+.admin-acc-co-menu .admin-acc-co-item:hover{background:#eef2f8}
+.admin-acc-co-menu .admin-acc-co-item input{width:auto;margin:0;flex:0 0 auto}
+@media(max-width:900px){
+  .form-row-1{flex-wrap:wrap}
+  .form-row-1 .field,.form-row-1 .field-co{flex:1 1 calc(50% - 10px);min-width:140px;max-width:none}
+  .form-row-1 .field-action{flex:1 1 100%}
+}
 .tbl-wrap{overflow:auto;max-height:340px;border:1px solid var(--line);border-radius:8px;margin-top:10px}
 table{width:100%;border-collapse:collapse;font-size:.78rem}
 th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;white-space:nowrap}
@@ -276,10 +315,7 @@ th{background:#f3f6fb;position:sticky;top:0}tr.sel{background:#e8eef8}tr:hover{b
 .img-picker-item img{width:100%;max-height:72px;object-fit:contain}
 .img-picker-item span{font-size:.75rem;text-align:center;color:#54607a;word-break:break-all}
 .img-lib-box{display:flex;flex-wrap:wrap;gap:12px;margin-top:12px;min-height:48px;padding:12px;border:1px dashed var(--line);border-radius:12px;background:#f8fafc}
-.admin-acc-companies{display:flex;flex-wrap:nowrap;align-items:center;gap:8px 14px;overflow-x:auto;white-space:nowrap;max-height:none}
-.admin-acc-co-item{display:inline-flex;flex-shrink:0;gap:6px;align-items:center;cursor:pointer;white-space:nowrap;padding:0;margin:0}
-.admin-acc-co-item input{width:auto;margin:0;flex:0 0 auto}
-/* 管理者アカウント一覧: 画像タイル(108px)用スタイルを打ち消し、欄内に収める */
+/* 管理者アカウント一覧: 画像タイル(108px)用スタイルを打ち消し、横1列に収める */
 #adminAccountsList.img-lib-box{flex-direction:column;flex-wrap:nowrap;align-items:stretch;gap:8px;overflow:hidden}
 #adminAccountsList .img-lib-item.admin-acc-row,
 .img-lib-item.admin-acc-row{

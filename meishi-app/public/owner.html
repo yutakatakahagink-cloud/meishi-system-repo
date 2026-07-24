@@ -13,7 +13,7 @@
     <script src="meishi-catalog.js?v=20250724h"></script>
     <script src="meishi-catalog-sync.js?v=20250615c"></script>
     <script src="meishi-catalog-editor.js?v=20250715m"></script>
-    <script src="meishi-store.js?v=20250724w"></script>
+    <script src="meishi-store.js?v=20250724x"></script>
     <script src="meishi-layout.js?v=20250714q"></script>
     <script src="meishi-image-lib.js?v=20250714ad"></script>
     <script src="meishi-card-ui.js?v=20250723b"></script>
@@ -23,7 +23,7 @@
     <script src="meishi-preview-init.js?v=20250724u"></script>
     <link rel="stylesheet" href="meishi-print-sheet.css?v=20250714z" />
     <meta http-equiv="Cache-Control" content="no-store" />
-    <link rel="stylesheet" href="owner.20250724w.css" />
+    <link rel="stylesheet" href="owner.20250724x.css" />
   </head>
   <body>
     <header>
@@ -42,12 +42,12 @@
       <section id="panel-basic" class="panel on">
         <div class="card">
           <h2>ログイン情報</h2>
-          <div class="grid2">
+          <div class="form-row-1 basic-login-row">
             <div class="field"><label>システム名</label><input id="title" /></div>
             <div class="field"><label>ログインID</label><input id="ownerId" /></div>
             <div class="field"><label>パスワード</label><input id="ownerPass" /></div>
+            <div class="field field-action"><label>&nbsp;</label><button type="button" class="btn" id="btnSaveBasic">保存</button></div>
           </div>
-          <button class="btn" id="btnSaveBasic">保存</button>
         </div>
         <div class="card">
           <h2>携帯・他PCから開く（本番URL）</h2>
@@ -79,18 +79,24 @@
           <h2>管理者アカウント</h2>
           <p class="hint">各アカウントに ID／パスワードと、編集を許可する会社・団体を割り当てます。admin.html からログインします。</p>
           <div id="adminAccountsList" class="img-lib-box empty">（未登録）</div>
-          <div class="grid2" style="margin-top:10px">
+          <div class="form-row-1 admin-acc-form-row" style="margin-top:10px">
             <div class="field"><label>表示名</label><input id="adminAccLabel" placeholder="例: 山岳会管理者" /></div>
             <div class="field"><label>ログインID</label><input id="adminAccId" placeholder="例: sangaku" /></div>
             <div class="field"><label>パスワード</label><input id="adminAccPass" type="password" /></div>
-          </div>
-          <div class="field" style="margin-top:8px">
-            <label>担当会社・団体（複数可）</label>
-            <div id="adminAccCompanies" class="img-lib-box admin-acc-companies"></div>
-          </div>
-          <div class="btn-row">
-            <button type="button" class="btn sm" id="btnAdminAccAdd">アカウントを追加</button>
-            <button type="button" class="btn sm ghost" id="btnAdminAccSave">一覧を保存</button>
+            <div class="field field-co">
+              <label>担当会社・団体</label>
+              <details class="admin-acc-co-drop" id="adminAccCompaniesDrop">
+                <summary class="admin-acc-co-summary" id="adminAccCompaniesSummary">担当会社を選択</summary>
+                <div id="adminAccCompanies" class="admin-acc-co-menu"></div>
+              </details>
+            </div>
+            <div class="field field-action">
+              <label>&nbsp;</label>
+              <div class="btn-row" style="margin:0;flex-wrap:nowrap">
+                <button type="button" class="btn sm" id="btnAdminAccAdd">追加</button>
+                <button type="button" class="btn sm ghost" id="btnAdminAccSave">一覧を保存</button>
+              </div>
+            </div>
           </div>
         </div>
         <div class="card">
@@ -392,7 +398,7 @@
         <button type="button" class="btn sm" id="btnQrClose">閉じる</button>
       </div>
     </div>
-    <script src="owner-admin.20250724w.js"></script>
+    <script src="owner-admin.20250724x.js"></script>
     <script>OwnerAdmin.init();</script>
   </body>
 </html>

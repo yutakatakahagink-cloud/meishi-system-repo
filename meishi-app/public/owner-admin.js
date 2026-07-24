@@ -488,6 +488,15 @@
     }
   }
 
+  function updateAdminCompaniesSummary() {
+    var summary = document.getElementById("adminAccCompaniesSummary");
+    if (!summary) return;
+    var selected = collectAdminCompanyChecks();
+    if (!selected.length) summary.textContent = "担当会社を選択";
+    else if (selected.length === 1) summary.textContent = selected[0];
+    else summary.textContent = selected[0] + " 他" + (selected.length - 1) + "社";
+  }
+
   function renderAdminCompaniesChecks(selected) {
     var box = document.getElementById("adminAccCompanies");
     if (!box) return;
@@ -497,9 +506,10 @@
     var list = MeishiStore.getCompanyList();
     if (!list.length) {
       box.innerHTML = '<span class="hint">会社がありません</span>';
+      updateAdminCompaniesSummary();
       return;
     }
-    box.className = "img-lib-box admin-acc-companies";
+    box.className = "admin-acc-co-menu";
     box.innerHTML = list.map(function (c, i) {
       var id = "adminAccCo" + i;
       var checked = selMap[MeishiFields.norm(c)] ? " checked" : "";
@@ -509,6 +519,10 @@
         "<span>" + String(c).replace(/</g, "&lt;") + "</span></label>"
       );
     }).join("");
+    box.querySelectorAll('input[type="checkbox"]').forEach(function (el) {
+      el.onchange = updateAdminCompaniesSummary;
+    });
+    updateAdminCompaniesSummary();
   }
 
   function collectAdminCompanyChecks() {
