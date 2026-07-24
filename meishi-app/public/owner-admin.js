@@ -2132,12 +2132,24 @@
         if (copySourceRec && MeishiCatalog.recordsEqual(rec, copySourceRec, true)) {
           return alert("コピー元と内容が同一のため登録できません。変更してから保存してください。");
         }
-        if (editRecIdx >= 0 && !copySourceRec) MeishiStore.updateRecord(editRecIdx, rec);
-        else MeishiStore.addRecord(rec);
-        hideRecForm();
+        var keepIdx = -1;
+        if (editRecIdx >= 0 && !copySourceRec) {
+          MeishiStore.updateRecord(editRecIdx, rec);
+          keepIdx = editRecIdx;
+        } else {
+          MeishiStore.addRecord(rec);
+          keepIdx = MeishiStore.findRecordByNo(rec.no);
+          if (keepIdx < 0) keepIdx = MeishiStore.getRecords().length - 1;
+        }
+        copySourceRec = null;
         fillCoPick();
         fillRecNoSelect();
-        renderRecTable();
+        // 保存後も同じ氏名の編集画面を維持
+        if (keepIdx >= 0) openRecForm(keepIdx);
+        else {
+          hideRecForm();
+          renderRecTable();
+        }
         alert("保存しました");
       };
     }
