@@ -245,7 +245,7 @@ th{background:#f3f6fb;position:sticky;top:0}tr.sel{background:#e8eef8}tr:hover{b
 .size-step span{min-width:38px;text-align:center;font-size:.8rem;color:#54607a}
 .card-side-toggle{margin:0;width:fit-content}
 .side-toggle-bar{
-  display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+  display:flex;align-items:center;justify-content:flex-start;gap:10px;flex-wrap:wrap;
   margin:0 0 12px;
 }
 .side-toggle-bar #btnSaveCoDesign{margin:0;flex:0 0 auto}
