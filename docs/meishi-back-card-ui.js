@@ -476,17 +476,15 @@
       return Math.max(1, Math.min(UL_LEN_MAX, Math.floor(maxW / unit)));
     }
 
-    /** 行高・下線位置。太さは文字サイズと独立（1〜8px） */
+    /** 行間は常に 1.3（文字サイズ基準）。下線太さは行高の中に収める */
     function underlineLineMetrics(st) {
       var size = Math.max(6, (st && st.size) || 12);
       var thick = clampUlThick(st && st.ulThick);
       if (st) st.ulThick = thick;
-      // 文字帯 → 下線 → 余白（前周期の線が y=0 に食い込まないよう、周期末尾を透明にする）
-      var textArea = Math.max(size + 1, Math.round(size * 1.2));
-      var belowPad = 3;
-      var ulStart = textArea;
-      var ulEnd = textArea + thick;
-      var lineH = textArea + thick + belowPad;
+      var lineH = Math.max(size + 2, Math.round(size * 1.3));
+      var belowPad = 2;
+      var ulEnd = Math.max(thick, lineH - belowPad);
+      var ulStart = Math.max(0, ulEnd - thick);
       return { size: size, lineH: lineH, thick: thick, ulStart: ulStart, ulEnd: ulEnd };
     }
 
@@ -531,12 +529,11 @@
       }
       var m = underlineLineMetrics(st);
       var ulCol = resolveUlColor(st);
-      // 行ごとに下線（border-bottom だと最終行だけになるため gradient を使う）
-      // 周期末尾を透明にし、テキスト上部への線の食い込みを防ぐ
+      // 行間は下線オフ時と同じ 1.3。太さで行高を広げない
       node.style.textDecoration = "none";
       node.style.borderBottom = "none";
       node.style.paddingBottom = "0";
-      node.style.lineHeight = m.lineH + "px";
+      node.style.lineHeight = "1.3";
       node.style.backgroundImage = buildUnderlineGradient(ulCol, m);
       node.style.backgroundRepeat = "repeat-y";
       node.style.backgroundSize = "100% " + m.lineH + "px";

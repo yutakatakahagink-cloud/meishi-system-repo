@@ -957,18 +957,17 @@
       node.style.zIndex = String(ensureItemZ(st, 20));
     }
 
-    /** 太さは文字サイズと独立（1〜8px）。周期末尾を透明にして上部の線食い込みを防ぐ */
+    /** 行間は常に 1.3。下線太さは行高の中に収める（行間を広げない） */
     function underlineLineMetrics(st) {
       var size = Math.max(6, (st && st.size) || 12);
       var thick = Math.round(Number(st && st.ulThick) || 0);
       if (!isFinite(thick) || thick < 1) thick = 1;
       thick = Math.max(1, Math.min(8, thick));
       if (st) st.ulThick = thick;
-      var textArea = Math.max(size + 1, Math.round(size * 1.2));
-      var belowPad = 3;
-      var ulStart = textArea;
-      var ulEnd = textArea + thick;
-      var lineH = textArea + thick + belowPad;
+      var lineH = Math.max(size + 2, Math.round(size * 1.3));
+      var belowPad = 2;
+      var ulEnd = Math.max(thick, lineH - belowPad);
+      var ulStart = Math.max(0, ulEnd - thick);
       return { size: size, lineH: lineH, thick: thick, ulStart: ulStart, ulEnd: ulEnd };
     }
 
@@ -1043,7 +1042,7 @@
       node.style.textDecoration = "none";
       node.style.borderBottom = "none";
       node.style.paddingBottom = "0";
-      node.style.lineHeight = m.lineH + "px";
+      node.style.lineHeight = "1.3";
       node.style.backgroundImage = buildUnderlineGradient(ulCol, m);
       node.style.backgroundRepeat = "repeat-y";
       node.style.backgroundSize = "100% " + m.lineH + "px";
