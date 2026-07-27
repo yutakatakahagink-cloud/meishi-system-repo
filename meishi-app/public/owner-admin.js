@@ -1382,6 +1382,9 @@
         sizeUp: "deBackDesSizeUp",
         sizeDown: "deBackDesSizeDown",
         sizeV: "deBackDesSizeV",
+        lhUp: "deBackDesLhUp",
+        lhDown: "deBackDesLhDown",
+        lhV: "deBackDesLhV",
         color: "deBackDesColor",
         bg: "deBackDesBg",
         bgNone: "deBackDesBgNone",
@@ -1407,6 +1410,7 @@
         textDelete: "deBackDesTextDelete",
         font: "deBackDesFont",
         alignAttr: "data-de-back-al",
+        valignAttr: "data-de-back-valign",
         fontAttr: "data-de-back-font",
       });
     }

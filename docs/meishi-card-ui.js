@@ -942,6 +942,8 @@
       node.style.fontWeight = st.bold ? "700" : "400";
       node.style.fontStyle = st.italic ? "italic" : "normal";
       node.style.textAlign = st.align || "left";
+      st.lineHeight = clampLineHeightRatio(st.lineHeight);
+      node.style.lineHeight = String(st.lineHeight);
       if (MeishiLayout.applyTextBgStyle) MeishiLayout.applyTextBgStyle(node, st);
       node.style.whiteSpace = "pre-wrap";
       node.style.wordBreak = "break-word";
@@ -957,18 +959,21 @@
       node.style.zIndex = String(ensureItemZ(st, 20));
     }
 
-    /** 行間は常に 1.3。下線太さは行高の中に収める（行間を広げない） */
-    function underlineLineMetrics(st) {
-      var size = Math.max(6, (st && st.size) || 12);
-      var thick = Math.round(Number(st && st.ulThick) || 0);
-      if (!isFinite(thick) || thick < 1) thick = 1;
-      thick = Math.max(1, Math.min(8, thick));
-      if (st) st.ulThick = thick;
-      var lineH = Math.max(size + 2, Math.round(size * 1.3));
-      var belowPad = 2;
-      var ulEnd = Math.max(thick, lineH - belowPad);
-      var ulStart = Math.max(0, ulEnd - thick);
-      return { size: size, lineH: lineH, thick: thick, ulStart: ulStart, ulEnd: ulEnd };
+    function clampLineHeightRatio(n) {
+      var v = Math.round((Number(n) || 1.3) * 10) / 10;
+      if (!isFinite(v)) v = 1.3;
+      return Math.max(1.0, Math.min(2.5, v));
+    }
+
+    function buildUnderlineGradient(ulCol, lhRatio, thick) {
+      var pad = 1;
+      return (
+        "repeating-linear-gradient(to bottom," +
+        " transparent 0, transparent calc(" + lhRatio + "em - " + (thick + pad) + "px)," +
+        " " + ulCol + " calc(" + lhRatio + "em - " + (thick + pad) + "px)," +
+        " " + ulCol + " calc(" + lhRatio + "em - " + pad + "px)," +
+        " transparent calc(" + lhRatio + "em - " + pad + "px), transparent " + lhRatio + "em)"
+      );
     }
 
     function resolveUlColor(st) {
@@ -977,15 +982,6 @@
       var tc = st && st.color ? String(st.color).trim() : "";
       if (/^#[0-9A-Fa-f]{6}$/.test(tc)) return tc;
       return "#222222";
-    }
-
-    function buildUnderlineGradient(ulCol, m) {
-      return (
-        "repeating-linear-gradient(to bottom," +
-        " transparent 0, transparent " + m.ulStart + "px," +
-        " " + ulCol + " " + m.ulStart + "px, " + ulCol + " " + m.ulEnd + "px," +
-        " transparent " + m.ulEnd + "px, transparent " + m.lineH + "px)"
-      );
     }
 
     function zenCharPxForUl(st, node) {
@@ -1021,7 +1017,14 @@
       if (!node || !st) return;
       var on = !!st.underline;
       var ulLen = Math.max(0, Math.min(80, Math.round(Number(st.ulLen) || 0)));
+      var thick = Math.round(Number(st.ulThick) || 0);
+      if (!isFinite(thick) || thick < 1) thick = 1;
+      thick = Math.max(1, Math.min(8, thick));
+      var lhRatio = clampLineHeightRatio(st.lineHeight);
       st.ulLen = ulLen;
+      st.ulThick = thick;
+      st.lineHeight = lhRatio;
+      node.style.lineHeight = String(lhRatio);
       if (!on) {
         node.style.textDecoration = "none";
         node.style.borderBottom = "";
@@ -1032,20 +1035,17 @@
         node.style.backgroundRepeat = "";
         node.style.backgroundSize = "";
         node.style.backgroundPosition = "";
-        node.style.lineHeight = "";
         node.removeAttribute("data-ul-fixed");
         node.removeAttribute("data-ul-lines");
         return;
       }
-      var m = underlineLineMetrics(st);
       var ulCol = resolveUlColor(st);
       node.style.textDecoration = "none";
       node.style.borderBottom = "none";
       node.style.paddingBottom = "0";
-      node.style.lineHeight = "1.3";
-      node.style.backgroundImage = buildUnderlineGradient(ulCol, m);
+      node.style.backgroundImage = buildUnderlineGradient(ulCol, lhRatio, thick);
       node.style.backgroundRepeat = "repeat-y";
-      node.style.backgroundSize = "100% " + m.lineH + "px";
+      node.style.backgroundSize = "100% " + lhRatio + "em";
       node.style.backgroundPosition = "left top";
       node.setAttribute("data-ul-lines", "1");
       if (ulLen > 0) {

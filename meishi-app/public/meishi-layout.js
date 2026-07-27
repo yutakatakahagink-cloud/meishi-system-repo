@@ -57,6 +57,8 @@
       ulColor: "",
       font: "",
       align: "left",
+      lineHeight: 1.3,
+      valign: "top",
       z: 20 + i,
     };
   }

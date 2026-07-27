@@ -11,6 +11,9 @@
   var UL_LEN_MAX = 80;
   var UL_THICK_MIN = 1;
   var UL_THICK_MAX = 8;
+  var LINE_H_MIN = 1.0;
+  var LINE_H_MAX = 2.5;
+  var LINE_H_STEP = 0.1;
   var CARD_W_MM = 91;
   var CENTER_GAP_MM = 2;
 
@@ -284,8 +287,22 @@
 
     function bumpTextSize(delta) {
       var hit = getSelectedText();
-      if (!hit) return;
-      patchSelectedText({ size: clampSize((hit.st.size || 12) + delta) });
+      if (!hit || readOnly) return;
+      preserveValignAnchor(hit, function () {
+        hit.st.size = clampSize((hit.st.size || 12) + delta);
+      });
+      saveLayout();
+      if (panelShowDesign) panelShowDesign();
+    }
+
+    function bumpLineHeight(delta) {
+      var hit = getSelectedText();
+      if (!hit || readOnly) return;
+      preserveValignAnchor(hit, function () {
+        hit.st.lineHeight = clampLineHeight((hit.st.lineHeight || 1.3) + delta);
+      });
+      saveLayout();
+      if (panelShowDesign) panelShowDesign();
     }
 
     function cardInnerWidth() {
@@ -382,6 +399,9 @@
       node.style.fontWeight = st.bold ? "700" : "400";
       node.style.fontStyle = st.italic ? "italic" : "normal";
       node.style.textAlign = st.align || "left";
+      st.lineHeight = clampLineHeight(st.lineHeight);
+      st.valign = normalizeValign(st.valign);
+      node.style.lineHeight = String(st.lineHeight);
       if (MeishiLayout.applyTextBgStyle) MeishiLayout.applyTextBgStyle(node, st);
       node.style.whiteSpace = "pre-wrap";
       node.style.wordBreak = "break-word";
@@ -406,6 +426,36 @@
       var v = Math.round(Number(n) || 0);
       if (!isFinite(v) || v < UL_THICK_MIN) v = UL_THICK_MIN;
       return Math.max(UL_THICK_MIN, Math.min(UL_THICK_MAX, v));
+    }
+
+    function clampLineHeight(n) {
+      var v = Math.round((Number(n) || 1.3) * 10) / 10;
+      if (!isFinite(v)) v = 1.3;
+      return Math.max(LINE_H_MIN, Math.min(LINE_H_MAX, v));
+    }
+
+    function normalizeValign(v) {
+      return v === "middle" || v === "bottom" ? v : "top";
+    }
+
+    function preserveValignAnchor(hit, mutator) {
+      if (!hit || !hit.node || !hit.st) {
+        if (mutator) mutator();
+        return;
+      }
+      var oldH = hit.node.offsetHeight || 0;
+      var oldY = hit.st.y || 0;
+      var valign = normalizeValign(hit.st.valign);
+      mutator();
+      applyTextStyle(hit.node, hit.st, editingId === hit.st.id);
+      var newH = hit.node.offsetHeight || 0;
+      if (valign === "bottom") hit.st.y = oldY + (oldH - newH);
+      else if (valign === "middle") hit.st.y = oldY + Math.round((oldH - newH) / 2);
+      var pos = clampPosInCard(hit.st.x || 0, hit.st.y || 0, hit.node.offsetWidth || 40, newH || hit.st.size || 12);
+      hit.st.x = pos.x;
+      hit.st.y = pos.y;
+      hit.node.style.left = hit.st.x + "px";
+      hit.node.style.top = hit.st.y + "px";
     }
 
     function availUlWidth(st) {
@@ -476,16 +526,19 @@
       return Math.max(1, Math.min(UL_LEN_MAX, Math.floor(maxW / unit)));
     }
 
-    /** 行間は常に 1.3（文字サイズ基準）。下線太さは行高の中に収める */
-    function underlineLineMetrics(st) {
-      var size = Math.max(6, (st && st.size) || 12);
-      var thick = clampUlThick(st && st.ulThick);
-      if (st) st.ulThick = thick;
-      var lineH = Math.max(size + 2, Math.round(size * 1.3));
-      var belowPad = 2;
-      var ulEnd = Math.max(thick, lineH - belowPad);
-      var ulStart = Math.max(0, ulEnd - thick);
-      return { size: size, lineH: lineH, thick: thick, ulStart: ulStart, ulEnd: ulEnd };
+    /**
+     * 下線は em 単位の周期で描画し、文字サイズ変更でも位置がずれないようにする。
+     * 行間比 lineHeight と太さ(px)は独立。
+     */
+    function buildUnderlineGradient(ulCol, lhRatio, thick) {
+      var pad = 1;
+      return (
+        "repeating-linear-gradient(to bottom," +
+        " transparent 0, transparent calc(" + lhRatio + "em - " + (thick + pad) + "px)," +
+        " " + ulCol + " calc(" + lhRatio + "em - " + (thick + pad) + "px)," +
+        " " + ulCol + " calc(" + lhRatio + "em - " + pad + "px)," +
+        " transparent calc(" + lhRatio + "em - " + pad + "px), transparent " + lhRatio + "em)"
+      );
     }
 
     function resolveUlColor(st) {
@@ -496,22 +549,17 @@
       return "#222222";
     }
 
-    function buildUnderlineGradient(ulCol, m) {
-      return (
-        "repeating-linear-gradient(to bottom," +
-        " transparent 0, transparent " + m.ulStart + "px," +
-        " " + ulCol + " " + m.ulStart + "px, " + ulCol + " " + m.ulEnd + "px," +
-        " transparent " + m.ulEnd + "px, transparent " + m.lineH + "px)"
-      );
-    }
-
     /** underline + ulLen: 改行後も全行に下線。ulLen>0 なら全角N文字分の固定幅 */
     function applyUnderlineStyle(node, st) {
       if (!node || !st) return;
       var on = !!st.underline;
       var ulLen = clampUlLen(st.ulLen);
+      var lhRatio = clampLineHeight(st.lineHeight);
+      var thick = clampUlThick(st.ulThick);
       st.ulLen = ulLen;
-      st.ulThick = clampUlThick(st.ulThick);
+      st.ulThick = thick;
+      st.lineHeight = lhRatio;
+      node.style.lineHeight = String(lhRatio);
       if (!on) {
         node.style.textDecoration = "none";
         node.style.borderBottom = "";
@@ -522,21 +570,17 @@
         node.style.backgroundRepeat = "";
         node.style.backgroundSize = "";
         node.style.backgroundPosition = "";
-        node.style.lineHeight = "";
         node.removeAttribute("data-ul-fixed");
         node.removeAttribute("data-ul-lines");
         return;
       }
-      var m = underlineLineMetrics(st);
       var ulCol = resolveUlColor(st);
-      // 行間は下線オフ時と同じ 1.3。太さで行高を広げない
       node.style.textDecoration = "none";
       node.style.borderBottom = "none";
       node.style.paddingBottom = "0";
-      node.style.lineHeight = "1.3";
-      node.style.backgroundImage = buildUnderlineGradient(ulCol, m);
+      node.style.backgroundImage = buildUnderlineGradient(ulCol, lhRatio, thick);
       node.style.backgroundRepeat = "repeat-y";
-      node.style.backgroundSize = "100% " + m.lineH + "px";
+      node.style.backgroundSize = "100% " + lhRatio + "em";
       node.style.backgroundPosition = "left top";
       node.setAttribute("data-ul-lines", "1");
       if (ulLen > 0) {
@@ -860,7 +904,7 @@
           block = {
             content: plain || "テキスト",
             x: 20, y: 20, size: 12, color: "#222222",
-            bg: "", bold: 0, italic: 0, underline: 0, ulLen: 0, ulThick: 1, ulColor: "", font: "", align: "left",
+            bg: "", bold: 0, italic: 0, underline: 0, ulLen: 0, ulThick: 1, ulColor: "", font: "", align: "left", lineHeight: 1.3, valign: "top",
           };
         }
         block.id = "txt" + Date.now();
@@ -1310,6 +1354,9 @@
       var backDesUlThickRow = q("ulThickRow", "backDesUlThickRow");
       var backDesUlColor = q("ulColor", "backDesUlColor");
       var backDesUlColorRow = q("ulColorRow", "backDesUlColorRow");
+      var backDesLhUp = q("lhUp", "backDesLhUp");
+      var backDesLhDown = q("lhDown", "backDesLhDown");
+      var backDesLhV = q("lhV", "backDesLhV");
       var designCtl = q("ctl", "backDesignCtl");
       var designNone = q("none", "backDesignNone");
       var textDelete = q("textDelete", "backDesTextDelete");
@@ -1319,6 +1366,7 @@
       var desFront = q("front", "backDesFront");
       var desBack = q("back", "backDesBack");
       var alignAttr = panelIds.alignAttr || "data-back-al";
+      var valignAttr = panelIds.valignAttr || "data-back-valign";
 
       function showDesign() {
         if (!designCtl || !designNone) return;
@@ -1343,6 +1391,10 @@
         if (backDesSizeV) backDesSizeV.textContent = st.size + "px";
         if (backDesSizeUp) backDesSizeUp.disabled = st.size >= SIZE_MAX;
         if (backDesSizeDown) backDesSizeDown.disabled = st.size <= SIZE_MIN;
+        var lh = clampLineHeight(st.lineHeight);
+        if (backDesLhV) backDesLhV.textContent = lh.toFixed(1);
+        if (backDesLhUp) backDesLhUp.disabled = lh >= LINE_H_MAX - 1e-9;
+        if (backDesLhDown) backDesLhDown.disabled = lh <= LINE_H_MIN + 1e-9;
         if (backDesColor) backDesColor.value = st.color && st.color.length === 7 ? st.color : "#222222";
         var bg = MeishiLayout.normalizeBg ? MeishiLayout.normalizeBg(st.bg) : (st.bg || "");
         if (backDesBg) {
@@ -1377,6 +1429,10 @@
         panel.querySelectorAll("[" + alignAttr + "]").forEach(function (b) {
           b.classList.toggle("on", b.getAttribute(alignAttr) === st.align);
         });
+        var vv = normalizeValign(st.valign);
+        panel.querySelectorAll("[" + valignAttr + "]").forEach(function (b) {
+          b.classList.toggle("on", b.getAttribute(valignAttr) === vv);
+        });
         if (textDeleteRow) textDeleteRow.style.display = "";
       }
 
@@ -1388,6 +1444,14 @@
       });
       if (backDesSizeDown) backDesSizeDown.addEventListener("click", function () {
         bumpTextSize(-SIZE_STEP);
+        showDesign();
+      });
+      if (backDesLhUp) backDesLhUp.addEventListener("click", function () {
+        bumpLineHeight(LINE_H_STEP);
+        showDesign();
+      });
+      if (backDesLhDown) backDesLhDown.addEventListener("click", function () {
+        bumpLineHeight(-LINE_H_STEP);
         showDesign();
       });
       if (backDesColor) backDesColor.addEventListener("input", function () {
@@ -1452,6 +1516,12 @@
       panel.querySelectorAll("[" + alignAttr + "]").forEach(function (b) {
         b.addEventListener("click", function () {
           patchSelectedText({ align: this.getAttribute(alignAttr) });
+          showDesign();
+        });
+      });
+      panel.querySelectorAll("[" + valignAttr + "]").forEach(function (b) {
+        b.addEventListener("click", function () {
+          patchSelectedText({ valign: normalizeValign(this.getAttribute(valignAttr)) });
           showDesign();
         });
       });

@@ -287,6 +287,12 @@
       }
       if (t.font == null) t.font = "";
       if (!t.align) t.align = "left";
+      if (t.lineHeight == null || !isFinite(Number(t.lineHeight))) t.lineHeight = 1.3;
+      else {
+        var lh = Math.round(Number(t.lineHeight) * 10) / 10;
+        t.lineHeight = Math.max(1.0, Math.min(2.5, lh));
+      }
+      if (t.valign !== "middle" && t.valign !== "bottom") t.valign = "top";
       return t;
     });
     if (typeof layout.centerShiftMm !== "number" || isNaN(layout.centerShiftMm)) {
@@ -365,6 +371,12 @@
       }
       if (t.font == null) t.font = "";
       if (!t.align) t.align = "left";
+      if (t.lineHeight == null || !isFinite(Number(t.lineHeight))) t.lineHeight = 1.3;
+      else {
+        var lh = Math.round(Number(t.lineHeight) * 10) / 10;
+        t.lineHeight = Math.max(1.0, Math.min(2.5, lh));
+      }
+      if (t.valign !== "middle" && t.valign !== "bottom") t.valign = "top";
       return t;
     });
     if (typeof layout.centerShiftMm !== "number" || isNaN(layout.centerShiftMm)) {
