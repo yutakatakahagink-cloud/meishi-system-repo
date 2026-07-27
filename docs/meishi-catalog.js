@@ -292,7 +292,6 @@
         var lh = Math.round(Number(t.lineHeight) * 10) / 10;
         t.lineHeight = Math.max(1.0, Math.min(2.5, lh));
       }
-      if (t.valign !== "middle" && t.valign !== "bottom") t.valign = "top";
       return t;
     });
     if (typeof layout.centerShiftMm !== "number" || isNaN(layout.centerShiftMm)) {
@@ -376,7 +375,6 @@
         var lh = Math.round(Number(t.lineHeight) * 10) / 10;
         t.lineHeight = Math.max(1.0, Math.min(2.5, lh));
       }
-      if (t.valign !== "middle" && t.valign !== "bottom") t.valign = "top";
       return t;
     });
     if (typeof layout.centerShiftMm !== "number" || isNaN(layout.centerShiftMm)) {

@@ -1410,7 +1410,6 @@
         textDelete: "deBackDesTextDelete",
         font: "deBackDesFont",
         alignAttr: "data-de-back-al",
-        valignAttr: "data-de-back-valign",
         fontAttr: "data-de-back-font",
       });
     }

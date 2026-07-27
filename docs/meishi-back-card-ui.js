@@ -287,22 +287,14 @@
 
     function bumpTextSize(delta) {
       var hit = getSelectedText();
-      if (!hit || readOnly) return;
-      preserveValignAnchor(hit, function () {
-        hit.st.size = clampSize((hit.st.size || 12) + delta);
-      });
-      saveLayout();
-      if (panelShowDesign) panelShowDesign();
+      if (!hit) return;
+      patchSelectedText({ size: clampSize((hit.st.size || 12) + delta) });
     }
 
     function bumpLineHeight(delta) {
       var hit = getSelectedText();
-      if (!hit || readOnly) return;
-      preserveValignAnchor(hit, function () {
-        hit.st.lineHeight = clampLineHeight((hit.st.lineHeight || 1.3) + delta);
-      });
-      saveLayout();
-      if (panelShowDesign) panelShowDesign();
+      if (!hit) return;
+      patchSelectedText({ lineHeight: clampLineHeight((hit.st.lineHeight || 1.3) + delta) });
     }
 
     function cardInnerWidth() {
@@ -400,7 +392,6 @@
       node.style.fontStyle = st.italic ? "italic" : "normal";
       node.style.textAlign = st.align || "left";
       st.lineHeight = clampLineHeight(st.lineHeight);
-      st.valign = normalizeValign(st.valign);
       node.style.lineHeight = String(st.lineHeight);
       if (MeishiLayout.applyTextBgStyle) MeishiLayout.applyTextBgStyle(node, st);
       node.style.whiteSpace = "pre-wrap";
@@ -432,30 +423,6 @@
       var v = Math.round((Number(n) || 1.3) * 10) / 10;
       if (!isFinite(v)) v = 1.3;
       return Math.max(LINE_H_MIN, Math.min(LINE_H_MAX, v));
-    }
-
-    function normalizeValign(v) {
-      return v === "middle" || v === "bottom" ? v : "top";
-    }
-
-    function preserveValignAnchor(hit, mutator) {
-      if (!hit || !hit.node || !hit.st) {
-        if (mutator) mutator();
-        return;
-      }
-      var oldH = hit.node.offsetHeight || 0;
-      var oldY = hit.st.y || 0;
-      var valign = normalizeValign(hit.st.valign);
-      mutator();
-      applyTextStyle(hit.node, hit.st, editingId === hit.st.id);
-      var newH = hit.node.offsetHeight || 0;
-      if (valign === "bottom") hit.st.y = oldY + (oldH - newH);
-      else if (valign === "middle") hit.st.y = oldY + Math.round((oldH - newH) / 2);
-      var pos = clampPosInCard(hit.st.x || 0, hit.st.y || 0, hit.node.offsetWidth || 40, newH || hit.st.size || 12);
-      hit.st.x = pos.x;
-      hit.st.y = pos.y;
-      hit.node.style.left = hit.st.x + "px";
-      hit.node.style.top = hit.st.y + "px";
     }
 
     function availUlWidth(st) {
@@ -904,7 +871,7 @@
           block = {
             content: plain || "テキスト",
             x: 20, y: 20, size: 12, color: "#222222",
-            bg: "", bold: 0, italic: 0, underline: 0, ulLen: 0, ulThick: 1, ulColor: "", font: "", align: "left", lineHeight: 1.3, valign: "top",
+            bg: "", bold: 0, italic: 0, underline: 0, ulLen: 0, ulThick: 1, ulColor: "", font: "", align: "left", lineHeight: 1.3,
           };
         }
         block.id = "txt" + Date.now();
@@ -1366,7 +1333,6 @@
       var desFront = q("front", "backDesFront");
       var desBack = q("back", "backDesBack");
       var alignAttr = panelIds.alignAttr || "data-back-al";
-      var valignAttr = panelIds.valignAttr || "data-back-valign";
 
       function showDesign() {
         if (!designCtl || !designNone) return;
@@ -1428,10 +1394,6 @@
         if (MeishiLayout.fillFontSelect) MeishiLayout.fillFontSelect(backDesFont, st.font || "");
         panel.querySelectorAll("[" + alignAttr + "]").forEach(function (b) {
           b.classList.toggle("on", b.getAttribute(alignAttr) === st.align);
-        });
-        var vv = normalizeValign(st.valign);
-        panel.querySelectorAll("[" + valignAttr + "]").forEach(function (b) {
-          b.classList.toggle("on", b.getAttribute(valignAttr) === vv);
         });
         if (textDeleteRow) textDeleteRow.style.display = "";
       }
@@ -1516,12 +1478,6 @@
       panel.querySelectorAll("[" + alignAttr + "]").forEach(function (b) {
         b.addEventListener("click", function () {
           patchSelectedText({ align: this.getAttribute(alignAttr) });
-          showDesign();
-        });
-      });
-      panel.querySelectorAll("[" + valignAttr + "]").forEach(function (b) {
-        b.addEventListener("click", function () {
-          patchSelectedText({ valign: normalizeValign(this.getAttribute(valignAttr)) });
           showDesign();
         });
       });
