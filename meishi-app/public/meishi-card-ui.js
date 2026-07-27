@@ -957,14 +957,19 @@
       node.style.zIndex = String(ensureItemZ(st, 20));
     }
 
+    /** 太さは文字サイズと独立（1〜8px）。周期末尾を透明にして上部の線食い込みを防ぐ */
     function underlineLineMetrics(st) {
       var size = Math.max(6, (st && st.size) || 12);
       var thick = Math.round(Number(st && st.ulThick) || 0);
       if (!isFinite(thick) || thick < 1) thick = 1;
       thick = Math.max(1, Math.min(8, thick));
       if (st) st.ulThick = thick;
-      var lineH = Math.max(size + 2, Math.round(size * 1.3), thick + size);
-      return { size: size, lineH: lineH, thick: thick };
+      var textArea = Math.max(size + 1, Math.round(size * 1.2));
+      var belowPad = 3;
+      var ulStart = textArea;
+      var ulEnd = textArea + thick;
+      var lineH = textArea + thick + belowPad;
+      return { size: size, lineH: lineH, thick: thick, ulStart: ulStart, ulEnd: ulEnd };
     }
 
     function resolveUlColor(st) {
@@ -973,6 +978,15 @@
       var tc = st && st.color ? String(st.color).trim() : "";
       if (/^#[0-9A-Fa-f]{6}$/.test(tc)) return tc;
       return "#222222";
+    }
+
+    function buildUnderlineGradient(ulCol, m) {
+      return (
+        "repeating-linear-gradient(to bottom," +
+        " transparent 0, transparent " + m.ulStart + "px," +
+        " " + ulCol + " " + m.ulStart + "px, " + ulCol + " " + m.ulEnd + "px," +
+        " transparent " + m.ulEnd + "px, transparent " + m.lineH + "px)"
+      );
     }
 
     function zenCharPxForUl(st, node) {
@@ -1026,14 +1040,11 @@
       }
       var m = underlineLineMetrics(st);
       var ulCol = resolveUlColor(st);
-      var gap = Math.max(0, m.lineH - m.thick);
       node.style.textDecoration = "none";
       node.style.borderBottom = "none";
       node.style.paddingBottom = "0";
       node.style.lineHeight = m.lineH + "px";
-      node.style.backgroundImage =
-        "repeating-linear-gradient(to bottom, transparent 0, transparent " +
-        gap + "px, " + ulCol + " " + gap + "px, " + ulCol + " " + m.lineH + "px)";
+      node.style.backgroundImage = buildUnderlineGradient(ulCol, m);
       node.style.backgroundRepeat = "repeat-y";
       node.style.backgroundSize = "100% " + m.lineH + "px";
       node.style.backgroundPosition = "left top";

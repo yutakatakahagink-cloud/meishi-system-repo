@@ -476,13 +476,18 @@
       return Math.max(1, Math.min(UL_LEN_MAX, Math.floor(maxW / unit)));
     }
 
-    /** 行高・下線太さを整数pxで固定し、改行行ごとの太さずれを防ぐ */
+    /** 行高・下線位置。太さは文字サイズと独立（1〜8px） */
     function underlineLineMetrics(st) {
       var size = Math.max(6, (st && st.size) || 12);
       var thick = clampUlThick(st && st.ulThick);
       if (st) st.ulThick = thick;
-      var lineH = Math.max(size + 2, Math.round(size * 1.3), thick + size);
-      return { size: size, lineH: lineH, thick: thick };
+      // 文字帯 → 下線 → 余白（前周期の線が y=0 に食い込まないよう、周期末尾を透明にする）
+      var textArea = Math.max(size + 1, Math.round(size * 1.2));
+      var belowPad = 3;
+      var ulStart = textArea;
+      var ulEnd = textArea + thick;
+      var lineH = textArea + thick + belowPad;
+      return { size: size, lineH: lineH, thick: thick, ulStart: ulStart, ulEnd: ulEnd };
     }
 
     function resolveUlColor(st) {
@@ -491,6 +496,15 @@
       var tc = st && st.color ? String(st.color).trim() : "";
       if (/^#[0-9A-Fa-f]{6}$/.test(tc)) return tc;
       return "#222222";
+    }
+
+    function buildUnderlineGradient(ulCol, m) {
+      return (
+        "repeating-linear-gradient(to bottom," +
+        " transparent 0, transparent " + m.ulStart + "px," +
+        " " + ulCol + " " + m.ulStart + "px, " + ulCol + " " + m.ulEnd + "px," +
+        " transparent " + m.ulEnd + "px, transparent " + m.lineH + "px)"
+      );
     }
 
     /** underline + ulLen: 改行後も全行に下線。ulLen>0 なら全角N文字分の固定幅 */
@@ -517,16 +531,13 @@
       }
       var m = underlineLineMetrics(st);
       var ulCol = resolveUlColor(st);
-      var gap = Math.max(0, m.lineH - m.thick);
       // 行ごとに下線（border-bottom だと最終行だけになるため gradient を使う）
-      // em ではなく整数pxでタイルし、行ごとの太さのばらつきを防ぐ
+      // 周期末尾を透明にし、テキスト上部への線の食い込みを防ぐ
       node.style.textDecoration = "none";
       node.style.borderBottom = "none";
       node.style.paddingBottom = "0";
       node.style.lineHeight = m.lineH + "px";
-      node.style.backgroundImage =
-        "repeating-linear-gradient(to bottom, transparent 0, transparent " +
-        gap + "px, " + ulCol + " " + gap + "px, " + ulCol + " " + m.lineH + "px)";
+      node.style.backgroundImage = buildUnderlineGradient(ulCol, m);
       node.style.backgroundRepeat = "repeat-y";
       node.style.backgroundSize = "100% " + m.lineH + "px";
       node.style.backgroundPosition = "left top";
