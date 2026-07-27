@@ -400,6 +400,10 @@
       return Math.max(UL_LEN_MIN, Math.min(UL_LEN_MAX, v));
     }
 
+    function availUlWidth(st) {
+      return Math.max(1, cardInnerWidth() - Math.max(0, (st && st.x) || 0));
+    }
+
     function contentCharCount(st, node) {
       var raw = "";
       if (st && node && (editingId === st.id || document.activeElement === node)) {
@@ -415,14 +419,14 @@
       }
     }
 
-    /** 名刺の残り幅に収まる最大文字数（＝全行） */
+    /** 名刺の残り幅に収まる最大文字数（＝全行）。ceil で端数幅も使えるようにする */
     function maxUlLenFor(st) {
       var size = Math.max(6, (st && st.size) || 12);
-      var maxW = Math.max(size, cardInnerWidth() - Math.max(0, (st && st.x) || 0));
-      return Math.max(1, Math.min(UL_LEN_MAX, Math.floor(maxW / size)));
+      var maxW = availUlWidth(st);
+      return Math.max(1, Math.min(UL_LEN_MAX, Math.ceil(maxW / size)));
     }
 
-    /** underline + ulLen: ulLen>0 なら文字数分の固定幅下線 */
+    /** underline + ulLen: ulLen>0 なら文字数分の固定幅下線（全行まで伸ばせる） */
     function applyUnderlineStyle(node, st) {
       if (!node || !st) return;
       var on = !!st.underline;
@@ -432,22 +436,30 @@
         node.style.textDecoration = "none";
         node.style.borderBottom = "";
         node.style.paddingBottom = "";
+        node.style.width = "";
         node.style.minWidth = "";
         node.removeAttribute("data-ul-fixed");
         return;
       }
       if (ulLen > 0) {
-        var size = st.size || 12;
-        var minW = Math.max(size, Math.round(size * ulLen));
+        var size = Math.max(6, st.size || 12);
+        var avail = availUlWidth(st);
+        var max = maxUlLenFor(st);
+        var ulW = Math.min(avail, Math.max(size, Math.round(size * ulLen)));
+        // 上限（全行）に達したら残り幅いっぱいまで引く
+        if (ulLen >= max) ulW = avail;
         node.style.textDecoration = "none";
         node.style.borderBottom = "1px solid " + (st.color || "#222222");
         node.style.paddingBottom = "1px";
-        node.style.minWidth = minW + "px";
+        node.style.boxSizing = "border-box";
+        node.style.width = ulW + "px";
+        node.style.minWidth = ulW + "px";
         node.setAttribute("data-ul-fixed", String(ulLen));
       } else {
         node.style.textDecoration = "underline";
         node.style.borderBottom = "";
         node.style.paddingBottom = "";
+        node.style.width = "";
         node.style.minWidth = "";
         node.removeAttribute("data-ul-fixed");
       }
@@ -464,13 +476,18 @@
       var max = maxUlLenFor(hit.st);
       var next;
       if (delta > 0) {
-        // 1文字なら2から、2文字なら3から…（入力文字数+1）
-        if (cur < 1) next = Math.min(max, n + 1);
-        else next = Math.min(max, cur + 1);
+        if (cur < 1) {
+          // 1文字→2、2文字→3…。すでに行幅いっぱいなら全行固定へ
+          next = n + 1;
+          if (next > max || n >= max) next = max;
+        } else if (cur < max) {
+          next = cur + 1;
+        } else {
+          return;
+        }
       } else {
         if (cur < 1) return;
         next = cur - 1;
-        // 入力文字数以下に戻したら「自動」（文字どおり）
         if (next <= n) next = 0;
       }
       patchSelectedText({ underline: 1, ulLen: next });
@@ -1239,7 +1256,11 @@
         var ulLen = clampUlLen(st.ulLen);
         var ulMax = maxUlLenFor(st);
         if (backDesUlLenRow) backDesUlLenRow.style.display = st.underline ? "" : "none";
-        if (backDesUlV) backDesUlV.textContent = ulLen > 0 ? (ulLen + "文字") : "自動";
+        if (backDesUlV) {
+          if (ulLen <= 0) backDesUlV.textContent = "自動";
+          else if (ulLen >= ulMax) backDesUlV.textContent = "全行";
+          else backDesUlV.textContent = ulLen + "文字";
+        }
         if (backDesUlUp) backDesUlUp.disabled = ulLen >= ulMax;
         if (backDesUlDown) backDesUlDown.disabled = ulLen <= UL_LEN_MIN;
         if (MeishiLayout.fillFontSelect) MeishiLayout.fillFontSelect(backDesFont, st.font || "");
