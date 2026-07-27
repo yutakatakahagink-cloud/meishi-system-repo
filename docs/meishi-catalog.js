@@ -327,6 +327,38 @@
       else if (layout.el[e.id] && MeishiLayout.normalizeBg) {
         layout.el[e.id].bg = MeishiLayout.normalizeBg(layout.el[e.id].bg);
       }
+      if (layout.el[e.id]) {
+        var el = layout.el[e.id];
+        if (el.italic == null) el.italic = 0;
+        if (el.underline == null) el.underline = 0;
+        if (el.ulLen == null || !isFinite(Number(el.ulLen))) el.ulLen = 0;
+        else el.ulLen = Math.max(0, Math.min(80, Math.round(Number(el.ulLen))));
+        (function normalizeElUl(tt) {
+          var v = Number(tt.ulThick);
+          if (!isFinite(v) || v <= 0) {
+            tt.ulThick = 5;
+          } else if (tt.ulThickUnit === "em" || v > 8) {
+            tt.ulThick = Math.max(2, Math.min(20, Math.round(v)));
+          } else {
+            var px = Math.max(1, Math.min(8, Math.round(v)));
+            var size = Math.max(6, Number(tt.size) || 12);
+            tt.ulThick = Math.max(2, Math.min(20, Math.round((px / size) * 100)));
+          }
+          tt.ulThickUnit = "em";
+          var sid = String(tt.ulStyle || "solid");
+          tt.ulStyle = ["solid", "double", "dotted", "dashed", "wave"].indexOf(sid) >= 0 ? sid : "solid";
+        })(el);
+        if (el.ulColor == null || typeof el.ulColor !== "string") el.ulColor = "";
+        else {
+          var euc = String(el.ulColor).trim();
+          el.ulColor = /^#[0-9A-Fa-f]{6}$/.test(euc) ? euc : "";
+        }
+        if (el.lineHeight == null || !isFinite(Number(el.lineHeight))) el.lineHeight = 1.3;
+        else {
+          var elh = Math.round(Number(el.lineHeight) * 10) / 10;
+          el.lineHeight = Math.max(1.0, Math.min(2.5, elh));
+        }
+      }
     });
     return layout;
   }

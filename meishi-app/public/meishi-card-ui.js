@@ -12,6 +12,21 @@
   var SIZE_MIN = 6;
   var SIZE_MAX = 60;
   var SIZE_STEP = 1;
+  var LINE_H_MIN = 1.0;
+  var LINE_H_MAX = 2.5;
+  var LINE_H_STEP = 0.1;
+  var UL_LEN_MIN = 0;
+  var UL_LEN_MAX = 80;
+  var UL_THICK_MIN = 2;
+  var UL_THICK_MAX = 20;
+  var UL_THICK_DEFAULT = 5;
+  var UL_STYLES = [
+    { id: "solid", label: "実線" },
+    { id: "double", label: "二重線" },
+    { id: "dotted", label: "点線" },
+    { id: "dashed", label: "破線" },
+    { id: "wave", label: "波線" },
+  ];
 
   /** 表裏共通: 自由テキストのクリップボード + Ctrl+C / Ctrl+V */
   (function initMeishiTextClip() {
@@ -469,7 +484,8 @@
     }
 
     function singleLineHeight(st) {
-      return Math.ceil(st.size * 1.3) + 2;
+      var lh = clampLineHeightRatio(st && st.lineHeight);
+      return Math.ceil((st.size || 12) * lh) + 2;
     }
 
     function clearTextWrapStyle(node) {
@@ -604,7 +620,10 @@
       node.style.color = st.color;
       node.style.fontFamily = MeishiLayout.resolveBackFontFamily(st.font || "");
       node.style.fontWeight = st.bold ? "700" : "400";
+      node.style.fontStyle = st.italic ? "italic" : "normal";
       node.style.textAlign = st.align;
+      st.lineHeight = clampLineHeightRatio(st.lineHeight);
+      node.style.lineHeight = String(st.lineHeight);
       if (MeishiLayout.applyTextBgStyle) MeishiLayout.applyTextBgStyle(node, st);
       node.style.overflow = "";
       node.style.textOverflow = "";
@@ -612,6 +631,7 @@
       if (useZoneTextLayout() && txt && SHRINK_TO_ZONE_IDS[elId]) {
         fitFontSizeToZoneWidth(node, st, textMaxWidth(st));
         enforceZoneBounds(node, st);
+        applyUnderlineStyle(node, st);
         return;
       }
       if (useZoneTextLayout() && txt) {
@@ -630,6 +650,8 @@
           node.style.maxWidth = mw + "px";
         }
         enforceZoneBounds(node, st);
+        applyUnderlineStyle(node, st);
+        return;
       } else if (NO_WRAP_IDS[elId] && useAutoWrap()) {
         node.style.whiteSpace = "nowrap";
         node.style.maxWidth = "";
@@ -639,6 +661,7 @@
       } else {
         clearTextWrapStyle(node);
       }
+      applyUnderlineStyle(node, st);
     }
 
     function hasLineBreak(txt) {
@@ -962,25 +985,97 @@
     function clampLineHeightRatio(n) {
       var v = Math.round((Number(n) || 1.3) * 10) / 10;
       if (!isFinite(v)) v = 1.3;
-      return Math.max(1.0, Math.min(2.5, v));
+      return Math.max(LINE_H_MIN, Math.min(LINE_H_MAX, v));
     }
 
-    var UL_STYLE_IDS = ["solid", "double", "dotted", "dashed", "wave"];
+    function clampUlLenFront(n) {
+      var v = Math.round(Number(n) || 0);
+      if (!isFinite(v)) v = 0;
+      return Math.max(UL_LEN_MIN, Math.min(UL_LEN_MAX, v));
+    }
 
     function clampUlThickEm(n, st) {
       var v = Number(n);
-      if (!isFinite(v) || v <= 0) return 5;
+      if (!isFinite(v) || v <= 0) return UL_THICK_DEFAULT;
       if ((st && st.ulThickUnit === "em") || v > 8) {
-        return Math.max(2, Math.min(20, Math.round(v)));
+        return Math.max(UL_THICK_MIN, Math.min(UL_THICK_MAX, Math.round(v)));
       }
       var px = Math.max(1, Math.min(8, Math.round(v)));
       var size = Math.max(6, (st && st.size) || 12);
-      return Math.max(2, Math.min(20, Math.round((px / size) * 100)));
+      return Math.max(UL_THICK_MIN, Math.min(UL_THICK_MAX, Math.round((px / size) * 100)));
     }
 
     function normalizeUlStyleId(v) {
       var id = String(v || "solid");
-      return UL_STYLE_IDS.indexOf(id) >= 0 ? id : "solid";
+      for (var i = 0; i < UL_STYLES.length; i++) {
+        if (UL_STYLES[i].id === id) return id;
+      }
+      return "solid";
+    }
+
+    function ulThickLabelFront(n) {
+      return (clampUlThickEm(n, { ulThickUnit: "em" }) / 100).toFixed(2) + "em";
+    }
+
+    function measureTextPxFront(text, st, node) {
+      var size = Math.max(6, (st && st.size) || 12);
+      var family = (MeishiLayout && MeishiLayout.resolveBackFontFamily)
+        ? MeishiLayout.resolveBackFontFamily((st && st.font) || "")
+        : "sans-serif";
+      var weight = (st && st.bold) ? "700" : "400";
+      var style = (st && st.italic) ? "italic" : "normal";
+      try {
+        if (node && node.isConnected) {
+          var cs = window.getComputedStyle(node);
+          if (cs.fontFamily) family = cs.fontFamily;
+        }
+      } catch (e0) {}
+      try {
+        var ctx = measureTextPxFront._ctx;
+        if (!ctx) {
+          measureTextPxFront._canvas = document.createElement("canvas");
+          measureTextPxFront._ctx = measureTextPxFront._canvas.getContext("2d");
+          ctx = measureTextPxFront._ctx;
+        }
+        if (ctx) {
+          ctx.font = style + " " + weight + " " + size + "px " + family;
+          var w = ctx.measureText(String(text || "")).width;
+          if (isFinite(w) && w > 0) return w;
+        }
+      } catch (e1) {}
+      return size * String(text || "").length;
+    }
+
+    function contentZenCharsFront(st, node, rawText) {
+      var unit = zenCharPxForUl(st, node);
+      var raw = String(rawText == null ? "" : rawText).replace(/\r\n/g, "\n");
+      var lines = raw.split("\n");
+      var maxPx = 0;
+      for (var i = 0; i < lines.length; i++) {
+        if (!lines[i]) continue;
+        var px = measureTextPxFront(lines[i], st, node);
+        if (px > maxPx) maxPx = px;
+      }
+      if (maxPx <= 0) return 0;
+      return Math.max(1, Math.ceil(maxPx / unit - 1e-6));
+    }
+
+    function maxUlLenForFront(st, node) {
+      var unit = zenCharPxForUl(st, node);
+      var maxW = Math.max(1, cardInnerWidth() - Math.max(0, (st && st.x) || 0));
+      return Math.max(1, Math.min(UL_LEN_MAX, Math.floor(maxW / unit)));
+    }
+
+    function styleRawTextForUl(hit) {
+      if (!hit || !hit.st) return "";
+      if (hit.kind === "text") {
+        if (hit.node && (editingId === hit.st.id || document.activeElement === hit.node)) {
+          return String(hit.node.innerText || hit.node.textContent || "");
+        }
+        return String(hit.st.content || "");
+      }
+      if (hit.kind === "el" && hit.id) return String(getElText(hit.id) || "");
+      return "";
     }
 
     function buildUnderlineTile(ulCol, lhRatio, thickEm, style) {
@@ -1078,7 +1173,7 @@
     function applyUnderlineStyle(node, st) {
       if (!node || !st) return;
       var on = !!st.underline;
-      var ulLen = Math.max(0, Math.min(80, Math.round(Number(st.ulLen) || 0)));
+      var ulLen = clampUlLenFront(st.ulLen);
       var thickN = clampUlThickEm(st.ulThick, st);
       var style = normalizeUlStyleId(st.ulStyle);
       var lhRatio = clampLineHeightRatio(st.lineHeight);
@@ -1114,9 +1209,11 @@
       node.setAttribute("data-ul-lines", "1");
       if (ulLen > 0) {
         var unit = zenCharPxForUl(st, node);
+        var avail = Math.max(1, cardInnerWidth() - Math.max(0, st.x || 0));
+        var ulW = Math.min(avail, Math.max(unit, Math.round(unit * ulLen)));
         node.style.boxSizing = "border-box";
-        node.style.width = Math.max(unit, Math.round(unit * ulLen)) + "px";
-        node.style.minWidth = Math.max(unit, Math.round(unit * ulLen)) + "px";
+        node.style.width = ulW + "px";
+        node.style.minWidth = ulW + "px";
         node.setAttribute("data-ul-fixed", String(ulLen));
       } else {
         node.style.width = "";
@@ -1799,16 +1896,74 @@
       applySelectedStyle({ size: clampSize((hit.st.size || 12) + delta) });
     }
 
+    function bumpSelectedLineHeight(delta) {
+      var hit = getSelectedStyleTarget();
+      if (!hit) return;
+      var cur = clampLineHeightRatio(hit.st.lineHeight);
+      var next = clampLineHeightRatio(cur + delta);
+      if (next === cur) return;
+      applySelectedStyle({ lineHeight: next });
+    }
+
+    function bumpSelectedUlLen(delta) {
+      var hit = getSelectedStyleTarget();
+      if (!hit || !hit.st) return;
+      if (hit.kind === "text" && hit.node && editingId === hit.st.id) {
+        hit.st.content = String(hit.node.innerText || hit.node.textContent || "");
+      }
+      var n = contentZenCharsFront(hit.st, hit.node, styleRawTextForUl(hit));
+      var cur = clampUlLenFront(hit.st.ulLen);
+      var max = maxUlLenForFront(hit.st, hit.node);
+      var next;
+      if (delta > 0) {
+        if (cur < 1) next = Math.min(max, Math.max(n + 1, 1));
+        else next = Math.min(max, cur + 1);
+        if (next === cur && cur >= max) return;
+        if (next < 1) return;
+      } else {
+        if (cur < 1) return;
+        next = cur - 1;
+        if (next <= n) next = 0;
+      }
+      applySelectedStyle({ underline: 1, ulLen: next });
+    }
+
+    function bumpSelectedUlThick(delta) {
+      var hit = getSelectedStyleTarget();
+      if (!hit || !hit.st) return;
+      var cur = clampUlThickEm(hit.st.ulThick, hit.st);
+      var next = clampUlThickEm(cur + (delta > 0 ? 1 : -1), { ulThickUnit: "em" });
+      if (next === cur) return;
+      applySelectedStyle({ underline: 1, ulThick: next, ulThickUnit: "em" });
+    }
+
     function bindDesignPanel(panel) {
       if (!panel) return;
       var desSizeUp = panel.querySelector("#desSizeUp");
       var desSizeDown = panel.querySelector("#desSizeDown");
       var desSizeV = panel.querySelector("#desSizeV");
+      var desLhUp = panel.querySelector("#desLhUp");
+      var desLhDown = panel.querySelector("#desLhDown");
+      var desLhV = panel.querySelector("#desLhV");
       var desColor = panel.querySelector("#desColor");
       var desBg = panel.querySelector("#desBg");
       var desBgNone = panel.querySelector("#desBgNone");
       var desNorm = panel.querySelector("#desNorm");
       var desBold = panel.querySelector("#desBold");
+      var desItalic = panel.querySelector("#desItalic");
+      var desUnderline = panel.querySelector("#desUnderline");
+      var desUlUp = panel.querySelector("#desUlUp");
+      var desUlDown = panel.querySelector("#desUlDown");
+      var desUlV = panel.querySelector("#desUlV");
+      var desUlLenRow = panel.querySelector("#desUlLenRow");
+      var desUlThickUp = panel.querySelector("#desUlThickUp");
+      var desUlThickDown = panel.querySelector("#desUlThickDown");
+      var desUlThickV = panel.querySelector("#desUlThickV");
+      var desUlThickRow = panel.querySelector("#desUlThickRow");
+      var desUlStyle = panel.querySelector("#desUlStyle");
+      var desUlStyleRow = panel.querySelector("#desUlStyleRow");
+      var desUlColor = panel.querySelector("#desUlColor");
+      var desUlColorRow = panel.querySelector("#desUlColorRow");
       var desTarget = panel.querySelector("#desTarget");
       var designCtl = panel.querySelector("#designCtl");
       var designNone = panel.querySelector("#designNone");
@@ -1820,6 +1975,13 @@
       var desFront = panel.querySelector("#desFront");
       var desBack = panel.querySelector("#desBack");
 
+      function hideUlRows() {
+        if (desUlLenRow) desUlLenRow.style.display = "none";
+        if (desUlThickRow) desUlThickRow.style.display = "none";
+        if (desUlStyleRow) desUlStyleRow.style.display = "none";
+        if (desUlColorRow) desUlColorRow.style.display = "none";
+      }
+
       function showDesign() {
         if (!designCtl || !designNone) return;
         var layerHit = getSelectedLayerTarget();
@@ -1827,6 +1989,7 @@
         if (!sel || isImgSel(sel)) {
           designCtl.style.display = "none";
           designNone.style.display = "";
+          hideUlRows();
           if (isImgSel(sel)) designNone.textContent = "画像が選択されています。右下の青い丸でサイズ変更、ドラッグで移動。重ね順は下のボタンで変更できます。";
           else designNone.textContent = "項目またはテキストをクリックすると、ここで文字サイズ・書体・色などを変更できます。";
           return;
@@ -1835,6 +1998,7 @@
         if (!hit) {
           designCtl.style.display = "none";
           designNone.style.display = "";
+          hideUlRows();
           return;
         }
         designNone.style.display = "none";
@@ -1850,6 +2014,10 @@
         if (desSizeV) desSizeV.textContent = st.size + "px";
         if (desSizeUp) desSizeUp.disabled = st.size >= SIZE_MAX;
         if (desSizeDown) desSizeDown.disabled = st.size <= SIZE_MIN;
+        var lh = clampLineHeightRatio(st.lineHeight);
+        if (desLhV) desLhV.textContent = lh.toFixed(1);
+        if (desLhUp) desLhUp.disabled = lh >= LINE_H_MAX - 1e-9;
+        if (desLhDown) desLhDown.disabled = lh <= LINE_H_MIN + 1e-9;
         if (desColor) desColor.value = st.color && st.color.length === 7 ? st.color : "#222222";
         var bg = MeishiLayout.normalizeBg ? MeishiLayout.normalizeBg(st.bg) : (st.bg || "");
         // 色ピッカーの初期値設定で input が誤発火して背景がすべて白になるのを防ぐ
@@ -1861,6 +2029,41 @@
         if (desBgNone) desBgNone.classList.toggle("on", !bg);
         if (desNorm) desNorm.classList.toggle("on", !st.bold);
         if (desBold) desBold.classList.toggle("on", !!st.bold);
+        if (desItalic) desItalic.classList.toggle("on", !!st.italic);
+        if (desUnderline) desUnderline.classList.toggle("on", !!st.underline);
+        var ulLen = clampUlLenFront(st.ulLen);
+        var ulMax = maxUlLenForFront(st, hit.node);
+        if (desUlLenRow) desUlLenRow.style.display = st.underline ? "" : "none";
+        if (desUlThickRow) desUlThickRow.style.display = st.underline ? "" : "none";
+        if (desUlStyleRow) desUlStyleRow.style.display = st.underline ? "" : "none";
+        if (desUlColorRow) desUlColorRow.style.display = st.underline ? "" : "none";
+        if (desUlV) desUlV.textContent = ulLen > 0 ? (ulLen + "文字") : "自動";
+        if (desUlUp) desUlUp.disabled = ulLen >= ulMax;
+        if (desUlDown) desUlDown.disabled = ulLen <= UL_LEN_MIN;
+        var ulThick = clampUlThickEm(st.ulThick, st);
+        if (desUlThickV) desUlThickV.textContent = ulThickLabelFront(ulThick);
+        if (desUlThickUp) desUlThickUp.disabled = ulThick >= UL_THICK_MAX;
+        if (desUlThickDown) desUlThickDown.disabled = ulThick <= UL_THICK_MIN;
+        if (desUlStyle) {
+          if (!desUlStyle._meishiFilled) {
+            desUlStyle._meishiFilled = true;
+            desUlStyle.innerHTML = "";
+            UL_STYLES.forEach(function (s) {
+              var opt = document.createElement("option");
+              opt.value = s.id;
+              opt.textContent = s.label;
+              desUlStyle.appendChild(opt);
+            });
+          }
+          desUlStyle._meishiSuppress = true;
+          desUlStyle.value = normalizeUlStyleId(st.ulStyle);
+          desUlStyle._meishiSuppress = false;
+        }
+        if (desUlColor) {
+          desUlColor._meishiSuppress = true;
+          desUlColor.value = resolveUlColor(st);
+          desUlColor._meishiSuppress = false;
+        }
         if (MeishiLayout.fillFontSelect) MeishiLayout.fillFontSelect(desFont, st.font || "");
         panel.querySelectorAll("[data-al]").forEach(function (b) {
           b.classList.toggle("on", b.getAttribute("data-al") === st.align);
@@ -1875,6 +2078,12 @@
       });
       if (desSizeDown) desSizeDown.addEventListener("click", function () {
         bumpSelectedSize(-SIZE_STEP);
+      });
+      if (desLhUp) desLhUp.addEventListener("click", function () {
+        bumpSelectedLineHeight(LINE_H_STEP);
+      });
+      if (desLhDown) desLhDown.addEventListener("click", function () {
+        bumpSelectedLineHeight(-LINE_H_STEP);
       });
       if (desColor) desColor.addEventListener("input", function () {
         applySelectedStyle({ color: this.value });
@@ -1892,6 +2101,34 @@
       });
       if (desBold) desBold.addEventListener("click", function () {
         applySelectedStyle({ bold: 1 });
+      });
+      if (desItalic) desItalic.addEventListener("click", function () {
+        var hit = getSelectedStyleTarget();
+        if (hit) applySelectedStyle({ italic: hit.st.italic ? 0 : 1 });
+      });
+      if (desUnderline) desUnderline.addEventListener("click", function () {
+        var hit = getSelectedStyleTarget();
+        if (hit) applySelectedStyle({ underline: hit.st.underline ? 0 : 1 });
+      });
+      if (desUlUp) desUlUp.addEventListener("click", function () {
+        bumpSelectedUlLen(1);
+      });
+      if (desUlDown) desUlDown.addEventListener("click", function () {
+        bumpSelectedUlLen(-1);
+      });
+      if (desUlThickUp) desUlThickUp.addEventListener("click", function () {
+        bumpSelectedUlThick(1);
+      });
+      if (desUlThickDown) desUlThickDown.addEventListener("click", function () {
+        bumpSelectedUlThick(-1);
+      });
+      if (desUlStyle) desUlStyle.addEventListener("change", function () {
+        if (this._meishiSuppress) return;
+        applySelectedStyle({ underline: 1, ulStyle: normalizeUlStyleId(this.value) });
+      });
+      if (desUlColor) desUlColor.addEventListener("input", function () {
+        if (this._meishiSuppress) return;
+        applySelectedStyle({ underline: 1, ulColor: this.value });
       });
       if (desFont && !desFont._meishiBound) {
         desFont._meishiBound = true;
