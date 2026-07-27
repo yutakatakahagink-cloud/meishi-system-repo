@@ -12,14 +12,14 @@
     <script>window.MEISHI_ADMIN_PAGE = true;</script>
     <script src="config.js" onerror="console.info('[Meishi] config.js なし')"></script>
     <script src="meishi-fields.js?v=20250714p"></script>
-    <script src="meishi-catalog.js?v=20250724aj"></script>
+    <script src="meishi-catalog.js?v=20250724ak"></script>
     <script src="meishi-catalog-sync.js?v=20250615c"></script>
     <script src="meishi-catalog-editor.js?v=20250715m"></script>
     <script src="meishi-store.js?v=20250724z"></script>
-    <script src="meishi-layout.js?v=20250724ai"></script>
+    <script src="meishi-layout.js?v=20250724ak"></script>
     <script src="meishi-image-lib.js?v=20250724ac"></script>
-    <script src="meishi-card-ui.js?v=20250724aj"></script>
-    <script src="meishi-back-card-ui.js?v=20250724aj"></script>
+    <script src="meishi-card-ui.js?v=20250724ak"></script>
+    <script src="meishi-back-card-ui.js?v=20250724ak"></script>
     <script src="meishi-print-sheet.js?v=20250724ac"></script>
     <script src="meishi-user-print.js?v=20250724u"></script>
     <script src="meishi-preview-init.js?v=20250724u"></script>
@@ -224,6 +224,10 @@
                           <button type="button" id="backDesUlDown" title="短く">▼</button>
                         </div>
                       </div>
+                      <div class="des-row" id="backDesUlColorRow" style="display:none">
+                        <label>下線色</label>
+                        <input type="color" id="backDesUlColor" />
+                      </div>
                       <div class="des-row"><label>配置</label><div class="seg"><button type="button" data-back-al="left">左</button><button type="button" data-back-al="center">中</button><button type="button" data-back-al="right">右</button></div></div>
                       <div class="des-row" style="display:none"><label>操作</label><button type="button" class="btn sm" id="backDesTextDelete">テキストを削除</button></div>
                     </div>
@@ -318,6 +322,10 @@
                           <span id="deBackDesUlV">自動</span>
                           <button type="button" id="deBackDesUlDown" title="短く">▼</button>
                         </div>
+                      </div>
+                      <div class="des-row" id="deBackDesUlColorRow" style="display:none">
+                        <label>下線色</label>
+                        <input type="color" id="deBackDesUlColor" />
                       </div>
                       <div class="des-row"><label>配置</label><div class="seg"><button type="button" data-de-back-al="left">左</button><button type="button" data-de-back-al="center">中</button><button type="button" data-de-back-al="right">右</button></div></div>
                       <div class="des-row" style="display:none"><label>操作</label><button type="button" class="btn sm" id="deBackDesTextDelete">テキストを削除</button></div>
@@ -457,7 +465,7 @@
         <button type="button" class="btn sm" id="btnQrClose">閉じる</button>
       </div>
     </div>
-    <script src="owner-admin.20250724ai.js"></script>
+    <script src="owner-admin.20250724ak.js"></script>
     <script>OwnerAdmin.initAdmin();</script>
   </body>
 </html>

@@ -1393,6 +1393,8 @@
         ulDown: "deBackDesUlDown",
         ulV: "deBackDesUlV",
         ulLenRow: "deBackDesUlLenRow",
+        ulColor: "deBackDesUlColor",
+        ulColorRow: "deBackDesUlColorRow",
         ctl: "deBackDesignCtl",
         none: "deBackDesignNone",
         layerRow: "deBackDesignLayerRow",

@@ -957,6 +957,20 @@
       node.style.zIndex = String(ensureItemZ(st, 20));
     }
 
+    function underlineLineMetrics(st) {
+      var size = Math.max(6, (st && st.size) || 12);
+      var lineH = Math.max(size + 2, Math.round(size * 1.3));
+      return { size: size, lineH: lineH, thick: 1 };
+    }
+
+    function resolveUlColor(st) {
+      var uc = st && st.ulColor ? String(st.ulColor).trim() : "";
+      if (/^#[0-9A-Fa-f]{6}$/.test(uc)) return uc;
+      var tc = st && st.color ? String(st.color).trim() : "";
+      if (/^#[0-9A-Fa-f]{6}$/.test(tc)) return tc;
+      return "#222222";
+    }
+
     function zenCharPxForUl(st, node) {
       var size = Math.max(6, (st && st.size) || 12);
       var family = (MeishiLayout && MeishiLayout.resolveBackFontFamily)
@@ -998,15 +1012,27 @@
         node.style.width = "";
         node.style.minWidth = "";
         node.style.backgroundImage = "";
+        node.style.backgroundRepeat = "";
+        node.style.backgroundSize = "";
+        node.style.backgroundPosition = "";
+        node.style.lineHeight = "";
         node.removeAttribute("data-ul-fixed");
         node.removeAttribute("data-ul-lines");
         return;
       }
+      var m = underlineLineMetrics(st);
+      var ulCol = resolveUlColor(st);
+      var gap = Math.max(0, m.lineH - m.thick);
       node.style.textDecoration = "none";
       node.style.borderBottom = "none";
       node.style.paddingBottom = "0";
+      node.style.lineHeight = m.lineH + "px";
       node.style.backgroundImage =
-        "repeating-linear-gradient(to bottom, transparent 0, transparent calc(1.3em - 1px), currentColor calc(1.3em - 1px), currentColor 1.3em)";
+        "repeating-linear-gradient(to bottom, transparent 0, transparent " +
+        gap + "px, " + ulCol + " " + gap + "px, " + ulCol + " " + m.lineH + "px)";
+      node.style.backgroundRepeat = "repeat-y";
+      node.style.backgroundSize = "100% " + m.lineH + "px";
+      node.style.backgroundPosition = "left top";
       node.setAttribute("data-ul-lines", "1");
       if (ulLen > 0) {
         var unit = zenCharPxForUl(st, node);

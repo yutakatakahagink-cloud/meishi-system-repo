@@ -468,6 +468,22 @@
       return Math.max(1, Math.min(UL_LEN_MAX, Math.floor(maxW / unit)));
     }
 
+    /** 行高・下線太さを整数pxで固定し、改行行ごとの太さずれを防ぐ */
+    function underlineLineMetrics(st) {
+      var size = Math.max(6, (st && st.size) || 12);
+      var lineH = Math.max(size + 2, Math.round(size * 1.3));
+      var thick = 1;
+      return { size: size, lineH: lineH, thick: thick };
+    }
+
+    function resolveUlColor(st) {
+      var uc = st && st.ulColor ? String(st.ulColor).trim() : "";
+      if (/^#[0-9A-Fa-f]{6}$/.test(uc)) return uc;
+      var tc = st && st.color ? String(st.color).trim() : "";
+      if (/^#[0-9A-Fa-f]{6}$/.test(tc)) return tc;
+      return "#222222";
+    }
+
     /** underline + ulLen: 改行後も全行に下線。ulLen>0 なら全角N文字分の固定幅 */
     function applyUnderlineStyle(node, st) {
       if (!node || !st) return;
@@ -481,16 +497,29 @@
         node.style.width = "";
         node.style.minWidth = "";
         node.style.backgroundImage = "";
+        node.style.backgroundRepeat = "";
+        node.style.backgroundSize = "";
+        node.style.backgroundPosition = "";
+        node.style.lineHeight = "";
         node.removeAttribute("data-ul-fixed");
         node.removeAttribute("data-ul-lines");
         return;
       }
+      var m = underlineLineMetrics(st);
+      var ulCol = resolveUlColor(st);
+      var gap = Math.max(0, m.lineH - m.thick);
       // 行ごとに下線（border-bottom だと最終行だけになるため gradient を使う）
+      // em ではなく整数pxでタイルし、行ごとの太さのばらつきを防ぐ
       node.style.textDecoration = "none";
       node.style.borderBottom = "none";
       node.style.paddingBottom = "0";
+      node.style.lineHeight = m.lineH + "px";
       node.style.backgroundImage =
-        "repeating-linear-gradient(to bottom, transparent 0, transparent calc(1.3em - 1px), currentColor calc(1.3em - 1px), currentColor 1.3em)";
+        "repeating-linear-gradient(to bottom, transparent 0, transparent " +
+        gap + "px, " + ulCol + " " + gap + "px, " + ulCol + " " + m.lineH + "px)";
+      node.style.backgroundRepeat = "repeat-y";
+      node.style.backgroundSize = "100% " + m.lineH + "px";
+      node.style.backgroundPosition = "left top";
       node.setAttribute("data-ul-lines", "1");
       if (ulLen > 0) {
         var unit = zenCharPx(st, node);
@@ -804,7 +833,7 @@
           block = {
             content: plain || "テキスト",
             x: 20, y: 20, size: 12, color: "#222222",
-            bg: "", bold: 0, italic: 0, underline: 0, ulLen: 0, font: "", align: "left",
+            bg: "", bold: 0, italic: 0, underline: 0, ulLen: 0, ulColor: "", font: "", align: "left",
           };
         }
         block.id = "txt" + Date.now();
@@ -1248,6 +1277,8 @@
       var backDesUlDown = q("ulDown", "backDesUlDown");
       var backDesUlV = q("ulV", "backDesUlV");
       var backDesUlLenRow = q("ulLenRow", "backDesUlLenRow");
+      var backDesUlColor = q("ulColor", "backDesUlColor");
+      var backDesUlColorRow = q("ulColorRow", "backDesUlColorRow");
       var designCtl = q("ctl", "backDesignCtl");
       var designNone = q("none", "backDesignNone");
       var textDelete = q("textDelete", "backDesTextDelete");
@@ -1269,6 +1300,7 @@
           else designNone.textContent = "テキストをクリックして直接入力できます。書式は右のパネルで変更してください。";
           if (textDeleteRow) textDeleteRow.style.display = "none";
           if (backDesUlLenRow) backDesUlLenRow.style.display = "none";
+          if (backDesUlColorRow) backDesUlColorRow.style.display = "none";
           return;
         }
         designNone.style.display = "none";
@@ -1295,9 +1327,15 @@
         var hitNode = (getSelectedText() || {}).node || null;
         var ulMax = maxUlLenFor(st, hitNode);
         if (backDesUlLenRow) backDesUlLenRow.style.display = st.underline ? "" : "none";
+        if (backDesUlColorRow) backDesUlColorRow.style.display = st.underline ? "" : "none";
         if (backDesUlV) backDesUlV.textContent = ulLen > 0 ? (ulLen + "文字") : "自動";
         if (backDesUlUp) backDesUlUp.disabled = ulLen >= ulMax;
         if (backDesUlDown) backDesUlDown.disabled = ulLen <= UL_LEN_MIN;
+        if (backDesUlColor) {
+          backDesUlColor._meishiSuppress = true;
+          backDesUlColor.value = resolveUlColor(st);
+          backDesUlColor._meishiSuppress = false;
+        }
         if (MeishiLayout.fillFontSelect) MeishiLayout.fillFontSelect(backDesFont, st.font || "");
         panel.querySelectorAll("[" + alignAttr + "]").forEach(function (b) {
           b.classList.toggle("on", b.getAttribute(alignAttr) === st.align);
@@ -1351,6 +1389,11 @@
       });
       if (backDesUlDown) backDesUlDown.addEventListener("click", function () {
         bumpUlLen(-1);
+        showDesign();
+      });
+      if (backDesUlColor) backDesUlColor.addEventListener("input", function () {
+        if (this._meishiSuppress) return;
+        patchSelectedText({ underline: 1, ulColor: this.value });
         showDesign();
       });
       if (backDesFont && !backDesFont._meishiBound) {

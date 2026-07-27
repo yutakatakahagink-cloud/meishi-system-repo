@@ -278,6 +278,11 @@
       if (t.underline == null) t.underline = 0;
       if (t.ulLen == null || !isFinite(Number(t.ulLen))) t.ulLen = 0;
       else t.ulLen = Math.max(0, Math.min(80, Math.round(Number(t.ulLen))));
+      if (t.ulColor == null || typeof t.ulColor !== "string") t.ulColor = "";
+      else {
+        var uc = String(t.ulColor).trim();
+        t.ulColor = /^#[0-9A-Fa-f]{6}$/.test(uc) ? uc : "";
+      }
       if (t.font == null) t.font = "";
       if (!t.align) t.align = "left";
       return t;
@@ -349,6 +354,11 @@
       if (t.underline == null) t.underline = 0;
       if (t.ulLen == null || !isFinite(Number(t.ulLen))) t.ulLen = 0;
       else t.ulLen = Math.max(0, Math.min(80, Math.round(Number(t.ulLen))));
+      if (t.ulColor == null || typeof t.ulColor !== "string") t.ulColor = "";
+      else {
+        var uc = String(t.ulColor).trim();
+        t.ulColor = /^#[0-9A-Fa-f]{6}$/.test(uc) ? uc : "";
+      }
       if (t.font == null) t.font = "";
       if (!t.align) t.align = "left";
       return t;

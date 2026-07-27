@@ -65,3 +65,4 @@ meishi-app/public/owner-admin.20250724ah.js
 meishi-app/public/owner.20250724ah.css
 meishi-app/public/owner-admin.20250724ai.js
 meishi-app/public/owner.20250724ai.css
+meishi-app/public/owner-admin.20250724ak.js
