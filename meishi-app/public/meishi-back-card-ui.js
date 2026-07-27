@@ -404,26 +404,38 @@
       return Math.max(1, cardInnerWidth() - Math.max(0, (st && st.x) || 0));
     }
 
-    function contentCharCount(st, node) {
-      var raw = "";
+    function textRawContent(st, node) {
       if (st && node && (editingId === st.id || document.activeElement === node)) {
-        raw = String(node.innerText || node.textContent || "");
-      } else {
-        raw = String((st && st.content) || "");
+        return String(node.innerText || node.textContent || "");
       }
-      raw = raw.replace(/\r\n/g, "\n").replace(/\n/g, "");
+      return String((st && st.content) || "");
+    }
+
+    function charLen(s) {
       try {
-        return Array.from(raw).length;
+        return Array.from(String(s || "")).length;
       } catch (e) {
-        return raw.length;
+        return String(s || "").length;
       }
     }
 
-    /** 名刺の残り幅に収まる最大文字数（＝全行）。ceil で端数幅も使えるようにする */
+    /** 下線の基準は「最長行」の文字数（改行で全文字を合計しない） */
+    function contentLineMaxChars(st, node) {
+      var raw = textRawContent(st, node).replace(/\r\n/g, "\n");
+      var lines = raw.split("\n");
+      var maxLen = 0;
+      for (var i = 0; i < lines.length; i++) {
+        var len = charLen(lines[i]);
+        if (len > maxLen) maxLen = len;
+      }
+      return maxLen;
+    }
+
+    /** 名刺の残り幅に収まる最大文字数（＝全行） */
     function maxUlLenFor(st) {
       var size = Math.max(6, (st && st.size) || 12);
       var maxW = availUlWidth(st);
-      return Math.max(1, Math.min(UL_LEN_MAX, Math.ceil(maxW / size)));
+      return Math.max(1, Math.min(UL_LEN_MAX, Math.floor(maxW / size)));
     }
 
     /** underline + ulLen: 改行後も全行に下線。ulLen>0 なら固定幅 */
@@ -453,9 +465,7 @@
       if (ulLen > 0) {
         var size = Math.max(6, st.size || 12);
         var avail = availUlWidth(st);
-        var max = maxUlLenFor(st);
         var ulW = Math.min(avail, Math.max(size, Math.round(size * ulLen)));
-        if (ulLen >= max) ulW = avail;
         node.style.boxSizing = "border-box";
         node.style.width = ulW + "px";
         node.style.minWidth = ulW + "px";
@@ -473,20 +483,16 @@
       if (hit.node && editingId === hit.st.id) {
         syncTextContentFromNode(hit.node, hit.st);
       }
-      var n = contentCharCount(hit.st, hit.node);
+      // 最長行の文字数を基準（1文字→2、2文字→3…を1ずつ）
+      var n = contentLineMaxChars(hit.st, hit.node);
       var cur = clampUlLen(hit.st.ulLen);
       var max = maxUlLenFor(hit.st);
       var next;
       if (delta > 0) {
-        if (cur < 1) {
-          // 1文字→2、2文字→3…。すでに行幅いっぱいなら全行固定へ
-          next = n + 1;
-          if (next > max || n >= max) next = max;
-        } else if (cur < max) {
-          next = cur + 1;
-        } else {
-          return;
-        }
+        if (cur < 1) next = n + 1;
+        else next = cur + 1;
+        if (next > max) next = max;
+        if (next === cur) return;
       } else {
         if (cur < 1) return;
         next = cur - 1;
@@ -1258,11 +1264,7 @@
         var ulLen = clampUlLen(st.ulLen);
         var ulMax = maxUlLenFor(st);
         if (backDesUlLenRow) backDesUlLenRow.style.display = st.underline ? "" : "none";
-        if (backDesUlV) {
-          if (ulLen <= 0) backDesUlV.textContent = "自動";
-          else if (ulLen >= ulMax) backDesUlV.textContent = "全行";
-          else backDesUlV.textContent = ulLen + "文字";
-        }
+        if (backDesUlV) backDesUlV.textContent = ulLen > 0 ? (ulLen + "文字") : "自動";
         if (backDesUlUp) backDesUlUp.disabled = ulLen >= ulMax;
         if (backDesUlDown) backDesUlDown.disabled = ulLen <= UL_LEN_MIN;
         if (MeishiLayout.fillFontSelect) MeishiLayout.fillFontSelect(backDesFont, st.font || "");
