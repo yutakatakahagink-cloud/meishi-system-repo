@@ -941,11 +941,11 @@
       node.style.fontFamily = MeishiLayout.resolveBackFontFamily(st.font || "");
       node.style.fontWeight = st.bold ? "700" : "400";
       node.style.fontStyle = st.italic ? "italic" : "normal";
-      node.style.textDecoration = st.underline ? "underline" : "none";
       node.style.textAlign = st.align || "left";
       if (MeishiLayout.applyTextBgStyle) MeishiLayout.applyTextBgStyle(node, st);
       node.style.whiteSpace = "pre-wrap";
       node.style.wordBreak = "break-word";
+      applyUnderlineStyle(node, st);
       var maxW = Math.max(40, cardInnerWidth() - Math.max(0, st.x || 0));
       node.style.maxWidth = maxW + "px";
       // サイズ確定後に枠内へ
@@ -955,6 +955,35 @@
       node.style.left = st.x + "px";
       node.style.top = st.y + "px";
       node.style.zIndex = String(ensureItemZ(st, 20));
+    }
+
+    function applyUnderlineStyle(node, st) {
+      if (!node || !st) return;
+      var on = !!st.underline;
+      var ulLen = Math.max(0, Math.min(40, Math.round(Number(st.ulLen) || 0)));
+      st.ulLen = ulLen;
+      if (!on) {
+        node.style.textDecoration = "none";
+        node.style.borderBottom = "";
+        node.style.paddingBottom = "";
+        node.style.minWidth = "";
+        node.removeAttribute("data-ul-fixed");
+        return;
+      }
+      if (ulLen > 0) {
+        var size = st.size || 12;
+        node.style.textDecoration = "none";
+        node.style.borderBottom = "1px solid " + (st.color || "#222222");
+        node.style.paddingBottom = "1px";
+        node.style.minWidth = Math.max(size, Math.round(size * ulLen * 0.95)) + "px";
+        node.setAttribute("data-ul-fixed", String(ulLen));
+      } else {
+        node.style.textDecoration = "underline";
+        node.style.borderBottom = "";
+        node.style.paddingBottom = "";
+        node.style.minWidth = "";
+        node.removeAttribute("data-ul-fixed");
+      }
     }
 
     function layerableItems(layout) {

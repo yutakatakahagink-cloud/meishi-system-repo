@@ -52,6 +52,7 @@
       bold: 0,
       italic: 0,
       underline: 0,
+      ulLen: 0,
       font: "",
       align: "left",
       z: 20 + i,

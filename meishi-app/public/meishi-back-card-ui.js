@@ -7,6 +7,9 @@
   var SIZE_MIN = 6;
   var SIZE_MAX = 60;
   var SIZE_STEP = 1;
+  var UL_LEN_DEFAULT = 5;
+  var UL_LEN_MIN = 0;
+  var UL_LEN_MAX = 40;
   var CARD_W_MM = 91;
   var CENTER_GAP_MM = 2;
 
@@ -377,11 +380,11 @@
       node.style.fontFamily = MeishiLayout.resolveBackFontFamily(st.font || "");
       node.style.fontWeight = st.bold ? "700" : "400";
       node.style.fontStyle = st.italic ? "italic" : "normal";
-      node.style.textDecoration = st.underline ? "underline" : "none";
       node.style.textAlign = st.align || "left";
       if (MeishiLayout.applyTextBgStyle) MeishiLayout.applyTextBgStyle(node, st);
       node.style.whiteSpace = "pre-wrap";
       node.style.wordBreak = "break-word";
+      applyUnderlineStyle(node, st);
       var maxW = Math.max(40, cardInnerWidth() - Math.max(0, st.x || 0));
       node.style.maxWidth = maxW + "px";
       var pos = clampPosInCard(st.x || 0, st.y || 0, node.offsetWidth || 40, node.offsetHeight || st.size || 12);
@@ -390,6 +393,53 @@
       node.style.left = st.x + "px";
       node.style.top = st.y + "px";
       node.style.zIndex = String(ensureItemZ(st, 20));
+    }
+
+    function clampUlLen(n) {
+      var v = Math.round(Number(n) || 0);
+      if (!isFinite(v)) v = 0;
+      return Math.max(UL_LEN_MIN, Math.min(UL_LEN_MAX, v));
+    }
+
+    /** underline + ulLen: ulLen>0 なら文字数分の固定幅下線（1文字でも長く引ける） */
+    function applyUnderlineStyle(node, st) {
+      if (!node || !st) return;
+      var on = !!st.underline;
+      var ulLen = clampUlLen(st.ulLen);
+      st.ulLen = ulLen;
+      if (!on) {
+        node.style.textDecoration = "none";
+        node.style.borderBottom = "";
+        node.style.paddingBottom = "";
+        node.style.minWidth = "";
+        node.removeAttribute("data-ul-fixed");
+        return;
+      }
+      if (ulLen > 0) {
+        var size = st.size || 12;
+        var minW = Math.max(size, Math.round(size * ulLen * 0.95));
+        node.style.textDecoration = "none";
+        node.style.borderBottom = "1px solid " + (st.color || "#222222");
+        node.style.paddingBottom = "1px";
+        node.style.minWidth = minW + "px";
+        node.setAttribute("data-ul-fixed", String(ulLen));
+      } else {
+        node.style.textDecoration = "underline";
+        node.style.borderBottom = "";
+        node.style.paddingBottom = "";
+        node.style.minWidth = "";
+        node.removeAttribute("data-ul-fixed");
+      }
+    }
+
+    function bumpUlLen(delta) {
+      var hit = getSelectedText();
+      if (!hit || !hit.st) return;
+      var cur = clampUlLen(hit.st.ulLen);
+      var next;
+      if (delta > 0 && cur < 1) next = UL_LEN_DEFAULT;
+      else next = clampUlLen(cur + delta);
+      patchSelectedText({ underline: 1, ulLen: next });
     }
 
     function layerableItems(layout) {
@@ -665,7 +715,7 @@
           block = {
             content: plain || "テキスト",
             x: 20, y: 20, size: 12, color: "#222222",
-            bg: "", bold: 0, italic: 0, underline: 0, font: "", align: "left",
+            bg: "", bold: 0, italic: 0, underline: 0, ulLen: 0, font: "", align: "left",
           };
         }
         block.id = "txt" + Date.now();
@@ -1105,6 +1155,11 @@
       var backDesBold = q("bold", "backDesBold");
       var backDesItalic = q("italic", "backDesItalic");
       var backDesUnderline = q("underline", "backDesUnderline");
+      var backDesUlUp = q("ulUp", "backDesUlUp");
+      var backDesUlDown = q("ulDown", "backDesUlDown");
+      var backDesUlV = q("ulV", "backDesUlV");
+      var backDesUlFix = q("ulFix", "backDesUlFix");
+      var backDesUlLenRow = q("ulLenRow", "backDesUlLenRow");
       var designCtl = q("ctl", "backDesignCtl");
       var designNone = q("none", "backDesignNone");
       var textDelete = q("textDelete", "backDesTextDelete");
@@ -1125,6 +1180,7 @@
           if (isImgSel(sel)) designNone.textContent = "画像が選択されています。ドラッグで移動、右下でサイズ変更。重ね順は下のボタンで変更できます。";
           else designNone.textContent = "テキストをクリックして直接入力できます。書式は右のパネルで変更してください。";
           if (textDeleteRow) textDeleteRow.style.display = "none";
+          if (backDesUlLenRow) backDesUlLenRow.style.display = "none";
           return;
         }
         designNone.style.display = "none";
@@ -1147,6 +1203,12 @@
         if (backDesBold) backDesBold.classList.toggle("on", !!st.bold);
         if (backDesItalic) backDesItalic.classList.toggle("on", !!st.italic);
         if (backDesUnderline) backDesUnderline.classList.toggle("on", !!st.underline);
+        var ulLen = clampUlLen(st.ulLen);
+        if (backDesUlLenRow) backDesUlLenRow.style.display = st.underline ? "" : "none";
+        if (backDesUlV) backDesUlV.textContent = ulLen > 0 ? (ulLen + "文字") : "自動";
+        if (backDesUlUp) backDesUlUp.disabled = ulLen >= UL_LEN_MAX;
+        if (backDesUlDown) backDesUlDown.disabled = ulLen <= UL_LEN_MIN;
+        if (backDesUlFix) backDesUlFix.classList.toggle("on", ulLen === UL_LEN_DEFAULT);
         if (MeishiLayout.fillFontSelect) MeishiLayout.fillFontSelect(backDesFont, st.font || "");
         panel.querySelectorAll("[" + alignAttr + "]").forEach(function (b) {
           b.classList.toggle("on", b.getAttribute(alignAttr) === st.align);
@@ -1192,6 +1254,18 @@
       if (backDesUnderline) backDesUnderline.addEventListener("click", function () {
         var hit = getSelectedText();
         if (hit) patchSelectedText({ underline: hit.st.underline ? 0 : 1 });
+        showDesign();
+      });
+      if (backDesUlUp) backDesUlUp.addEventListener("click", function () {
+        bumpUlLen(1);
+        showDesign();
+      });
+      if (backDesUlDown) backDesUlDown.addEventListener("click", function () {
+        bumpUlLen(-1);
+        showDesign();
+      });
+      if (backDesUlFix) backDesUlFix.addEventListener("click", function () {
+        patchSelectedText({ underline: 1, ulLen: UL_LEN_DEFAULT });
         showDesign();
       });
       if (backDesFont && !backDesFont._meishiBound) {
