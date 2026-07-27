@@ -9,6 +9,8 @@
   var SIZE_STEP = 1;
   var UL_LEN_MIN = 0;
   var UL_LEN_MAX = 80;
+  var UL_THICK_MIN = 1;
+  var UL_THICK_MAX = 8;
   var CARD_W_MM = 91;
   var CENTER_GAP_MM = 2;
 
@@ -400,6 +402,12 @@
       return Math.max(UL_LEN_MIN, Math.min(UL_LEN_MAX, v));
     }
 
+    function clampUlThick(n) {
+      var v = Math.round(Number(n) || 0);
+      if (!isFinite(v) || v < UL_THICK_MIN) v = UL_THICK_MIN;
+      return Math.max(UL_THICK_MIN, Math.min(UL_THICK_MAX, v));
+    }
+
     function availUlWidth(st) {
       return Math.max(1, cardInnerWidth() - Math.max(0, (st && st.x) || 0));
     }
@@ -471,8 +479,9 @@
     /** 行高・下線太さを整数pxで固定し、改行行ごとの太さずれを防ぐ */
     function underlineLineMetrics(st) {
       var size = Math.max(6, (st && st.size) || 12);
-      var lineH = Math.max(size + 2, Math.round(size * 1.3));
-      var thick = 1;
+      var thick = clampUlThick(st && st.ulThick);
+      if (st) st.ulThick = thick;
+      var lineH = Math.max(size + 2, Math.round(size * 1.3), thick + size);
       return { size: size, lineH: lineH, thick: thick };
     }
 
@@ -490,6 +499,7 @@
       var on = !!st.underline;
       var ulLen = clampUlLen(st.ulLen);
       st.ulLen = ulLen;
+      st.ulThick = clampUlThick(st.ulThick);
       if (!on) {
         node.style.textDecoration = "none";
         node.style.borderBottom = "";
@@ -558,6 +568,15 @@
         if (next <= n) next = 0;
       }
       patchSelectedText({ underline: 1, ulLen: next });
+    }
+
+    function bumpUlThick(delta) {
+      var hit = getSelectedText();
+      if (!hit || !hit.st) return;
+      var cur = clampUlThick(hit.st.ulThick);
+      var next = clampUlThick(cur + (delta > 0 ? 1 : -1));
+      if (next === cur) return;
+      patchSelectedText({ underline: 1, ulThick: next });
     }
 
     function layerableItems(layout) {
@@ -833,7 +852,7 @@
           block = {
             content: plain || "テキスト",
             x: 20, y: 20, size: 12, color: "#222222",
-            bg: "", bold: 0, italic: 0, underline: 0, ulLen: 0, ulColor: "", font: "", align: "left",
+            bg: "", bold: 0, italic: 0, underline: 0, ulLen: 0, ulThick: 1, ulColor: "", font: "", align: "left",
           };
         }
         block.id = "txt" + Date.now();
@@ -1277,6 +1296,10 @@
       var backDesUlDown = q("ulDown", "backDesUlDown");
       var backDesUlV = q("ulV", "backDesUlV");
       var backDesUlLenRow = q("ulLenRow", "backDesUlLenRow");
+      var backDesUlThickUp = q("ulThickUp", "backDesUlThickUp");
+      var backDesUlThickDown = q("ulThickDown", "backDesUlThickDown");
+      var backDesUlThickV = q("ulThickV", "backDesUlThickV");
+      var backDesUlThickRow = q("ulThickRow", "backDesUlThickRow");
       var backDesUlColor = q("ulColor", "backDesUlColor");
       var backDesUlColorRow = q("ulColorRow", "backDesUlColorRow");
       var designCtl = q("ctl", "backDesignCtl");
@@ -1300,6 +1323,7 @@
           else designNone.textContent = "テキストをクリックして直接入力できます。書式は右のパネルで変更してください。";
           if (textDeleteRow) textDeleteRow.style.display = "none";
           if (backDesUlLenRow) backDesUlLenRow.style.display = "none";
+          if (backDesUlThickRow) backDesUlThickRow.style.display = "none";
           if (backDesUlColorRow) backDesUlColorRow.style.display = "none";
           return;
         }
@@ -1327,10 +1351,15 @@
         var hitNode = (getSelectedText() || {}).node || null;
         var ulMax = maxUlLenFor(st, hitNode);
         if (backDesUlLenRow) backDesUlLenRow.style.display = st.underline ? "" : "none";
+        if (backDesUlThickRow) backDesUlThickRow.style.display = st.underline ? "" : "none";
         if (backDesUlColorRow) backDesUlColorRow.style.display = st.underline ? "" : "none";
         if (backDesUlV) backDesUlV.textContent = ulLen > 0 ? (ulLen + "文字") : "自動";
         if (backDesUlUp) backDesUlUp.disabled = ulLen >= ulMax;
         if (backDesUlDown) backDesUlDown.disabled = ulLen <= UL_LEN_MIN;
+        var ulThick = clampUlThick(st.ulThick);
+        if (backDesUlThickV) backDesUlThickV.textContent = ulThick + "px";
+        if (backDesUlThickUp) backDesUlThickUp.disabled = ulThick >= UL_THICK_MAX;
+        if (backDesUlThickDown) backDesUlThickDown.disabled = ulThick <= UL_THICK_MIN;
         if (backDesUlColor) {
           backDesUlColor._meishiSuppress = true;
           backDesUlColor.value = resolveUlColor(st);
@@ -1394,6 +1423,14 @@
       if (backDesUlColor) backDesUlColor.addEventListener("input", function () {
         if (this._meishiSuppress) return;
         patchSelectedText({ underline: 1, ulColor: this.value });
+        showDesign();
+      });
+      if (backDesUlThickUp) backDesUlThickUp.addEventListener("click", function () {
+        bumpUlThick(1);
+        showDesign();
+      });
+      if (backDesUlThickDown) backDesUlThickDown.addEventListener("click", function () {
+        bumpUlThick(-1);
         showDesign();
       });
       if (backDesFont && !backDesFont._meishiBound) {

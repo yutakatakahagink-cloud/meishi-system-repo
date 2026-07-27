@@ -10,14 +10,14 @@
     <script>window.MEISHI_OWNER_PAGE = true;</script>
     <script src="config.js" onerror="console.info('[Meishi] config.js なし')"></script>
     <script src="meishi-fields.js?v=20250714p"></script>
-    <script src="meishi-catalog.js?v=20250724ak"></script>
+    <script src="meishi-catalog.js?v=20250724al"></script>
     <script src="meishi-catalog-sync.js?v=20250615c"></script>
     <script src="meishi-catalog-editor.js?v=20250715m"></script>
     <script src="meishi-store.js?v=20250724z"></script>
-    <script src="meishi-layout.js?v=20250724ak"></script>
+    <script src="meishi-layout.js?v=20250724al"></script>
     <script src="meishi-image-lib.js?v=20250724ac"></script>
-    <script src="meishi-card-ui.js?v=20250724ak"></script>
-    <script src="meishi-back-card-ui.js?v=20250724ak"></script>
+    <script src="meishi-card-ui.js?v=20250724al"></script>
+    <script src="meishi-back-card-ui.js?v=20250724al"></script>
     <script src="meishi-print-sheet.js?v=20250724ac"></script>
     <script src="meishi-user-print.js?v=20250724u"></script>
     <script src="meishi-preview-init.js?v=20250724u"></script>
@@ -206,6 +206,14 @@
                           <button type="button" id="backDesUlDown" title="短く">▼</button>
                         </div>
                       </div>
+                      <div class="des-row" id="backDesUlThickRow" style="display:none">
+                        <label>下線太さ</label>
+                        <div class="size-step">
+                          <button type="button" id="backDesUlThickUp" title="太く">▲</button>
+                          <span id="backDesUlThickV">1px</span>
+                          <button type="button" id="backDesUlThickDown" title="細く">▼</button>
+                        </div>
+                      </div>
                       <div class="des-row" id="backDesUlColorRow" style="display:none">
                         <label>下線色</label>
                         <input type="color" id="backDesUlColor" />
@@ -303,6 +311,14 @@
                           <button type="button" id="deBackDesUlUp" title="長く（入力文字数+1から）">▲</button>
                           <span id="deBackDesUlV">自動</span>
                           <button type="button" id="deBackDesUlDown" title="短く">▼</button>
+                        </div>
+                      </div>
+                      <div class="des-row" id="deBackDesUlThickRow" style="display:none">
+                        <label>下線太さ</label>
+                        <div class="size-step">
+                          <button type="button" id="deBackDesUlThickUp" title="太く">▲</button>
+                          <span id="deBackDesUlThickV">1px</span>
+                          <button type="button" id="deBackDesUlThickDown" title="細く">▼</button>
                         </div>
                       </div>
                       <div class="des-row" id="deBackDesUlColorRow" style="display:none">
@@ -447,7 +463,7 @@
         <button type="button" class="btn sm" id="btnQrClose">閉じる</button>
       </div>
     </div>
-    <script src="owner-admin.20250724ak.js"></script>
+    <script src="owner-admin.20250724al.js"></script>
     <script>OwnerAdmin.init();</script>
   </body>
 </html>

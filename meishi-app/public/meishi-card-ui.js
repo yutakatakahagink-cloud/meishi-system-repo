@@ -959,8 +959,12 @@
 
     function underlineLineMetrics(st) {
       var size = Math.max(6, (st && st.size) || 12);
-      var lineH = Math.max(size + 2, Math.round(size * 1.3));
-      return { size: size, lineH: lineH, thick: 1 };
+      var thick = Math.round(Number(st && st.ulThick) || 0);
+      if (!isFinite(thick) || thick < 1) thick = 1;
+      thick = Math.max(1, Math.min(8, thick));
+      if (st) st.ulThick = thick;
+      var lineH = Math.max(size + 2, Math.round(size * 1.3), thick + size);
+      return { size: size, lineH: lineH, thick: thick };
     }
 
     function resolveUlColor(st) {

@@ -278,6 +278,8 @@
       if (t.underline == null) t.underline = 0;
       if (t.ulLen == null || !isFinite(Number(t.ulLen))) t.ulLen = 0;
       else t.ulLen = Math.max(0, Math.min(80, Math.round(Number(t.ulLen))));
+      if (t.ulThick == null || !isFinite(Number(t.ulThick)) || Number(t.ulThick) < 1) t.ulThick = 1;
+      else t.ulThick = Math.max(1, Math.min(8, Math.round(Number(t.ulThick))));
       if (t.ulColor == null || typeof t.ulColor !== "string") t.ulColor = "";
       else {
         var uc = String(t.ulColor).trim();
@@ -354,6 +356,8 @@
       if (t.underline == null) t.underline = 0;
       if (t.ulLen == null || !isFinite(Number(t.ulLen))) t.ulLen = 0;
       else t.ulLen = Math.max(0, Math.min(80, Math.round(Number(t.ulLen))));
+      if (t.ulThick == null || !isFinite(Number(t.ulThick)) || Number(t.ulThick) < 1) t.ulThick = 1;
+      else t.ulThick = Math.max(1, Math.min(8, Math.round(Number(t.ulThick))));
       if (t.ulColor == null || typeof t.ulColor !== "string") t.ulColor = "";
       else {
         var uc = String(t.ulColor).trim();

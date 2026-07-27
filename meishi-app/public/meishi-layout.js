@@ -53,6 +53,7 @@
       italic: 0,
       underline: 0,
       ulLen: 0,
+      ulThick: 1,
       ulColor: "",
       font: "",
       align: "left",
