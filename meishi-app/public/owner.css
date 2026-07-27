@@ -243,7 +243,12 @@ th{background:#f3f6fb;position:sticky;top:0}tr.sel{background:#e8eef8}tr:hover{b
 .size-step button:active:not(:disabled){transform:scale(.96)}
 .size-step button:disabled{opacity:.35;cursor:default}
 .size-step span{min-width:38px;text-align:center;font-size:.8rem;color:#54607a}
-.card-side-toggle{margin:0 0 12px;width:fit-content}
+.card-side-toggle{margin:0;width:fit-content}
+.side-toggle-bar{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+  margin:0 0 12px;
+}
+.side-toggle-bar #btnSaveCoDesign{margin:0;flex:0 0 auto}
 .btel{position:absolute;cursor:default;touch-action:none;border:1px dashed transparent;user-select:none;padding:0;line-height:1.3;box-sizing:border-box;z-index:5}
 .btel[data-ul-lines="1"]{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .meishi.design-mode .btel{cursor:default;border:1px dashed rgba(47,85,151,.22)}
