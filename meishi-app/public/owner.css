@@ -102,10 +102,10 @@ header .btn.ghost:active:not(:disabled){background:rgba(255,255,255,.32);box-sha
 }
 .co-hidden-row input{width:auto;margin:0;flex:0 0 auto}
 .co-hidden-row span{flex:1 1 auto;line-height:1.4}
-/* 会社／部署共通デザイン: 左=1.3倍名刺 / 右=ツール・画像・書式（書式のみ独立スクロール） */
+/* 会社／部署共通デザイン: 左=2.5倍名刺 / 右=ツール・画像・書式（書式のみ独立スクロール） */
 #panel-company .co-design-editor,
 #panel-dept .co-design-editor{
-  --preview-scale: 1.3;
+  --preview-scale: 2.5;
   --stage-pad: 16px;
   --stage-pad-x: 32px;
   --card-w: 91mm;
@@ -146,10 +146,10 @@ header .btn.ghost:active:not(:disabled){background:rgba(255,255,255,.32);box-sha
   overflow-y:auto;
   -webkit-overflow-scrolling:touch;
 }
-/* 1.3倍表示の上下グレー余白を均等にし、下側切れを防ぐ */
+/* 2.5倍表示の上下グレー余白を均等にし、下側切れを防ぐ */
 #panel-company .co-design-scale,
 #panel-dept .co-design-scale{
-  --preview-scale: 1.3;
+  --preview-scale: 2.5;
   --stage-pad:16px;
   --stage-pad-x:32px;
   width:calc((var(--card-w) + var(--stage-pad-x)) * var(--preview-scale));
@@ -165,7 +165,7 @@ header .btn.ghost:active:not(:disabled){background:rgba(255,255,255,.32);box-sha
   background:transparent;
   border-radius:0;
 }
-/* 部署の重なり名刺も1.3倍枠内で揃える */
+/* 部署の重なり名刺も2.5倍枠内で揃える */
 #panel-dept .co-design-scale > .stage.stack{
   min-height:calc(var(--card-h) + var(--stage-pad-x));
   box-sizing:border-box;
