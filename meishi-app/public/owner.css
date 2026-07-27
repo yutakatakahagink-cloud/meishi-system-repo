@@ -201,17 +201,26 @@ th{background:#f3f6fb;position:sticky;top:0}tr.sel{background:#e8eef8}tr:hover{b
 @media(max-width:800px){.editor{grid-template-columns:1fr}}
 .meishi{width:91mm;height:55mm;background:#fff;position:relative;box-shadow:0 3px 12px rgba(0,0,0,.25);overflow:hidden;border:1px solid #fff;box-sizing:border-box}
 .stage{background:#cfd6e0;border-radius:12px;padding:16px;display:flex;justify-content:center;align-items:center}
-.el,.imgel{position:absolute;cursor:move;touch-action:none;border:1px dashed #fff;user-select:none}
+.el,.imgel{position:absolute;cursor:move;touch-action:none;border:1px dashed transparent;user-select:none}
 .el{white-space:pre;line-height:1.3;padding:0;box-sizing:border-box}
-.meishi.design-mode .el,.meishi.design-mode .imgel{border:1px dashed #fff}
-.meishi.design-mode .el.sel,.meishi.design-mode .imgel.sel{border:1px solid #fff;background:rgba(255,255,255,.12)}
+.meishi.design-mode .el,.meishi.design-mode .imgel{border:1px dashed rgba(47,85,151,.22)}
+.meishi.design-mode .el.sel,
+.meishi.design-mode .imgel.sel{
+  border:2px solid #2f5597;
+  background:rgba(47,85,151,.16);
+  box-shadow:0 0 0 2px rgba(47,85,151,.28);
+}
 .meishi.design-mode.zone-split .card-zone-layer{position:absolute;inset:0;pointer-events:none;z-index:2}
 .meishi.design-mode.zone-split .card-zone-drag{position:absolute;top:0;bottom:0;pointer-events:auto;cursor:ew-resize;touch-action:none;z-index:3;background:rgba(255,255,255,.12);border-left:1px dashed #fff;border-right:1px dashed #fff;box-sizing:border-box}
 .meishi.design-mode.zone-split.is-dragging-center .card-zone-drag{background:rgba(255,255,255,.22)}
 .meishi.design-mode.zone-split .el,.meishi.design-mode.zone-split .imgel{z-index:1}
 .meishi.design-mode.zone-split .el[data-text-wrapped="1"],.meishi.text-flow .el[data-text-wrapped="1"]{white-space:pre-wrap;word-break:break-word;overflow-wrap:anywhere}
 .meishi.design-mode.zone-split .el[data-id="telfax"],.meishi.text-flow .el[data-id="telfax"]{white-space:nowrap}
-.el.sel,.imgel.sel{border-color:#fff;background:rgba(255,255,255,.1)}
+.el.sel,.imgel.sel{
+  border:2px solid #2f5597;
+  background:rgba(47,85,151,.14);
+  box-shadow:0 0 0 2px rgba(47,85,151,.28);
+}
 .imgel img{width:100%;height:100%;object-fit:contain;object-position:left top;pointer-events:none;display:block}
 .rs{position:absolute;right:0;bottom:0;width:12px;height:12px;background:#2f5597;border-radius:50%;cursor:se-resize;z-index:2}
 .meishi.is-dragging .el,.meishi.is-dragging .imgel{cursor:grabbing}
@@ -235,18 +244,34 @@ th{background:#f3f6fb;position:sticky;top:0}tr.sel{background:#e8eef8}tr:hover{b
 .size-step button:disabled{opacity:.35;cursor:default}
 .size-step span{min-width:38px;text-align:center;font-size:.8rem;color:#54607a}
 .card-side-toggle{margin:0 0 12px;width:fit-content}
-.btel{position:absolute;cursor:default;touch-action:none;border:1px dashed #fff;user-select:none;padding:0;line-height:1.3;box-sizing:border-box;z-index:5}
-.meishi.design-mode .btel{cursor:default;border:1px dashed #fff}
-.meishi.design-mode .btel.sel{cursor:grab;border:1px solid #fff;background:rgba(255,255,255,.12)}
-.meishi.design-mode .btel.is-editing{cursor:text;background:rgba(255,255,255,.16);outline:2px solid #fff;outline-offset:1px}
+.btel{position:absolute;cursor:default;touch-action:none;border:1px dashed transparent;user-select:none;padding:0;line-height:1.3;box-sizing:border-box;z-index:5}
+.meishi.design-mode .btel{cursor:default;border:1px dashed rgba(47,85,151,.22)}
+.meishi.design-mode .btel.sel{
+  cursor:grab;
+  border:2px solid #2f5597;
+  background:rgba(47,85,151,.16);
+  box-shadow:0 0 0 2px rgba(47,85,151,.28);
+}
+.meishi.design-mode .btel.is-editing{
+  cursor:text;
+  border:2px solid #2f5597;
+  background:rgba(47,85,151,.2);
+  outline:2px solid rgba(47,85,151,.45);
+  outline-offset:1px;
+  box-shadow:0 0 0 2px rgba(47,85,151,.22);
+}
 .meishi.design-mode.is-dragging .btel.sel{cursor:grabbing}
 .meishi-text-ctx{position:fixed;z-index:10000;min-width:108px;background:#fff;border:1px solid #c5d0e0;border-radius:6px;box-shadow:0 4px 14px rgba(20,40,80,.18);padding:4px;box-sizing:border-box}
 .meishi-text-ctx button{display:block;width:100%;border:0;background:transparent;text-align:left;padding:8px 12px;font:inherit;font-size:13px;color:#b3261e;cursor:pointer;border-radius:4px}
 .meishi-text-ctx button:hover{background:#fdecea}
-.btel.sel{border-color:#fff;background:rgba(255,255,255,.1)}
-.print-readonly .btel{cursor:default;border-color:transparent}
-.print-readonly .btel.sel{border-color:transparent;background:transparent}
-.print-readonly .el,.print-readonly .imgel{border-color:transparent!important}
+.btel.sel{
+  border:2px solid #2f5597;
+  background:rgba(47,85,151,.14);
+  box-shadow:0 0 0 2px rgba(47,85,151,.28);
+}
+.print-readonly .btel{cursor:default;border-color:transparent;box-shadow:none;outline:none}
+.print-readonly .btel.sel{border-color:transparent;background:transparent;box-shadow:none;outline:none}
+.print-readonly .el,.print-readonly .imgel{border-color:transparent!important;box-shadow:none!important;background:transparent!important}
 .meishi.is-dragging .btel{cursor:grabbing}
 .linkbtn{border:none;background:none;color:#b3261e;cursor:pointer;font-size:.85rem;padding:0 4px}
 .tag-list{list-style:none;padding:0;margin:0}.tag-list li{margin-bottom:4px}
@@ -296,7 +321,7 @@ th{background:#f3f6fb;position:sticky;top:0}tr.sel{background:#e8eef8}tr:hover{b
 .preview-toolbar{align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px}
 .preview-toolbar .btn{flex-shrink:0}
 .print-readonly .el,.print-readonly .imgel{cursor:default}
-.print-readonly .el.sel,.print-readonly .imgel.sel{border-color:transparent;background:transparent}
+.print-readonly .el.sel,.print-readonly .imgel.sel{border-color:transparent;background:transparent;box-shadow:none}
 .print-readonly .rs{display:none}
 @media print{
   body *{visibility:hidden}
@@ -355,6 +380,8 @@ th{background:#f3f6fb;position:sticky;top:0}tr.sel{background:#e8eef8}tr:hover{b
 #recPreviewPrintArea .btel{
   border-color:transparent!important;
   background:transparent;
+  box-shadow:none!important;
+  outline:none!important;
 }
 #recPreviewPrintArea .el.sel,
 #recPreviewPrintArea .imgel.sel,
