@@ -19,7 +19,7 @@
 .rec-save-msg[hidden]{display:none!important}
 header{background:linear-gradient(135deg,var(--brand),var(--brand-d));color:#fff;padding:14px 18px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:60}
 header h1{font-size:1.05rem;margin:0}.badge{font-size:.72rem;padding:3px 8px;border-radius:999px;background:rgba(255,255,255,.2);margin-left:auto}
-.wrap{max-width:min(98vw,1680px);margin:0 auto;padding:16px 14px 60px}
+.wrap{max-width:min(96vw,1400px);margin:0 auto;padding:16px 14px 60px}
 .tabs{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 14px;padding:10px 0 12px;position:sticky;top:var(--app-header-h);z-index:55;background:var(--bg);box-shadow:0 1px 0 var(--line)}
 .tabs button{border:1px solid var(--line);background:#fff;border-radius:999px;padding:8px 14px;cursor:pointer;font-size:.85rem;color:#54607a}
 .tabs button.on{background:var(--brand);color:#fff;border-color:var(--brand)}
@@ -102,7 +102,7 @@ header .btn.ghost:active:not(:disabled){background:rgba(255,255,255,.32);box-sha
 }
 .co-hidden-row input{width:auto;margin:0;flex:0 0 auto}
 .co-hidden-row span{flex:1 1 auto;line-height:1.4}
-/* 会社／部署共通デザイン: 左=2.5倍名刺（枠内スクロール） / 右=書式固定幅 */
+/* 会社／部署共通デザイン: 左=2.5倍名刺 / 右=書式（まとめて中央寄せ） */
 #panel-company .co-design-editor,
 #panel-dept .co-design-editor{
   --preview-scale: 2.5;
@@ -112,11 +112,14 @@ header .btn.ghost:active:not(:disabled){background:rgba(255,255,255,.32);box-sha
   --card-h: 55mm;
   --design-stage-h: calc(var(--stage-pad) * 2 + (var(--card-h) + var(--stage-pad-x)) * var(--preview-scale));
   display:grid;
-  grid-template-columns:minmax(0,1fr) 280px;
+  grid-template-columns:auto 280px;
   gap:14px;
   align-items:start;
-  margin-top:8px;
-  overflow:hidden;
+  margin:8px auto 0;
+  width:fit-content;
+  max-width:100%;
+  overflow:auto;
+  box-sizing:border-box;
 }
 #panel-company .co-design-side,
 #panel-dept .co-design-side{
@@ -132,8 +135,8 @@ header .btn.ghost:active:not(:disabled){background:rgba(255,255,255,.32);box-sha
   box-sizing:border-box;
   position:relative;
   z-index:3;
-  background:var(--bg);
-  padding:0 0 0 2px;
+  background:transparent;
+  padding:0;
 }
 #panel-company .co-design-tools,
 #panel-dept .co-design-tools{margin:0;flex-wrap:wrap;flex:0 0 auto}
@@ -153,7 +156,7 @@ header .btn.ghost:active:not(:disabled){background:rgba(255,255,255,.32);box-sha
   -webkit-overflow-scrolling:touch;
   background:#fff;
 }
-/* 2.5倍表示。幅不足時は左枠内だけ横スクロールし、右の書式欄にかぶせない */
+/* 2.5倍表示。はみ出すときはエディタ全体を横スクロール */
 #panel-company .co-design-scale,
 #panel-dept .co-design-scale{
   --preview-scale: 2.5;
@@ -161,10 +164,10 @@ header .btn.ghost:active:not(:disabled){background:rgba(255,255,255,.32);box-sha
   --stage-pad-x:32px;
   width:calc(var(--card-w) * var(--preview-scale) + var(--stage-pad-x));
   height:calc(var(--stage-pad) * 2 + (var(--card-h) + var(--stage-pad-x)) * var(--preview-scale));
-  max-width:100%;
+  max-width:none;
   min-width:0;
   margin:0;
-  overflow:auto;
+  overflow:hidden;
   background:#cfd6e0;
   border-radius:12px;
   box-sizing:border-box;
@@ -187,18 +190,21 @@ header .btn.ghost:active:not(:disabled){background:rgba(255,255,255,.32);box-sha
 @media(max-width:1100px){
   #panel-company .co-design-editor,
   #panel-dept .co-design-editor{
-    grid-template-columns:minmax(0,1fr) minmax(220px,260px);
+    grid-template-columns:auto minmax(220px,260px);
   }
   #panel-company .co-design-side,
   #panel-dept .co-design-side{
-    width:auto;
+    width:260px;
     min-width:220px;
     max-width:260px;
   }
 }
 @media(max-width:900px){
   #panel-company .co-design-editor,
-  #panel-dept .co-design-editor{grid-template-columns:1fr}
+  #panel-dept .co-design-editor{
+    grid-template-columns:1fr;
+    width:100%;
+  }
   #panel-company .co-design-side,
   #panel-dept .co-design-side{
     width:100%;
@@ -206,6 +212,11 @@ header .btn.ghost:active:not(:disabled){background:rgba(255,255,255,.32);box-sha
     max-width:none;
     height:auto;
     max-height:min(70vh, 520px);
+  }
+  #panel-company .co-design-scale,
+  #panel-dept .co-design-scale{
+    max-width:100%;
+    overflow:auto;
   }
 }
 .form-row-1{
