@@ -960,27 +960,33 @@
     function applyUnderlineStyle(node, st) {
       if (!node || !st) return;
       var on = !!st.underline;
-      var ulLen = Math.max(0, Math.min(40, Math.round(Number(st.ulLen) || 0)));
+      var ulLen = Math.max(0, Math.min(80, Math.round(Number(st.ulLen) || 0)));
       st.ulLen = ulLen;
       if (!on) {
         node.style.textDecoration = "none";
         node.style.borderBottom = "";
         node.style.paddingBottom = "";
+        node.style.width = "";
         node.style.minWidth = "";
+        node.style.backgroundImage = "";
         node.removeAttribute("data-ul-fixed");
+        node.removeAttribute("data-ul-lines");
         return;
       }
+      node.style.textDecoration = "none";
+      node.style.borderBottom = "none";
+      node.style.paddingBottom = "0";
+      node.style.backgroundImage =
+        "repeating-linear-gradient(to bottom, transparent 0, transparent calc(1.3em - 1px), currentColor calc(1.3em - 1px), currentColor 1.3em)";
+      node.setAttribute("data-ul-lines", "1");
       if (ulLen > 0) {
         var size = st.size || 12;
-        node.style.textDecoration = "none";
-        node.style.borderBottom = "1px solid " + (st.color || "#222222");
-        node.style.paddingBottom = "1px";
+        node.style.boxSizing = "border-box";
+        node.style.width = Math.max(size, Math.round(size * ulLen)) + "px";
         node.style.minWidth = Math.max(size, Math.round(size * ulLen)) + "px";
         node.setAttribute("data-ul-fixed", String(ulLen));
       } else {
-        node.style.textDecoration = "underline";
-        node.style.borderBottom = "";
-        node.style.paddingBottom = "";
+        node.style.width = "";
         node.style.minWidth = "";
         node.removeAttribute("data-ul-fixed");
       }

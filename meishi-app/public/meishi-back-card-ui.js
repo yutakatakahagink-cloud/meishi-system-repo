@@ -426,7 +426,7 @@
       return Math.max(1, Math.min(UL_LEN_MAX, Math.ceil(maxW / size)));
     }
 
-    /** underline + ulLen: ulLen>0 なら文字数分の固定幅下線（全行まで伸ばせる） */
+    /** underline + ulLen: 改行後も全行に下線。ulLen>0 なら固定幅 */
     function applyUnderlineStyle(node, st) {
       if (!node || !st) return;
       var on = !!st.underline;
@@ -438,27 +438,29 @@
         node.style.paddingBottom = "";
         node.style.width = "";
         node.style.minWidth = "";
+        node.style.backgroundImage = "";
         node.removeAttribute("data-ul-fixed");
+        node.removeAttribute("data-ul-lines");
         return;
       }
+      // 行ごとに下線（border-bottom だと最終行だけになるため gradient を使う）
+      node.style.textDecoration = "none";
+      node.style.borderBottom = "none";
+      node.style.paddingBottom = "0";
+      node.style.backgroundImage =
+        "repeating-linear-gradient(to bottom, transparent 0, transparent calc(1.3em - 1px), currentColor calc(1.3em - 1px), currentColor 1.3em)";
+      node.setAttribute("data-ul-lines", "1");
       if (ulLen > 0) {
         var size = Math.max(6, st.size || 12);
         var avail = availUlWidth(st);
         var max = maxUlLenFor(st);
         var ulW = Math.min(avail, Math.max(size, Math.round(size * ulLen)));
-        // 上限（全行）に達したら残り幅いっぱいまで引く
         if (ulLen >= max) ulW = avail;
-        node.style.textDecoration = "none";
-        node.style.borderBottom = "1px solid " + (st.color || "#222222");
-        node.style.paddingBottom = "1px";
         node.style.boxSizing = "border-box";
         node.style.width = ulW + "px";
         node.style.minWidth = ulW + "px";
         node.setAttribute("data-ul-fixed", String(ulLen));
       } else {
-        node.style.textDecoration = "underline";
-        node.style.borderBottom = "";
-        node.style.paddingBottom = "";
         node.style.width = "";
         node.style.minWidth = "";
         node.removeAttribute("data-ul-fixed");
