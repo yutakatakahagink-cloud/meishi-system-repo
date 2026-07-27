@@ -278,8 +278,21 @@
       if (t.underline == null) t.underline = 0;
       if (t.ulLen == null || !isFinite(Number(t.ulLen))) t.ulLen = 0;
       else t.ulLen = Math.max(0, Math.min(80, Math.round(Number(t.ulLen))));
-      if (t.ulThick == null || !isFinite(Number(t.ulThick)) || Number(t.ulThick) < 1) t.ulThick = 1;
-      else t.ulThick = Math.max(1, Math.min(8, Math.round(Number(t.ulThick))));
+      (function normalizeUlThickStyle(tt) {
+        var v = Number(tt.ulThick);
+        if (!isFinite(v) || v <= 0) {
+          tt.ulThick = 5;
+        } else if (tt.ulThickUnit === "em" || v > 8) {
+          tt.ulThick = Math.max(2, Math.min(20, Math.round(v)));
+        } else {
+          var px = Math.max(1, Math.min(8, Math.round(v)));
+          var size = Math.max(6, Number(tt.size) || 12);
+          tt.ulThick = Math.max(2, Math.min(20, Math.round((px / size) * 100)));
+        }
+        tt.ulThickUnit = "em";
+        var sid = String(tt.ulStyle || "solid");
+        tt.ulStyle = ["solid", "double", "dotted", "dashed", "wave"].indexOf(sid) >= 0 ? sid : "solid";
+      })(t);
       if (t.ulColor == null || typeof t.ulColor !== "string") t.ulColor = "";
       else {
         var uc = String(t.ulColor).trim();
@@ -361,8 +374,21 @@
       if (t.underline == null) t.underline = 0;
       if (t.ulLen == null || !isFinite(Number(t.ulLen))) t.ulLen = 0;
       else t.ulLen = Math.max(0, Math.min(80, Math.round(Number(t.ulLen))));
-      if (t.ulThick == null || !isFinite(Number(t.ulThick)) || Number(t.ulThick) < 1) t.ulThick = 1;
-      else t.ulThick = Math.max(1, Math.min(8, Math.round(Number(t.ulThick))));
+      (function normalizeUlThickStyle(tt) {
+        var v = Number(tt.ulThick);
+        if (!isFinite(v) || v <= 0) {
+          tt.ulThick = 5;
+        } else if (tt.ulThickUnit === "em" || v > 8) {
+          tt.ulThick = Math.max(2, Math.min(20, Math.round(v)));
+        } else {
+          var px = Math.max(1, Math.min(8, Math.round(v)));
+          var size = Math.max(6, Number(tt.size) || 12);
+          tt.ulThick = Math.max(2, Math.min(20, Math.round((px / size) * 100)));
+        }
+        tt.ulThickUnit = "em";
+        var sid = String(tt.ulStyle || "solid");
+        tt.ulStyle = ["solid", "double", "dotted", "dashed", "wave"].indexOf(sid) >= 0 ? sid : "solid";
+      })(t);
       if (t.ulColor == null || typeof t.ulColor !== "string") t.ulColor = "";
       else {
         var uc = String(t.ulColor).trim();

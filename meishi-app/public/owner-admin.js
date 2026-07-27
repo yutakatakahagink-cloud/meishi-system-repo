@@ -1400,6 +1400,8 @@
         ulThickDown: "deBackDesUlThickDown",
         ulThickV: "deBackDesUlThickV",
         ulThickRow: "deBackDesUlThickRow",
+        ulStyle: "deBackDesUlStyle",
+        ulStyleRow: "deBackDesUlStyleRow",
         ulColor: "deBackDesUlColor",
         ulColorRow: "deBackDesUlColorRow",
         ctl: "deBackDesignCtl",

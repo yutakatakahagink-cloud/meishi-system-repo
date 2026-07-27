@@ -12,14 +12,14 @@
     <script>window.MEISHI_ADMIN_PAGE = true;</script>
     <script src="config.js" onerror="console.info('[Meishi] config.js なし')"></script>
     <script src="meishi-fields.js?v=20250714p"></script>
-    <script src="meishi-catalog.js?v=20250724al"></script>
+    <script src="meishi-catalog.js?v=20250724av"></script>
     <script src="meishi-catalog-sync.js?v=20250615c"></script>
     <script src="meishi-catalog-editor.js?v=20250715m"></script>
     <script src="meishi-store.js?v=20250724z"></script>
-    <script src="meishi-layout.js?v=20250724al"></script>
+    <script src="meishi-layout.js?v=20250724av"></script>
     <script src="meishi-image-lib.js?v=20250724ac"></script>
-    <script src="meishi-card-ui.js?v=20250724ao"></script>
-    <script src="meishi-back-card-ui.js?v=20250724ar"></script>
+    <script src="meishi-card-ui.js?v=20250724av"></script>
+    <script src="meishi-back-card-ui.js?v=20250724av"></script>
     <script src="meishi-print-sheet.js?v=20250724ac"></script>
     <script src="meishi-user-print.js?v=20250724u"></script>
     <script src="meishi-preview-init.js?v=20250724u"></script>
@@ -232,9 +232,13 @@
                         <label>下線太さ</label>
                         <div class="size-step">
                           <button type="button" id="backDesUlThickUp" title="太く">▲</button>
-                          <span id="backDesUlThickV">1px</span>
+                          <span id="backDesUlThickV">0.05em</span>
                           <button type="button" id="backDesUlThickDown" title="細く">▼</button>
                         </div>
+                      </div>
+                      <div class="des-row" id="backDesUlStyleRow" style="display:none">
+                        <label>下線種</label>
+                        <select id="backDesUlStyle" class="des-font-select"></select>
                       </div>
                       <div class="des-row" id="backDesUlColorRow" style="display:none">
                         <label>下線色</label>
@@ -339,9 +343,13 @@
                         <label>下線太さ</label>
                         <div class="size-step">
                           <button type="button" id="deBackDesUlThickUp" title="太く">▲</button>
-                          <span id="deBackDesUlThickV">1px</span>
+                          <span id="deBackDesUlThickV">0.05em</span>
                           <button type="button" id="deBackDesUlThickDown" title="細く">▼</button>
                         </div>
+                      </div>
+                      <div class="des-row" id="deBackDesUlStyleRow" style="display:none">
+                        <label>下線種</label>
+                        <select id="deBackDesUlStyle" class="des-font-select"></select>
                       </div>
                       <div class="des-row" id="deBackDesUlColorRow" style="display:none">
                         <label>下線色</label>
@@ -485,7 +493,7 @@
         <button type="button" class="btn sm" id="btnQrClose">閉じる</button>
       </div>
     </div>
-    <script src="owner-admin.20250724ar.js"></script>
+    <script src="owner-admin.20250724av.js"></script>
     <script>OwnerAdmin.initAdmin();</script>
   </body>
 </html>

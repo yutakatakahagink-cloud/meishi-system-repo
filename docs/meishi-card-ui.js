@@ -965,15 +965,77 @@
       return Math.max(1.0, Math.min(2.5, v));
     }
 
-    function buildUnderlineGradient(ulCol, lhRatio, thick) {
-      var pad = 1;
-      return (
-        "repeating-linear-gradient(to bottom," +
-        " transparent 0, transparent calc(" + lhRatio + "em - " + (thick + pad) + "px)," +
-        " " + ulCol + " calc(" + lhRatio + "em - " + (thick + pad) + "px)," +
-        " " + ulCol + " calc(" + lhRatio + "em - " + pad + "px)," +
-        " transparent calc(" + lhRatio + "em - " + pad + "px), transparent " + lhRatio + "em)"
-      );
+    var UL_STYLE_IDS = ["solid", "double", "dotted", "dashed", "wave"];
+
+    function clampUlThickEm(n, st) {
+      var v = Number(n);
+      if (!isFinite(v) || v <= 0) return 5;
+      if ((st && st.ulThickUnit === "em") || v > 8) {
+        return Math.max(2, Math.min(20, Math.round(v)));
+      }
+      var px = Math.max(1, Math.min(8, Math.round(v)));
+      var size = Math.max(6, (st && st.size) || 12);
+      return Math.max(2, Math.min(20, Math.round((px / size) * 100)));
+    }
+
+    function normalizeUlStyleId(v) {
+      var id = String(v || "solid");
+      return UL_STYLE_IDS.indexOf(id) >= 0 ? id : "solid";
+    }
+
+    function buildUnderlineTile(ulCol, lhRatio, thickEm, style) {
+      var W = 48;
+      var H = 100;
+      var thick = Math.max(1.2, (thickEm / Math.max(0.8, lhRatio)) * H);
+      var pad = 3;
+      var y = H - pad - thick;
+      var col = String(ulCol || "#222222");
+      var body = "";
+      style = normalizeUlStyleId(style);
+      if (style === "double") {
+        var t1 = Math.max(1.1, thick * 0.38);
+        var gap = Math.max(1.4, thick * 0.32);
+        var y2 = H - pad - t1;
+        var y1 = y2 - gap - t1;
+        body =
+          '<rect x="0" y="' + y1 + '" width="' + W + '" height="' + t1 + '" fill="' + col + '"/>' +
+          '<rect x="0" y="' + y2 + '" width="' + W + '" height="' + t1 + '" fill="' + col + '"/>';
+      } else if (style === "dotted") {
+        var r = Math.max(0.75, thick / 2);
+        var cy = H - pad - r;
+        var step = Math.max(r * 3, 3.5);
+        for (var x = r + 0.8; x < W - r; x += step) {
+          body += '<circle cx="' + x + '" cy="' + cy + '" r="' + r + '" fill="' + col + '"/>';
+        }
+      } else if (style === "dashed") {
+        var dash = Math.max(5, thick * 2.8);
+        var gapD = Math.max(3, thick * 1.7);
+        var x0 = 0;
+        while (x0 < W) {
+          var dw = Math.min(dash, W - x0);
+          if (dw > 0.5) {
+            body += '<rect x="' + x0 + '" y="' + y + '" width="' + dw + '" height="' + thick + '" fill="' + col + '"/>';
+          }
+          x0 += dash + gapD;
+        }
+      } else if (style === "wave") {
+        var mid = y + thick / 2;
+        var amp = Math.max(1.3, thick * 0.95);
+        var sw = Math.max(1.1, thick * 0.75);
+        var path = "M0," + mid.toFixed(2);
+        for (var i = 0; i < W + 16; i += 8) {
+          path += " q4," + (-amp).toFixed(2) + " 8,0 q4," + amp.toFixed(2) + " 8,0";
+        }
+        body =
+          '<path d="' + path + '" fill="none" stroke="' + col + '" stroke-width="' + sw.toFixed(2) +
+          '" stroke-linecap="round"/>';
+      } else {
+        body = '<rect x="0" y="' + y + '" width="' + W + '" height="' + thick + '" fill="' + col + '"/>';
+      }
+      var svg =
+        '<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H +
+        '" viewBox="0 0 ' + W + " " + H + '" preserveAspectRatio="none">' + body + "</svg>";
+      return 'url("data:image/svg+xml,' + encodeURIComponent(svg) + '")';
     }
 
     function resolveUlColor(st) {
@@ -1017,12 +1079,13 @@
       if (!node || !st) return;
       var on = !!st.underline;
       var ulLen = Math.max(0, Math.min(80, Math.round(Number(st.ulLen) || 0)));
-      var thick = Math.round(Number(st.ulThick) || 0);
-      if (!isFinite(thick) || thick < 1) thick = 1;
-      thick = Math.max(1, Math.min(8, thick));
+      var thickN = clampUlThickEm(st.ulThick, st);
+      var style = normalizeUlStyleId(st.ulStyle);
       var lhRatio = clampLineHeightRatio(st.lineHeight);
       st.ulLen = ulLen;
-      st.ulThick = thick;
+      st.ulThick = thickN;
+      st.ulThickUnit = "em";
+      st.ulStyle = style;
       st.lineHeight = lhRatio;
       node.style.lineHeight = String(lhRatio);
       if (!on) {
@@ -1040,12 +1103,13 @@
         return;
       }
       var ulCol = resolveUlColor(st);
+      var thickEm = thickN / 100;
       node.style.textDecoration = "none";
       node.style.borderBottom = "none";
       node.style.paddingBottom = "0";
-      node.style.backgroundImage = buildUnderlineGradient(ulCol, lhRatio, thick);
-      node.style.backgroundRepeat = "repeat-y";
-      node.style.backgroundSize = "100% " + lhRatio + "em";
+      node.style.backgroundImage = buildUnderlineTile(ulCol, lhRatio, thickEm, style);
+      node.style.backgroundRepeat = "repeat";
+      node.style.backgroundSize = "auto " + lhRatio + "em";
       node.style.backgroundPosition = "left top";
       node.setAttribute("data-ul-lines", "1");
       if (ulLen > 0) {
