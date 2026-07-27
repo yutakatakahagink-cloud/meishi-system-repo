@@ -277,7 +277,7 @@
       if (t.italic == null) t.italic = 0;
       if (t.underline == null) t.underline = 0;
       if (t.ulLen == null || !isFinite(Number(t.ulLen))) t.ulLen = 0;
-      else t.ulLen = Math.max(0, Math.min(40, Math.round(Number(t.ulLen))));
+      else t.ulLen = Math.max(0, Math.min(80, Math.round(Number(t.ulLen))));
       if (t.font == null) t.font = "";
       if (!t.align) t.align = "left";
       return t;
@@ -348,7 +348,7 @@
       if (t.italic == null) t.italic = 0;
       if (t.underline == null) t.underline = 0;
       if (t.ulLen == null || !isFinite(Number(t.ulLen))) t.ulLen = 0;
-      else t.ulLen = Math.max(0, Math.min(40, Math.round(Number(t.ulLen))));
+      else t.ulLen = Math.max(0, Math.min(80, Math.round(Number(t.ulLen))));
       if (t.font == null) t.font = "";
       if (!t.align) t.align = "left";
       return t;

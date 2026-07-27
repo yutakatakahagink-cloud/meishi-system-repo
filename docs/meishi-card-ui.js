@@ -957,6 +957,35 @@
       node.style.zIndex = String(ensureItemZ(st, 20));
     }
 
+    function zenCharPxForUl(st, node) {
+      var size = Math.max(6, (st && st.size) || 12);
+      var family = (MeishiLayout && MeishiLayout.resolveBackFontFamily)
+        ? MeishiLayout.resolveBackFontFamily((st && st.font) || "")
+        : "sans-serif";
+      var weight = (st && st.bold) ? "700" : "400";
+      var style = (st && st.italic) ? "italic" : "normal";
+      try {
+        if (node && node.isConnected) {
+          var cs = window.getComputedStyle(node);
+          if (cs.fontFamily) family = cs.fontFamily;
+        }
+      } catch (e0) {}
+      try {
+        var ctx = zenCharPxForUl._ctx;
+        if (!ctx) {
+          zenCharPxForUl._canvas = document.createElement("canvas");
+          zenCharPxForUl._ctx = zenCharPxForUl._canvas.getContext("2d");
+          ctx = zenCharPxForUl._ctx;
+        }
+        if (ctx) {
+          ctx.font = style + " " + weight + " " + size + "px " + family;
+          var w = ctx.measureText("あ").width;
+          if (isFinite(w) && w > 0) return Math.max(size * 0.8, w);
+        }
+      } catch (e1) {}
+      return size;
+    }
+
     function applyUnderlineStyle(node, st) {
       if (!node || !st) return;
       var on = !!st.underline;
@@ -980,10 +1009,10 @@
         "repeating-linear-gradient(to bottom, transparent 0, transparent calc(1.3em - 1px), currentColor calc(1.3em - 1px), currentColor 1.3em)";
       node.setAttribute("data-ul-lines", "1");
       if (ulLen > 0) {
-        var size = st.size || 12;
+        var unit = zenCharPxForUl(st, node);
         node.style.boxSizing = "border-box";
-        node.style.width = Math.max(size, Math.round(size * ulLen)) + "px";
-        node.style.minWidth = Math.max(size, Math.round(size * ulLen)) + "px";
+        node.style.width = Math.max(unit, Math.round(unit * ulLen)) + "px";
+        node.style.minWidth = Math.max(unit, Math.round(unit * ulLen)) + "px";
         node.setAttribute("data-ul-fixed", String(ulLen));
       } else {
         node.style.width = "";

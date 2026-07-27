@@ -411,34 +411,64 @@
       return String((st && st.content) || "");
     }
 
-    function charLen(s) {
+    function measureTextPx(text, st, node) {
+      var size = Math.max(6, (st && st.size) || 12);
+      var family = MeishiLayout.resolveBackFontFamily((st && st.font) || "");
+      var weight = (st && st.bold) ? "700" : "400";
+      var style = (st && st.italic) ? "italic" : "normal";
       try {
-        return Array.from(String(s || "")).length;
-      } catch (e) {
-        return String(s || "").length;
-      }
+        if (node && node.ownerDocument && node.isConnected) {
+          var cs = window.getComputedStyle(node);
+          if (cs.fontFamily) family = cs.fontFamily;
+        }
+      } catch (e0) {}
+      try {
+        var ctx = measureTextPx._ctx;
+        if (!ctx) {
+          measureTextPx._canvas = document.createElement("canvas");
+          measureTextPx._ctx = measureTextPx._canvas.getContext("2d");
+          ctx = measureTextPx._ctx;
+        }
+        if (ctx) {
+          ctx.font = style + " " + weight + " " + size + "px " + family;
+          var w = ctx.measureText(String(text || "")).width;
+          if (isFinite(w) && w > 0) return w;
+        }
+      } catch (e1) {}
+      return size * String(text || "").length;
     }
 
-    /** 下線の基準は「最長行」の文字数（改行で全文字を合計しない） */
-    function contentLineMaxChars(st, node) {
+    /** 全角1文字分の幅（「あ」を実測。ulLen の単位） */
+    function zenCharPx(st, node) {
+      var w = measureTextPx("あ", st, node);
+      var size = Math.max(6, (st && st.size) || 12);
+      return Math.max(size * 0.8, w || size);
+    }
+
+    /** 最長行の見た目幅を全角文字数に換算（切り上げ） */
+    function contentZenChars(st, node) {
+      var unit = zenCharPx(st, node);
       var raw = textRawContent(st, node).replace(/\r\n/g, "\n");
       var lines = raw.split("\n");
-      var maxLen = 0;
+      var maxPx = 0;
       for (var i = 0; i < lines.length; i++) {
-        var len = charLen(lines[i]);
-        if (len > maxLen) maxLen = len;
+        var line = lines[i];
+        if (!line) continue;
+        var px = measureTextPx(line, st, node);
+        if (px > maxPx) maxPx = px;
       }
-      return maxLen;
+      if (maxPx <= 0) return 0;
+      return Math.max(1, Math.ceil(maxPx / unit - 1e-6));
     }
 
-    /** 名刺の残り幅に収まる最大文字数（＝全行） */
-    function maxUlLenFor(st) {
-      var size = Math.max(6, (st && st.size) || 12);
+    /** 名刺の残り幅に収まる最大・全角文字数 */
+    function maxUlLenFor(st, node) {
+      var unit = zenCharPx(st, node);
       var maxW = availUlWidth(st);
-      return Math.max(1, Math.min(UL_LEN_MAX, Math.floor(maxW / size)));
+      return Math.max(1, Math.min(UL_LEN_MAX, Math.floor(maxW / unit)));
     }
 
-    /** underline + ulLen: 改行後も全行に下線。ulLen>0 なら固定幅 */
+    /** underline + ulLen: 改行後も全行に下線。ulLen>0 なら全角N文字分の固定幅 */
     function applyUnderlineStyle(node, st) {
       if (!node || !st) return;
       var on = !!st.underline;
@@ -463,9 +493,9 @@
         "repeating-linear-gradient(to bottom, transparent 0, transparent calc(1.3em - 1px), currentColor calc(1.3em - 1px), currentColor 1.3em)";
       node.setAttribute("data-ul-lines", "1");
       if (ulLen > 0) {
-        var size = Math.max(6, st.size || 12);
+        var unit = zenCharPx(st, node);
         var avail = availUlWidth(st);
-        var ulW = Math.min(avail, Math.max(size, Math.round(size * ulLen)));
+        var ulW = Math.min(avail, Math.max(unit, Math.round(unit * ulLen)));
         node.style.boxSizing = "border-box";
         node.style.width = ulW + "px";
         node.style.minWidth = ulW + "px";
@@ -483,16 +513,16 @@
       if (hit.node && editingId === hit.st.id) {
         syncTextContentFromNode(hit.node, hit.st);
       }
-      // 最長行の文字数を基準（1文字→2、2文字→3…を1ずつ）
-      var n = contentLineMaxChars(hit.st, hit.node);
+      // 全角1文字＝1ステップ（▲で +1、▼で -1）
+      var n = contentZenChars(hit.st, hit.node);
       var cur = clampUlLen(hit.st.ulLen);
-      var max = maxUlLenFor(hit.st);
+      var max = maxUlLenFor(hit.st, hit.node);
       var next;
       if (delta > 0) {
-        if (cur < 1) next = n + 1;
-        else next = cur + 1;
-        if (next > max) next = max;
-        if (next === cur) return;
+        if (cur < 1) next = Math.min(max, Math.max(n + 1, 1));
+        else next = Math.min(max, cur + 1);
+        if (next === cur && cur >= max) return;
+        if (next < 1) return;
       } else {
         if (cur < 1) return;
         next = cur - 1;
@@ -1262,7 +1292,8 @@
         if (backDesItalic) backDesItalic.classList.toggle("on", !!st.italic);
         if (backDesUnderline) backDesUnderline.classList.toggle("on", !!st.underline);
         var ulLen = clampUlLen(st.ulLen);
-        var ulMax = maxUlLenFor(st);
+        var hitNode = (getSelectedText() || {}).node || null;
+        var ulMax = maxUlLenFor(st, hitNode);
         if (backDesUlLenRow) backDesUlLenRow.style.display = st.underline ? "" : "none";
         if (backDesUlV) backDesUlV.textContent = ulLen > 0 ? (ulLen + "文字") : "自動";
         if (backDesUlUp) backDesUlUp.disabled = ulLen >= ulMax;
