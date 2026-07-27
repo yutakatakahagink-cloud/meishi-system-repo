@@ -1392,7 +1392,6 @@
         ulUp: "deBackDesUlUp",
         ulDown: "deBackDesUlDown",
         ulV: "deBackDesUlV",
-        ulFix: "deBackDesUlFix",
         ulLenRow: "deBackDesUlLenRow",
         ctl: "deBackDesignCtl",
         none: "deBackDesignNone",

@@ -975,7 +975,7 @@
         node.style.textDecoration = "none";
         node.style.borderBottom = "1px solid " + (st.color || "#222222");
         node.style.paddingBottom = "1px";
-        node.style.minWidth = Math.max(size, Math.round(size * ulLen * 0.95)) + "px";
+        node.style.minWidth = Math.max(size, Math.round(size * ulLen)) + "px";
         node.setAttribute("data-ul-fixed", String(ulLen));
       } else {
         node.style.textDecoration = "underline";

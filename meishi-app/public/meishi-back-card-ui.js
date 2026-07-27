@@ -7,9 +7,8 @@
   var SIZE_MIN = 6;
   var SIZE_MAX = 60;
   var SIZE_STEP = 1;
-  var UL_LEN_DEFAULT = 5;
   var UL_LEN_MIN = 0;
-  var UL_LEN_MAX = 40;
+  var UL_LEN_MAX = 80;
   var CARD_W_MM = 91;
   var CENTER_GAP_MM = 2;
 
@@ -401,7 +400,29 @@
       return Math.max(UL_LEN_MIN, Math.min(UL_LEN_MAX, v));
     }
 
-    /** underline + ulLen: ulLen>0 なら文字数分の固定幅下線（1文字でも長く引ける） */
+    function contentCharCount(st, node) {
+      var raw = "";
+      if (st && node && (editingId === st.id || document.activeElement === node)) {
+        raw = String(node.innerText || node.textContent || "");
+      } else {
+        raw = String((st && st.content) || "");
+      }
+      raw = raw.replace(/\r\n/g, "\n").replace(/\n/g, "");
+      try {
+        return Array.from(raw).length;
+      } catch (e) {
+        return raw.length;
+      }
+    }
+
+    /** 名刺の残り幅に収まる最大文字数（＝全行） */
+    function maxUlLenFor(st) {
+      var size = Math.max(6, (st && st.size) || 12);
+      var maxW = Math.max(size, cardInnerWidth() - Math.max(0, (st && st.x) || 0));
+      return Math.max(1, Math.min(UL_LEN_MAX, Math.floor(maxW / size)));
+    }
+
+    /** underline + ulLen: ulLen>0 なら文字数分の固定幅下線 */
     function applyUnderlineStyle(node, st) {
       if (!node || !st) return;
       var on = !!st.underline;
@@ -417,7 +438,7 @@
       }
       if (ulLen > 0) {
         var size = st.size || 12;
-        var minW = Math.max(size, Math.round(size * ulLen * 0.95));
+        var minW = Math.max(size, Math.round(size * ulLen));
         node.style.textDecoration = "none";
         node.style.borderBottom = "1px solid " + (st.color || "#222222");
         node.style.paddingBottom = "1px";
@@ -435,10 +456,23 @@
     function bumpUlLen(delta) {
       var hit = getSelectedText();
       if (!hit || !hit.st) return;
+      if (hit.node && editingId === hit.st.id) {
+        syncTextContentFromNode(hit.node, hit.st);
+      }
+      var n = contentCharCount(hit.st, hit.node);
       var cur = clampUlLen(hit.st.ulLen);
+      var max = maxUlLenFor(hit.st);
       var next;
-      if (delta > 0 && cur < 1) next = UL_LEN_DEFAULT;
-      else next = clampUlLen(cur + delta);
+      if (delta > 0) {
+        // 1文字なら2から、2文字なら3から…（入力文字数+1）
+        if (cur < 1) next = Math.min(max, n + 1);
+        else next = Math.min(max, cur + 1);
+      } else {
+        if (cur < 1) return;
+        next = cur - 1;
+        // 入力文字数以下に戻したら「自動」（文字どおり）
+        if (next <= n) next = 0;
+      }
       patchSelectedText({ underline: 1, ulLen: next });
     }
 
@@ -1158,7 +1192,6 @@
       var backDesUlUp = q("ulUp", "backDesUlUp");
       var backDesUlDown = q("ulDown", "backDesUlDown");
       var backDesUlV = q("ulV", "backDesUlV");
-      var backDesUlFix = q("ulFix", "backDesUlFix");
       var backDesUlLenRow = q("ulLenRow", "backDesUlLenRow");
       var designCtl = q("ctl", "backDesignCtl");
       var designNone = q("none", "backDesignNone");
@@ -1204,11 +1237,11 @@
         if (backDesItalic) backDesItalic.classList.toggle("on", !!st.italic);
         if (backDesUnderline) backDesUnderline.classList.toggle("on", !!st.underline);
         var ulLen = clampUlLen(st.ulLen);
+        var ulMax = maxUlLenFor(st);
         if (backDesUlLenRow) backDesUlLenRow.style.display = st.underline ? "" : "none";
         if (backDesUlV) backDesUlV.textContent = ulLen > 0 ? (ulLen + "文字") : "自動";
-        if (backDesUlUp) backDesUlUp.disabled = ulLen >= UL_LEN_MAX;
+        if (backDesUlUp) backDesUlUp.disabled = ulLen >= ulMax;
         if (backDesUlDown) backDesUlDown.disabled = ulLen <= UL_LEN_MIN;
-        if (backDesUlFix) backDesUlFix.classList.toggle("on", ulLen === UL_LEN_DEFAULT);
         if (MeishiLayout.fillFontSelect) MeishiLayout.fillFontSelect(backDesFont, st.font || "");
         panel.querySelectorAll("[" + alignAttr + "]").forEach(function (b) {
           b.classList.toggle("on", b.getAttribute(alignAttr) === st.align);
@@ -1262,10 +1295,6 @@
       });
       if (backDesUlDown) backDesUlDown.addEventListener("click", function () {
         bumpUlLen(-1);
-        showDesign();
-      });
-      if (backDesUlFix) backDesUlFix.addEventListener("click", function () {
-        patchSelectedText({ underline: 1, ulLen: UL_LEN_DEFAULT });
         showDesign();
       });
       if (backDesFont && !backDesFont._meishiBound) {
