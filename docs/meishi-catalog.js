@@ -321,7 +321,7 @@
         t.lineHeight = Math.max(1.0, Math.min(2.5, lh));
       }
       t.fixed = t.fixed ? 1 : 0;
-      t.field = t.field === "aff" || t.field === "address" ? t.field : "";
+      t.field = t.field === "address" || t.field === "telfax" ? t.field : "";
       return t;
     });
     layout.shapes = normalizeShapeList(layout.shapes);
@@ -452,7 +452,7 @@
         t.lineHeight = Math.max(1.0, Math.min(2.5, lh));
       }
       t.fixed = t.fixed ? 1 : 0;
-      t.field = t.field === "aff" || t.field === "address" ? t.field : "";
+      t.field = t.field === "address" || t.field === "telfax" ? t.field : "";
       return t;
     });
     layout.shapes = normalizeShapeList(layout.shapes);

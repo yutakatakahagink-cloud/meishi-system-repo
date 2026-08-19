@@ -1694,7 +1694,7 @@
         var block = MeishiLayout.defExtraFieldBlock
           ? MeishiLayout.defExtraFieldBlock(kind, layout.texts.length, null)
           : MeishiLayout.defTextBlock(layout.texts.length);
-        block.field = kind || "aff";
+        block.field = kind || "address";
         block.fixed = 1;
         if (content) block.content = content;
         block.z = nextLayerZ(layout);

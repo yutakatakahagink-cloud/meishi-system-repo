@@ -2161,8 +2161,8 @@
         if (desTarget) {
           if (hit.kind === "text") {
             var fld = hit.st && hit.st.field;
-            if (fld === "aff") desTarget.textContent = "対象: 固定・所属";
-            else if (fld === "address") desTarget.textContent = "対象: 固定・住所";
+            if (fld === "address") desTarget.textContent = "対象: 固定・住所";
+            else if (fld === "telfax") desTarget.textContent = "対象: 固定・TEL/FAX";
             else desTarget.textContent = "対象: 自由テキスト";
           }
           else {
@@ -2395,7 +2395,7 @@
       var block = MeishiLayout.defExtraFieldBlock
         ? MeishiLayout.defExtraFieldBlock(kind, layout.texts.length, styleSrc)
         : MeishiLayout.defTextBlock(layout.texts.length);
-      block.field = kind || "aff";
+      block.field = kind || "address";
       block.fixed = 1;
       if (content) block.content = content;
       block.z = nextLayerZ(layout);

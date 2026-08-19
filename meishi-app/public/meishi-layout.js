@@ -73,8 +73,8 @@
   }
 
   var EXTRA_FIELD_KINDS = [
-    { id: "aff", label: "所属", elId: "aff", placeholder: "所属" },
     { id: "address", label: "住所", elId: "address", placeholder: "住所" },
+    { id: "telfax", label: "TEL・FAX", elId: "telfax", placeholder: "TEL / FAX" },
   ];
 
   function extraFieldMeta(kind) {
@@ -334,7 +334,7 @@
     }
     function showKinds() {
       overlay.innerHTML = "<div class='cat-modal-dialog' role='dialog' aria-modal='true'><h3>項目を追加</h3>" +
-        "<p class='hint' style='margin:0 0 10px'>氏名が変わっても同じ内容で出す所属・住所を追加します。配置と文言は共通デザインに保存されます。</p>" +
+        "<p class='hint' style='margin:0 0 10px'>氏名が変わっても同じ内容で出す住所・TEL/FAXを追加します。配置と文言は共通デザインに保存されます。</p>" +
         "<div class='shape-pick-grid'>" +
         EXTRA_FIELD_KINDS.map(function (k) {
           return "<button type='button' class='btn sm ghost' data-kind='" + k.id + "'>" + k.label + "</button>";

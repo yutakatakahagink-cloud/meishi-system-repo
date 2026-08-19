@@ -2111,19 +2111,6 @@
         var p = MeishiStore.getCompanyProfileForEdit(company || currentCo) || {};
         cat = p.catalog || {};
       } catch (e) { cat = {}; }
-      if (kind === "aff") {
-        var list = (cat.aff1 || []).slice();
-        function addMap(map) {
-          if (!map || typeof map !== "object") return;
-          Object.keys(map).forEach(function (k) {
-            var arr = map[k];
-            if (Array.isArray(arr)) arr.forEach(function (v) { if (v) list.push(v); });
-          });
-        }
-        addMap(cat.aff2);
-        addMap(cat.aff3);
-        return MeishiFields.uniq(list);
-      }
       if (kind === "address") {
         return (cat.locations || []).map(function (l) {
           if (!l) return "";
@@ -2131,6 +2118,12 @@
           if (!a) return "";
           return (l.postal ? "〒" + l.postal + " " : "") + a;
         }).filter(Boolean);
+      }
+      if (kind === "telfax") {
+        return MeishiFields.uniq((cat.locations || []).map(function (l) {
+          if (!l) return "";
+          return [l.tel ? "TEL " + l.tel : "", l.fax ? "FAX " + l.fax : ""].filter(Boolean).join("　");
+        }).filter(Boolean));
       }
       return [];
     }
