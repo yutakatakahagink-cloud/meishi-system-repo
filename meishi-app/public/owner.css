@@ -289,7 +289,7 @@ th{background:#f3f6fb;position:sticky;top:0}tr.sel{background:#e8eef8}tr:hover{b
   background:rgba(47,85,151,.14);
   box-shadow:0 0 0 2px rgba(47,85,151,.28);
 }
-.imgel img{width:100%;height:100%;object-fit:contain;object-position:left top;pointer-events:none;display:block}
+.imgel img{width:100%;height:100%;object-fit:contain;object-position:left top;pointer-events:none;display:block;background:transparent}
 .rs{position:absolute;right:0;bottom:0;width:12px;height:12px;background:#2f5597;border-radius:50%;cursor:se-resize;z-index:2}
 .meishi.is-dragging .el,.meishi.is-dragging .imgel{cursor:grabbing}
 .snap-guides{position:absolute;inset:0;pointer-events:none;z-index:900}

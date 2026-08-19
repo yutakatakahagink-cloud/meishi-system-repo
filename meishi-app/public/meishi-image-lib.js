@@ -245,6 +245,92 @@
     });
   }
 
+  var whiteKeyCache = {};
+  var WHITE_KEY_THRESHOLD = 245;
+  var WHITE_KEY_SOFT = 18;
+
+  function isSvgSrc(src) {
+    src = String(src || "");
+    return /\.svg(\?|#|$)/i.test(src) || src.indexOf("image/svg") >= 0;
+  }
+
+  function processWhiteTransparent(image) {
+    var w = image.naturalWidth;
+    var h = image.naturalHeight;
+    if (!w || !h) return null;
+    var canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    var ctx = canvas.getContext("2d", { willReadFrequently: true });
+    if (!ctx) return null;
+    ctx.drawImage(image, 0, 0, w, h);
+    try {
+      var imgData = ctx.getImageData(0, 0, w, h);
+      var px = imgData.data;
+      var hard = WHITE_KEY_THRESHOLD;
+      var soft = Math.max(0, hard - WHITE_KEY_SOFT);
+      for (var i = 0; i < px.length; i += 4) {
+        var a = px[i + 3];
+        if (a === 0) continue;
+        var r = px[i];
+        var g = px[i + 1];
+        var b = px[i + 2];
+        var minC = Math.min(r, g, b);
+        if (minC >= hard) {
+          px[i + 3] = 0;
+        } else if (minC >= soft) {
+          var t = (minC - soft) / (hard - soft);
+          px[i + 3] = Math.round(a * (1 - t));
+        }
+      }
+      ctx.putImageData(imgData, 0, 0);
+      return canvas.toDataURL("image/png");
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /** 白背景を透過した PNG を img に設定（失敗時は multiply で白を薄める） */
+  function applyWhiteTransparentToImg(imgEl, src, cb) {
+    cb = cb || function () {};
+    if (!imgEl || !src) {
+      cb(src || "");
+      return;
+    }
+    if (isSvgSrc(src)) {
+      imgEl.style.mixBlendMode = "";
+      imgEl.src = src;
+      cb(src);
+      return;
+    }
+    if (whiteKeyCache[src]) {
+      imgEl.style.mixBlendMode = "";
+      imgEl.src = whiteKeyCache[src];
+      cb(whiteKeyCache[src]);
+      return;
+    }
+    var loader = new Image();
+    loader.onload = function () {
+      var out = processWhiteTransparent(loader);
+      if (out) {
+        whiteKeyCache[src] = out;
+        imgEl.style.mixBlendMode = "";
+        imgEl.src = out;
+        cb(out);
+        return;
+      }
+      imgEl.style.mixBlendMode = "multiply";
+      imgEl.src = src;
+      cb(src);
+    };
+    loader.onerror = function () {
+      imgEl.style.mixBlendMode = "";
+      imgEl.src = src;
+      cb(src);
+    };
+    loader.src = src;
+  }
+
   window.MeishiImageLib = {
     loadManifest: loadManifest,
     pick: pick,
@@ -254,5 +340,6 @@
     itemUrl: itemUrl,
     createDefaultImage: createDefaultImage,
     resolveImages: resolveImages,
+    applyWhiteTransparentToImg: applyWhiteTransparentToImg,
   };
 })();

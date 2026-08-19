@@ -825,6 +825,24 @@
       return !!(im && (im.src || im.path || im.libId || im.file));
     }
 
+    function assignImageDisplaySrc(n, raw, nextSrc) {
+      if (n._src === nextSrc && n.img.complete && n.img.naturalWidth) {
+        ensureImageAspectFit(raw, n.img);
+        return;
+      }
+      n._src = nextSrc;
+      raw.aspectFit = 0;
+      if (window.MeishiImageLib && MeishiImageLib.applyWhiteTransparentToImg) {
+        MeishiImageLib.applyWhiteTransparentToImg(n.img, nextSrc, function () {
+          if (n._src !== nextSrc) return;
+          ensureImageAspectFit(raw, n.img);
+        });
+      } else {
+        n.img.src = nextSrc;
+        ensureImageAspectFit(raw, n.img);
+      }
+    }
+
     function syncImageNodes() {
       var layout = MeishiCatalog.normalizeLayout(getLayout());
       if (!layout.images) layout.images = [];
@@ -889,12 +907,7 @@
         }
         var n = imgNodes[raw.id];
         var nextSrc = display.src || "";
-        if (n._src !== nextSrc) {
-          n._src = nextSrc;
-          n.img.src = nextSrc;
-          raw.aspectFit = 0;
-        }
-        ensureImageAspectFit(raw, n.img);
+        assignImageDisplaySrc(n, raw, nextSrc);
         var sized = clampSizeInCard(raw.x || 0, raw.y || 0, raw.w || 16, raw.h || 12);
         raw.w = sized.w;
         raw.h = sized.h;
