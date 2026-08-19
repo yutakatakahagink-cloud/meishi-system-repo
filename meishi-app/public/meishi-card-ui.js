@@ -693,20 +693,13 @@
 
     /**
      * プレビュー用縦ずらし
-     * 資格が「表示」かつ空 → 所属・役職↓／携帯が「表示」かつ空 → メール・工事件名↑
+     * 資格は氏名の下なので、空でも所属・役職はずらさない。
+     * 携帯が「表示」かつ空 → メール・工事件名↑
      * 対象項目が非表示ならずらさない
      */
     function flowBaseY(id, st, layout) {
       if (!textFlow || !readOnly) return st.y;
       var y = st.y;
-      if ((id === "aff" || id === "title")
-          && isElShownInLayout(layout, id)
-          && isElShownInLayout(layout, "qual")
-          && !String(getElText("qual") || "").trim()) {
-        if (!hasLineBreak(getElText(id))) {
-          y += singleLineHeight(layout.el.qual);
-        }
-      }
       if ((id === "email" || id === "koji")
           && isElShownInLayout(layout, id)
           && isElShownInLayout(layout, "mobile")
