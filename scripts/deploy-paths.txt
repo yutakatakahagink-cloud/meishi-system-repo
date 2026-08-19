@@ -56,6 +56,7 @@ meishi-app/public/meishi-layout.js
 meishi-app/public/meishi-image-lib.js
 meishi-app/public/images/manifest.json
 meishi-app/public/images/sample-logo.svg
+meishi-app/public/images/nissin_kohgyo_logo.png
 scripts/Update-ImageManifest.ps1
 meishi-app/public/config.example.js
 meishi-app/public/data/meishi-records.json

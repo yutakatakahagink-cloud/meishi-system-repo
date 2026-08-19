@@ -4,6 +4,11 @@
       "id": "sample-logo",
       "file": "sample-logo.svg",
       "label": "サンプルロゴ"
+    },
+    {
+      "id": "nissin-kohgyo-logo",
+      "file": "nissin_kohgyo_logo.png",
+      "label": "NISSIN KOHGYO ロゴ"
     }
   ]
 }
