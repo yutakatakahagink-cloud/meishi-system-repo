@@ -116,6 +116,18 @@
 
   function pxFromEvent(e) { return e.touches ? e.touches[0] : e; }
 
+  /** CSS transform:scale された名刺でも、画面座標を名刺内pxに戻す */
+  function cardCssScale(cardEl) {
+    var r = cardEl.getBoundingClientRect();
+    var w = cardEl.clientWidth || 1;
+    var h = cardEl.clientHeight || 1;
+    return { x: r.width / w, y: r.height / h, left: r.left, top: r.top };
+  }
+  function screenToCard(cardEl, clientX, clientY) {
+    var s = cardCssScale(cardEl);
+    return { x: (clientX - s.left) / s.x, y: (clientY - s.top) / s.y };
+  }
+
   function bestSnap(dragEdges, targets, thresh) {
     var best = null;
     dragEdges.forEach(function (de) {
@@ -130,9 +142,11 @@
   }
 
   function collectSnapTargets(cardEl, excludeNode, zoneEdges, extraCardEls) {
-    var cr = cardEl.getBoundingClientRect();
-    var tx = [0, cr.width / 2, cr.width];
-    var ty = [0, cr.height / 2, cr.height];
+    var s = cardCssScale(cardEl);
+    var cw = cardEl.clientWidth || 1;
+    var ch = cardEl.clientHeight || 1;
+    var tx = [0, cw / 2, cw];
+    var ty = [0, ch / 2, ch];
     if (zoneEdges) {
       tx.push(zoneEdges.leftEnd, zoneEdges.centerStart, zoneEdges.centerEnd, zoneEdges.rightStart);
     }
@@ -141,10 +155,12 @@
       root.querySelectorAll(".el, .btel, .imgel").forEach(function (n) {
         if (n === excludeNode) return;
         var r = n.getBoundingClientRect();
-        var l = r.left - cr.left;
-        var t = r.top - cr.top;
-        tx.push(l, l + r.width / 2, l + r.width);
-        ty.push(t, t + r.height / 2, t + r.height);
+        var l = (r.left - s.left) / s.x;
+        var t = (r.top - s.top) / s.y;
+        var rw = r.width / s.x;
+        var rh = r.height / s.y;
+        tx.push(l, l + rw / 2, l + rw);
+        ty.push(t, t + rh / 2, t + rh);
       });
     }
     addNodesFrom(cardEl);
@@ -279,10 +295,11 @@
         handle.setPointerCapture(ev.pointerId);
         cardEl.classList.add("is-dragging-center");
         var startShift = getCenterShiftMm();
-        var startX = pxFromEvent(ev).clientX;
+        var startPt = screenToCard(cardEl, pxFromEvent(ev).clientX, 0);
         var cardW = cardEl.clientWidth || 1;
         function shiftFromDelta(clientX) {
-          var deltaPx = clientX - startX;
+          var cur = screenToCard(cardEl, clientX, 0);
+          var deltaPx = cur.x - startPt.x;
           var deltaMm = deltaPx * CARD_W_MM / cardW;
           return clampCenterShiftMm(startShift - deltaMm);
         }
@@ -1691,7 +1708,8 @@
         }
         var pid = ev.pointerId;
         var p = pxFromEvent(ev);
-        var sx = p.clientX, sy = p.clientY, ox = st.x, oy = st.y;
+        var start = screenToCard(cardEl, p.clientX, p.clientY);
+        var ox = st.x, oy = st.y;
         var isTextDrag = !isImage && !isFreeText && useZoneTextLayout() && node.classList.contains("el");
         var isImageDrag = !!isImage || node.classList.contains("imgel");
         var raf = 0, nx = ox, ny = oy;
@@ -1713,8 +1731,9 @@
         function mv(e2) {
           if (ended || e2.pointerId !== pid) return;
           var q = pxFromEvent(e2);
-          var dx = q.clientX - sx;
-          var dy = q.clientY - sy;
+          var cur = screenToCard(cardEl, q.clientX, q.clientY);
+          var dx = cur.x - start.x;
+          var dy = cur.y - start.y;
           if (!dragging) {
             if (isFreeText && Math.abs(dx) < DRAG_START && Math.abs(dy) < DRAG_START) return;
             dragging = true;
@@ -1723,7 +1742,7 @@
           }
           var rawNx = Math.round(ox + dx);
           var rawNy = Math.round(oy + dy);
-          var pointerX = q.clientX - cardEl.getBoundingClientRect().left;
+          var pointerX = cur.x;
           nx = isTextDrag ? clampTextDragX(node, rawNx, pointerX) : rawNx;
           ny = rawNy;
           var boxW = node.offsetWidth || (isImage ? (st.w || 1) : 1);
@@ -1781,7 +1800,8 @@
         try { handle.setPointerCapture(pid); } catch (e) {}
         cardEl.classList.add("is-dragging");
         var p = pxFromEvent(ev);
-        var sx = p.clientX, sy = p.clientY, ow = im.w, oh = im.h;
+        var start = screenToCard(cardEl, p.clientX, p.clientY);
+        var ow = im.w, oh = im.h;
         var raf = 0, nw = ow, nh = oh;
         var ended = false;
         function detachPointer() {
@@ -1798,8 +1818,9 @@
         function mv(e2) {
           if (ended || e2.pointerId !== pid) return;
           var q = pxFromEvent(e2);
-          var rawW = Math.max(16, Math.round(ow + (q.clientX - sx)));
-          var rawH = Math.max(12, Math.round(oh + (q.clientY - sy)));
+          var cur = screenToCard(cardEl, q.clientX, q.clientY);
+          var rawW = Math.max(16, Math.round(ow + (cur.x - start.x)));
+          var rawH = Math.max(12, Math.round(oh + (cur.y - start.y)));
           var sized = clampSizeInCard(im.x, im.y, rawW, rawH);
           nw = sized.w;
           nh = sized.h;
