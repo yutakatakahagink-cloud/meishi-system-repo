@@ -34,6 +34,21 @@
     }).join("|");
   }
 
+  function normalizeShapeList(raw) {
+    var list;
+    if (Array.isArray(raw)) list = raw;
+    else if (raw && typeof raw === "object") {
+      var keys = Object.keys(raw).filter(function (k) { return /^\d+$/.test(k); });
+      if (keys.length) {
+        keys.sort(function (a, b) { return Number(a) - Number(b); });
+        list = keys.map(function (k) { return raw[k]; });
+      } else list = [];
+    } else list = [];
+    return list.map(function (s, i) {
+      return MeishiLayout.normalizeShape ? MeishiLayout.normalizeShape(s, i) : s;
+    });
+  }
+
   function addUnique(arr, v) {
     v = v == null ? "" : String(v).trim();
     if (!v) return;
@@ -305,8 +320,10 @@
         var lh = Math.round(Number(t.lineHeight) * 10) / 10;
         t.lineHeight = Math.max(1.0, Math.min(2.5, lh));
       }
+      t.fixed = t.fixed ? 1 : 0;
       return t;
     });
+    layout.shapes = normalizeShapeList(layout.shapes);
     if (typeof layout.centerShiftMm !== "number" || isNaN(layout.centerShiftMm)) {
       layout.centerShiftMm = 5;
     }
@@ -433,8 +450,10 @@
         var lh = Math.round(Number(t.lineHeight) * 10) / 10;
         t.lineHeight = Math.max(1.0, Math.min(2.5, lh));
       }
+      t.fixed = t.fixed ? 1 : 0;
       return t;
     });
+    layout.shapes = normalizeShapeList(layout.shapes);
     if (typeof layout.centerShiftMm !== "number" || isNaN(layout.centerShiftMm)) {
       layout.centerShiftMm = 5;
     }

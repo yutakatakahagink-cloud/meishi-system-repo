@@ -881,6 +881,7 @@
     if (!layout || typeof layout !== "object") return 0;
     var n = coerceToArray(layout.images).length;
     n += coerceToArray(layout.texts).length;
+    n += coerceToArray(layout.shapes).length;
     if (layout.el && typeof layout.el === "object") {
       Object.keys(layout.el).forEach(function (id) {
         var st = layout.el[id];
@@ -2086,16 +2087,30 @@
     return [];
   }
 
+  function collectDeptTexts(dept) {
+    if (!dept || !dept.layout) return [];
+    return clone(coerceToArray(dept.layout.texts));
+  }
+
+  function collectDeptShapes(dept) {
+    if (!dept || !dept.layout) return [];
+    return clone(coerceToArray(dept.layout.shapes));
+  }
+
   function mergeDeptSettings(base, over) {
     var imgs = collectDeptImages(base).concat(collectDeptImages(over));
+    var texts = collectDeptTexts(base).concat(collectDeptTexts(over));
+    var shapes = collectDeptShapes(base).concat(collectDeptShapes(over));
     var out = normalizeDeptProfile(null, over.company || base.company, over.aff1 || base.aff1, over.aff2 || base.aff2);
     out.images = imgs;
-    if (imgs.length) {
+    if (imgs.length || texts.length || shapes.length) {
       out.layout = MeishiLayout.defLayout();
       MeishiLayout.ELS.forEach(function (e) {
         if (out.layout.el[e.id]) out.layout.el[e.id].hidden = true;
       });
       out.layout.images = clone(imgs);
+      out.layout.texts = clone(texts);
+      out.layout.shapes = clone(shapes);
     }
     return out;
   }
@@ -2208,6 +2223,9 @@
     if (dept.texts && dept.texts.length) {
       merged.texts = coerceToArray(merged.texts).concat(MeishiLayout.clone(coerceToArray(dept.texts)));
     }
+    if (dept.shapes && dept.shapes.length) {
+      merged.shapes = coerceToArray(merged.shapes).concat(MeishiLayout.clone(coerceToArray(dept.shapes)));
+    }
     return hydrateLayoutImages(MeishiCatalog.normalizeLayout(merged), company);
   }
 
@@ -2240,6 +2258,9 @@
       }
       if (dept.images && dept.images.length) {
         merged.images = coerceToArray(merged.images).concat(MeishiLayout.clone(coerceToArray(dept.images)));
+      }
+      if (dept.shapes && dept.shapes.length) {
+        merged.shapes = coerceToArray(merged.shapes).concat(MeishiLayout.clone(coerceToArray(dept.shapes)));
       }
     }
     return hydrateLayoutImages(MeishiCatalog.normalizeBackLayout(merged), company);

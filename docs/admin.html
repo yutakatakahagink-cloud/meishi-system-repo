@@ -12,45 +12,29 @@
     <script>window.MEISHI_ADMIN_PAGE = true;</script>
     <script src="config.js" onerror="console.info('[Meishi] config.js なし')"></script>
     <script src="meishi-fields.js?v=20250714p"></script>
-    <script src="meishi-catalog.js?v=20250724aw"></script>
+    <script src="meishi-catalog.js?v=20250724ax"></script>
     <script src="meishi-catalog-sync.js?v=20250724ax"></script>
     <script src="meishi-catalog-editor.js?v=20250724bf"></script>
-    <script src="meishi-store.js?v=20250724z"></script>
-    <script src="meishi-layout.js?v=20250724av"></script>
+    <script src="meishi-store.js?v=20250724aa"></script>
+    <script src="meishi-layout.js?v=20250724aw"></script>
     <script src="meishi-image-lib.js?v=20250724ac"></script>
-    <script src="meishi-card-ui.js?v=20250724ay"></script>
-    <script src="meishi-back-card-ui.js?v=20250724aw"></script>
+    <script src="meishi-card-ui.js?v=20250724az"></script>
+    <script src="meishi-back-card-ui.js?v=20250724ax"></script>
     <script src="meishi-print-sheet.js?v=20250724ac"></script>
     <script src="meishi-user-print.js?v=20250724bc"></script>
     <script src="meishi-preview-init.js?v=20250724ba"></script>
-    <link rel="stylesheet" href="meishi-print-sheet.css?v=20250714z" />
+    <link rel="stylesheet" href="meishi-print-sheet.css?v=20250724az" />
     <meta http-equiv="Cache-Control" content="no-store" />
-    <link rel="stylesheet" href="owner.20250724av.css" />
+    <link rel="stylesheet" href="owner.20250724aw.css" />
   </head>
   <body>
     <header>
       <h1>名刺印刷システム — 担当者設定</h1>
       <span class="badge" id="syncBadge">…</span>
     </header>
-    
-    <div id="adminLoginView" class="wrap">
-      <div class="card" style="max-width:420px;margin:8vh auto">
-        <h2>担当者ログイン</h2>
-        <p class="hint">所有者から付与された ID / パスワードでログインしてください。</p>
-        <div class="field"><label>ログインID</label><input id="adminLoginId" autocomplete="username" /></div>
-        <div class="field"><label>パスワード</label><input id="adminLoginPass" type="password" autocomplete="current-password" /></div>
-        <label class="hint login-remember" style="display:flex;align-items:center;gap:8px;margin:4px 0 14px;cursor:pointer;white-space:nowrap;font-weight:500">
-          <input type="checkbox" id="adminLoginRemember" style="width:auto;margin:0;flex:0 0 auto" />
-          <span>IDとパスワードを保存する</span>
-        </label>
-        <button type="button" class="btn" id="btnAdminLogin" style="display:block;width:100%">ログイン</button>
-        <p class="hint" id="adminLoginErr" style="color:#b3261e"></p>
-      </div>
-    </div>
-
-    <div class="wrap" id="adminMainView" hidden>
+    <div class="wrap">
       <nav class="tabs" id="tabs">
-        <button type="button" data-tab="basic" class="on">ログアウト・案内</button>
+        <button type="button" data-tab="basic" class="on">基本・URL</button>
         <button type="button" data-tab="company">会社共通設定</button>
         <button type="button" data-tab="dept">部署共通設定</button>
         <button type="button" data-tab="preview">プレビュー</button>
@@ -165,6 +149,8 @@
               <div class="co-design-side">
                 <div class="btn-row co-design-tools">
                   <button type="button" class="btn sm ghost" id="btnCoFrontText">＋テキスト</button>
+                  <button type="button" class="btn sm ghost" id="btnCoFrontFixed">＋固定項目</button>
+                  <button type="button" class="btn sm ghost" id="btnCoFrontShape">＋図形</button>
                   <button type="button" class="btn sm ghost" id="btnCoImgPick">＋画像</button>
                   <button type="button" class="btn sm ghost" id="btnCoFrontDivider">中央線を削除</button>
                   <button type="button" class="btn sm ghost" id="btnCoDesReset">初期化</button>
@@ -213,6 +199,22 @@
                     <div class="des-row"><label>表示</label><div class="seg"><button type="button" id="desShow">表示</button><button type="button" id="desHide">非表示</button></div></div>
                     <div class="des-row" style="display:none"><label>操作</label><button type="button" class="btn sm" id="desTextDelete">テキストを削除</button></div>
                   </div>
+                  <div id="desShapeCtl" style="display:none">
+                    <div class="hint bold">図形</div>
+                    <div class="des-row"><label>種類</label>
+                      <select id="desShapeKind" class="des-font-select">
+                        <option value="rect">四角形</option>
+                        <option value="roundRect">角丸四角形</option>
+                        <option value="ellipse">楕円</option>
+                        <option value="line">直線</option>
+                        <option value="arrow">矢印</option>
+                      </select>
+                    </div>
+                    <div class="des-row"><label>塗り</label><div class="des-bg-row"><input type="color" id="desShapeFill" /><button type="button" class="btn sm ghost" id="desShapeFillNone">なし</button></div></div>
+                    <div class="des-row"><label>線色</label><input type="color" id="desShapeStroke" /></div>
+                    <div class="des-row"><label>線幅</label><div class="size-step"><button type="button" id="desShapeSwUp">▲</button><span id="desShapeSwV">1.5</span><button type="button" id="desShapeSwDown">▼</button></div></div>
+                    <div class="des-row"><label>操作</label><button type="button" class="btn sm" id="desShapeDelete">図形を削除</button></div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -226,6 +228,8 @@
                 <div class="co-design-side">
                   <div class="btn-row co-design-tools">
                     <button type="button" class="btn sm ghost" id="btnCoBackText">＋テキスト</button>
+                    <button type="button" class="btn sm ghost" id="btnCoBackFixed">＋固定項目</button>
+                    <button type="button" class="btn sm ghost" id="btnCoBackShape">＋図形</button>
                     <button type="button" class="btn sm ghost" id="btnCoBackImgPick">＋画像</button>
                     <button type="button" class="btn sm ghost" id="btnCoBackDivider">中央線を追加</button>
                     <button type="button" class="btn sm ghost" id="btnCoBackDesReset">裏面を初期化</button>
@@ -297,7 +301,7 @@
               <button type="button" data-side="back">裏</button>
             </div>
             <div id="deFrontDesign">
-            <p class="hint">下層＝会社共通（編集不可）。上層＝部署用画像を <strong>画像保存ボックス</strong> から追加・配置できます。</p>
+            <p class="hint">下層＝会社共通（編集不可）。上層＝この部署の全員に出す固定項目・図形・画像。氏名が変わっても同じ内容が表示されます。</p>
             <div class="editor co-design-editor">
               <div class="preview-scale-box co-design-scale">
                 <div class="stage stack">
@@ -307,19 +311,41 @@
               </div>
               <div class="co-design-side">
                 <div class="btn-row co-design-tools">
+                  <button type="button" class="btn sm ghost" id="btnDeFrontFixed">＋固定項目</button>
+                  <button type="button" class="btn sm ghost" id="btnDeFrontShape">＋図形</button>
                   <button type="button" class="btn sm ghost" id="btnDeImgPick">＋部署画像</button>
-                  <button type="button" class="btn sm ghost" id="btnDeDesReset">部署画像をクリア</button>
+                  <button type="button" class="btn sm ghost" id="btnDeDesReset">部署レイアウトをクリア</button>
                 </div>
                 <div id="deImgList" class="img-list"></div>
                 <div class="card inner" id="deDesignPanel">
-                  <div id="deDesignNone" class="hint">部署画像をクリック</div>
+                  <div id="deDesignNone" class="hint">固定項目・図形・部署画像をクリック</div>
                   <div id="deDesignLayerRow" class="des-row" style="display:none">
                     <label>重ね順</label>
                     <div class="seg"><button type="button" id="deDesFront">最前面</button><button type="button" id="deDesBack">最背面</button></div>
                   </div>
                   <div id="deDesignCtl" style="display:none">
                     <div id="deDesTarget" class="hint bold"></div>
-                    <p class="hint">文字書式は会社共通設定で編集してください。</p>
+                    <div class="des-row"><label>文字</label><div class="size-step"><button type="button" id="deDesSizeUp">▲</button><span id="deDesSizeV">12px</span><button type="button" id="deDesSizeDown">▼</button></div></div>
+                    <div class="des-row"><label>色</label><input type="color" id="deDesColor" /></div>
+                    <div class="des-row"><label>書体</label><select id="deDesFont" class="des-font-select"></select></div>
+                    <div class="des-row"><label>太さ</label><div class="seg"><button type="button" id="deDesNorm">標準</button><button type="button" id="deDesBold">太字</button></div></div>
+                    <div class="des-row" style="display:none"><label>操作</label><button type="button" class="btn sm" id="deDesTextDelete">項目を削除</button></div>
+                  </div>
+                  <div id="deDesShapeCtl" style="display:none">
+                    <div class="hint bold">図形</div>
+                    <div class="des-row"><label>種類</label>
+                      <select id="deDesShapeKind" class="des-font-select">
+                        <option value="rect">四角形</option>
+                        <option value="roundRect">角丸四角形</option>
+                        <option value="ellipse">楕円</option>
+                        <option value="line">直線</option>
+                        <option value="arrow">矢印</option>
+                      </select>
+                    </div>
+                    <div class="des-row"><label>塗り</label><div class="des-bg-row"><input type="color" id="deDesShapeFill" /><button type="button" class="btn sm ghost" id="deDesShapeFillNone">なし</button></div></div>
+                    <div class="des-row"><label>線色</label><input type="color" id="deDesShapeStroke" /></div>
+                    <div class="des-row"><label>線幅</label><div class="size-step"><button type="button" id="deDesShapeSwUp">▲</button><span id="deDesShapeSwV">1.5</span><button type="button" id="deDesShapeSwDown">▼</button></div></div>
+                    <div class="des-row"><label>操作</label><button type="button" class="btn sm" id="deDesShapeDelete">図形を削除</button></div>
                   </div>
                 </div>
               </div>
@@ -337,6 +363,8 @@
                 <div class="co-design-side">
                   <div class="btn-row co-design-tools">
                     <button type="button" class="btn sm ghost" id="btnDeBackText">＋テキスト</button>
+                    <button type="button" class="btn sm ghost" id="btnDeBackFixed">＋固定項目</button>
+                    <button type="button" class="btn sm ghost" id="btnDeBackShape">＋図形</button>
                     <button type="button" class="btn sm ghost" id="btnDeBackImgPick">＋部署画像</button>
                     <button type="button" class="btn sm ghost" id="btnDeBackDivider">中央線を追加</button>
                     <button type="button" class="btn sm ghost" id="btnDeBackDesReset">裏面をクリア</button>
@@ -519,7 +547,7 @@
         <button type="button" class="btn sm" id="btnQrClose">閉じる</button>
       </div>
     </div>
-    <script src="owner-admin.20250724ba.js"></script>
+    <script src="owner-admin.20250724bb.js"></script>
     <script>OwnerAdmin.initAdmin();</script>
   </body>
 </html>

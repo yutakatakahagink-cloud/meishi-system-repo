@@ -60,7 +60,7 @@
     var ty = [0, ch / 2, ch];
     function addNodesFrom(root) {
       if (!root) return;
-      root.querySelectorAll(".btel, .imgel").forEach(function (n) {
+      root.querySelectorAll(".btel, .imgel, .shpel").forEach(function (n) {
         if (n === excludeNode) return;
         var r = n.getBoundingClientRect();
         var l = (r.left - s.left) / s.x;
@@ -107,12 +107,15 @@
     var built = false;
     var textNodes = {};
     var imgNodes = {};
+    var shapeNodes = {};
     var guideLayer = null;
     var zoneLayer = null;
     var panelShowDesign = null;
 
     function imgSelId(id) { return "__img:" + id; }
     function isImgSel(s) { return s && s.indexOf("__img:") === 0; }
+    function shpSelId(id) { return "__shp:" + id; }
+    function isShpSel(s) { return s && s.indexOf("__shp:") === 0; }
 
     function saveLayout() {
       onLayoutChange(getLayout());
@@ -692,6 +695,7 @@
       var items = [];
       ((layout && layout.texts) || []).forEach(function (t) { if (t) items.push(t); });
       ((layout && layout.images) || []).forEach(function (im) { if (im) items.push(im); });
+      ((layout && layout.shapes) || []).forEach(function (sh) { if (sh) items.push(sh); });
       return items;
     }
 
@@ -735,6 +739,12 @@
         var tx = ((layout.texts) || []).find(function (t) { return t && t.id === sel; });
         if (!tx) return null;
         return { kind: "text", st: tx, node: textNodes[sel] };
+      }
+      if (isShpSel(sel)) {
+        var sid = String(sel).replace(/^__shp:/, "");
+        var sh = ((layout.shapes) || []).find(function (x) { return x && x.id === sid; });
+        if (!sh) return null;
+        return { kind: "shape", st: sh, node: shapeNodes[sid] || null };
       }
       return null;
     }
@@ -1083,6 +1093,9 @@
       Object.keys(imgNodes).forEach(function (id) {
         imgNodes[id].wrap.classList.toggle("sel", sel === imgSelId(id));
       });
+      Object.keys(shapeNodes).forEach(function (id) {
+        shapeNodes[id].classList.toggle("sel", sel === shpSelId(id));
+      });
     }
 
     function attachDrag(node, st, isImage) {
@@ -1311,6 +1324,45 @@
       Object.keys(imgNodes).forEach(function (id) {
         if (!imgIds[id]) { imgNodes[id].wrap.remove(); delete imgNodes[id]; }
       });
+
+      var shapes = layout.shapes || [];
+      var shpIds = {};
+      shapes.forEach(function (st) {
+        if (!st || !st.id) return;
+        shpIds[st.id] = st;
+        var node = shapeNodes[st.id];
+        if (!node) {
+          node = document.createElement("div");
+          node.className = "shpel";
+          node.dataset.id = shpSelId(st.id);
+          var svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+          svg.setAttribute("preserveAspectRatio", "none");
+          node.appendChild(svg);
+          if (!readOnly) {
+            var rs = document.createElement("div");
+            rs.className = "rs";
+            node.appendChild(rs);
+            attachDrag(node, st, true);
+            attachResize(rs, st, node);
+          } else node.style.cursor = "default";
+          cardEl.appendChild(node);
+          shapeNodes[st.id] = node;
+        }
+        var w = Math.max(8, st.w || 72), h = Math.max(4, st.h || 40);
+        node.style.left = (st.x || 0) + "px";
+        node.style.top = (st.y || 0) + "px";
+        node.style.width = w + "px";
+        node.style.height = h + "px";
+        node.style.zIndex = String(ensureItemZ(st, 4));
+        var svgEl = node.querySelector("svg");
+        if (svgEl && MeishiLayout.shapeSvgInner) {
+          svgEl.setAttribute("viewBox", "0 0 " + w + " " + h);
+          svgEl.innerHTML = MeishiLayout.shapeSvgInner(st);
+        }
+      });
+      Object.keys(shapeNodes).forEach(function (id) {
+        if (!shpIds[id]) { try { shapeNodes[id].remove(); } catch (e) {} delete shapeNodes[id]; }
+      });
       updateSelectionHighlight();
     }
 
@@ -1342,6 +1394,7 @@
       editingId = null;
       textNodes = {};
       imgNodes = {};
+      shapeNodes = {};
       guideLayer = null;
       zoneLayer = null;
       cardEl.innerHTML = "";
@@ -1618,6 +1671,35 @@
       bindBackDesignPanel: bindBackDesignPanel,
       clearSelection: function () { sel = null; updateSelectionHighlight(); },
       editTextById: editTextById,
+      addTextBlock: function (opts) {
+        var layout = getLayout();
+        layout.texts = layout.texts || [];
+        var block = (opts && opts.fixed && MeishiLayout.defFixedTextBlock)
+          ? MeishiLayout.defFixedTextBlock(layout.texts.length)
+          : MeishiLayout.defTextBlock(layout.texts.length);
+        if (opts && opts.fixed) block.fixed = 1;
+        block.z = nextLayerZ(layout);
+        layout.texts.push(block);
+        saveLayout();
+        renderCard();
+        editTextById(block.id, true);
+        return block;
+      },
+      addFixedTextBlock: function () {
+        return this.addTextBlock({ fixed: 1 });
+      },
+      addShape: function (kind) {
+        var layout = getLayout();
+        layout.shapes = layout.shapes || [];
+        var sh = MeishiLayout.defShape(kind || "rect", layout.shapes.length);
+        sh.z = nextLayerZ(layout);
+        layout.shapes.push(sh);
+        saveLayout();
+        renderCard();
+        sel = shpSelId(sh.id);
+        updateSelectionHighlight();
+        return sh;
+      },
       removeTextBlock: removeTextBlock,
       commitAllTextEdits: commitAllTextEdits,
       setCenterDivider: setCenterDivider,

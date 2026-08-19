@@ -17,6 +17,7 @@
   var currentCo = "";
   var deCoUI = null;
   var deUI = null;
+  var dePanel = null;
   var deCoLayout = null;
   var deLayout = null;
   var deCoLayoutBack = null;
@@ -167,8 +168,8 @@
     var can = adminCanEditCurrentCo();
     [
       "btnSaveCoCatalog", "btnSaveCoDesign", "btnCoAdd", "btnCoRename", "btnCoDel", "btnCoSyncCat",
-      "btnCoFrontText", "btnCoImgPick", "btnCoFrontDivider", "btnCoDesReset",
-      "btnCoBackText", "btnCoBackImgPick", "btnCoBackDivider", "btnCoBackDesReset",
+      "btnCoFrontText", "btnCoFrontFixed", "btnCoFrontShape", "btnCoImgPick", "btnCoFrontDivider", "btnCoDesReset",
+      "btnCoBackText", "btnCoBackFixed", "btnCoBackShape", "btnCoBackImgPick", "btnCoBackDivider", "btnCoBackDesReset",
       "btnSaveDept"
     ].forEach(function (id) {
       var el = document.getElementById(id);
@@ -288,6 +289,7 @@
     }
     consider(layout && layout.texts);
     consider(layout && layout.images);
+    consider(layout && layout.shapes);
     return Math.max(10, Math.round(max) + 1);
   }
 
@@ -1183,6 +1185,8 @@
       if (layout.el[e.id]) layout.el[e.id].hidden = true;
     });
     layout.images = [];
+    layout.texts = [];
+    layout.shapes = [];
     return layout;
   }
 
@@ -1303,16 +1307,10 @@
         snapExtraCardEl: document.getElementById("deCoBaseCard"),
         onLayoutChange: function () {},
         onSelect: function () {
-          var none = document.getElementById("deDesignNone");
-          var ctl = document.getElementById("deDesignCtl");
-          var layer = document.getElementById("deDesignLayerRow");
-          if (none) none.style.display = "none";
-          if (ctl) ctl.style.display = "";
-          if (layer) layer.style.display = "";
-          var tgt = document.getElementById("deDesTarget");
-          if (tgt) tgt.textContent = "部署画像（ドラッグで移動・右下でサイズ変更）";
+          if (dePanel) dePanel.showDesign();
         },
       });
+      dePanel = deUI.bindDesignPanel(document.getElementById("deDesignPanel"));
       var deFront = document.getElementById("deDesFront");
       var deBack = document.getElementById("deDesBack");
       if (deFront && !deFront._layerBound) {
@@ -2100,6 +2098,18 @@
     document.getElementById("btnCoImgPick").onclick = function () {
       pickImagesIntoLayout(coLayout, "co", function () { refreshCoDesign(); });
     };
+    function pickAndAddShape(ui) {
+      if (!ui || !MeishiLayout.pickShapeKind) return;
+      MeishiLayout.pickShapeKind(function (kind) {
+        if (!kind || !ui.addShape) return;
+        ui.addShape(kind);
+      });
+    }
+    function addFixedToUi(ui) {
+      if (!ui) return;
+      if (ui.addFixedTextBlock) ui.addFixedTextBlock();
+      else if (ui.addTextBlock) ui.addTextBlock({ fixed: 1 });
+    }
     document.getElementById("btnCoFrontText").onclick = function () {
       if (!coLayout) coLayout = MeishiLayout.defLayout();
       coLayout = MeishiCatalog.normalizeLayout(coLayout);
@@ -2111,6 +2121,44 @@
       refreshCoDesign();
       if (coUI && coUI.editTextById) coUI.editTextById(block.id, true);
     };
+    (function bindShapeFixedBtns() {
+      function on(id, fn) {
+        var el = document.getElementById(id);
+        if (el) el.onclick = fn;
+      }
+      on("btnCoFrontFixed", function () { addFixedToUi(coUI); });
+      on("btnCoFrontShape", function () { pickAndAddShape(coUI); });
+      on("btnCoBackFixed", function () { addFixedToUi(coBackUI); });
+      on("btnCoBackShape", function () { pickAndAddShape(coBackUI); });
+      on("btnDeFrontFixed", function () {
+        var pk = getDeptPickers();
+        pk.aff1 = document.getElementById("deAff1Pick").value;
+        if (!pk.co || !pk.aff1) return alert("会社と所属1を選択してください");
+        if (!deLayout) loadDeptLayout();
+        addFixedToUi(deUI);
+      });
+      on("btnDeFrontShape", function () {
+        var pk = getDeptPickers();
+        pk.aff1 = document.getElementById("deAff1Pick").value;
+        if (!pk.co || !pk.aff1) return alert("会社と所属1を選択してください");
+        if (!deLayout) loadDeptLayout();
+        pickAndAddShape(deUI);
+      });
+      on("btnDeBackFixed", function () {
+        var pk = getDeptPickers();
+        pk.aff1 = document.getElementById("deAff1Pick").value;
+        if (!pk.co || !pk.aff1) return alert("会社と所属1を選択してください");
+        if (!deLayoutBack) loadDeptLayout();
+        addFixedToUi(deBackUI);
+      });
+      on("btnDeBackShape", function () {
+        var pk = getDeptPickers();
+        pk.aff1 = document.getElementById("deAff1Pick").value;
+        if (!pk.co || !pk.aff1) return alert("会社と所属1を選択してください");
+        if (!deLayoutBack) loadDeptLayout();
+        pickAndAddShape(deBackUI);
+      });
+    })();
     document.getElementById("btnCoDesReset").onclick = function () {
       if (!confirm("デザインを初期化しますか？")) return;
       coLayout = MeishiLayout.defLayout();

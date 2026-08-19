@@ -199,10 +199,17 @@
     print-color-adjust: exact;
   }
 
-  .meishi-print-card-wrap .imgel {
+  .meishi-print-card-wrap .imgel,
+  .meishi-print-card-wrap .shpel {
     position: absolute;
     box-sizing: border-box;
     z-index: 1;
+  }
+  .meishi-print-card-wrap .shpel svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+    overflow: visible;
   }
 
   .meishi-print-card-wrap .imgel img {

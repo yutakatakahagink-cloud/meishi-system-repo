@@ -21,7 +21,7 @@
     return JSON.parse(JSON.stringify(o));
   }
   function defLayout() {
-    var o = { el: {}, images: [], texts: [], centerShiftMm: 5, centerDivider: true };
+    var o = { el: {}, images: [], texts: [], shapes: [], centerShiftMm: 5, centerDivider: true };
     ELS.forEach(function (e) { o.el[e.id] = clone(e.def); });
     return o;
   }
@@ -61,7 +61,15 @@
       align: "left",
       lineHeight: 1.3,
       z: 20 + i,
+      fixed: 0,
     };
+  }
+
+  function defFixedTextBlock(index) {
+    var t = defTextBlock(index);
+    t.content = "固定項目";
+    t.fixed = 1;
+    return t;
   }
 
   var BACK_FONTS = [
@@ -173,7 +181,118 @@
   }
 
   function defBackLayout() {
-    return { texts: [], images: [], centerShiftMm: 5, centerDivider: false };
+    return { texts: [], images: [], shapes: [], centerShiftMm: 5, centerDivider: false };
+  }
+
+  var SHAPE_KINDS = [
+    { id: "rect", label: "四角形" },
+    { id: "roundRect", label: "角丸四角形" },
+    { id: "ellipse", label: "楕円" },
+    { id: "line", label: "直線" },
+    { id: "arrow", label: "矢印" },
+  ];
+
+  function defShape(kind, i) {
+    var k = String(kind || "rect");
+    if (!SHAPE_KINDS.some(function (s) { return s.id === k; })) k = "rect";
+    var lineLike = k === "line" || k === "arrow";
+    return {
+      id: "shp" + Date.now() + (i || 0),
+      kind: k,
+      x: 28 + (i || 0) * 8,
+      y: 28 + (i || 0) * 8,
+      w: lineLike ? 90 : 72,
+      h: lineLike ? 12 : 40,
+      fill: lineLike ? "" : "#dbe6f5",
+      stroke: "#2f5597",
+      strokeW: lineLike ? 2 : 1.5,
+      z: 4 + (i || 0),
+    };
+  }
+
+  function normalizeShape(sh, i) {
+    if (!sh || typeof sh !== "object") return defShape("rect", i);
+    var kinds = SHAPE_KINDS.map(function (s) { return s.id; });
+    var kind = String(sh.kind || "rect");
+    if (kinds.indexOf(kind) < 0) kind = "rect";
+    var lineLike = kind === "line" || kind === "arrow";
+    var fill = sh.fill == null ? (lineLike ? "" : "#dbe6f5") : String(sh.fill).trim();
+    if (fill && !/^#[0-9A-Fa-f]{6}$/.test(fill) && fill !== "none") fill = lineLike ? "" : "#dbe6f5";
+    if (fill === "none") fill = "";
+    var stroke = String(sh.stroke || "#2f5597").trim();
+    if (!/^#[0-9A-Fa-f]{6}$/.test(stroke)) stroke = "#2f5597";
+    var sw = Number(sh.strokeW);
+    if (!isFinite(sw) || sw < 0) sw = lineLike ? 2 : 1.5;
+    sw = Math.max(0, Math.min(12, Math.round(sw * 10) / 10));
+    return {
+      id: sh.id || ("shp" + Date.now() + i),
+      kind: kind,
+      x: typeof sh.x === "number" ? sh.x : 28,
+      y: typeof sh.y === "number" ? sh.y : 28,
+      w: typeof sh.w === "number" ? Math.max(8, sh.w) : (lineLike ? 90 : 72),
+      h: typeof sh.h === "number" ? Math.max(4, sh.h) : (lineLike ? 12 : 40),
+      fill: fill,
+      stroke: stroke,
+      strokeW: sw,
+      z: isFinite(Number(sh.z)) ? Math.round(Number(sh.z)) : 4,
+    };
+  }
+
+  function shapeSvgInner(st) {
+    var w = Math.max(8, Number(st.w) || 72);
+    var h = Math.max(4, Number(st.h) || 40);
+    var fill = st.fill ? String(st.fill) : "none";
+    var stroke = st.stroke || "#2f5597";
+    var sw = Math.max(0.5, Number(st.strokeW) || 1.5);
+    var kind = st.kind || "rect";
+    var common = ' fill="' + fill + '" stroke="' + stroke + '" stroke-width="' + sw + '" vector-effect="non-scaling-stroke"';
+    if (kind === "ellipse") {
+      return '<ellipse cx="' + (w / 2) + '" cy="' + (h / 2) + '" rx="' + Math.max(1, w / 2 - sw) + '" ry="' + Math.max(1, h / 2 - sw) + '"' + common + " />";
+    }
+    if (kind === "roundRect") {
+      var rx = Math.min(12, Math.min(w, h) * 0.18);
+      return '<rect x="' + sw + '" y="' + sw + '" width="' + Math.max(1, w - sw * 2) + '" height="' + Math.max(1, h - sw * 2) + '" rx="' + rx + '"' + common + " />";
+    }
+    if (kind === "line" || kind === "arrow") {
+      var y = h / 2;
+      var x1 = sw;
+      var x2 = Math.max(x1 + 1, w - sw);
+      var line = '<line x1="' + x1 + '" y1="' + y + '" x2="' + x2 + '" y2="' + y + '" stroke="' + stroke + '" stroke-width="' + sw + '" stroke-linecap="round" vector-effect="non-scaling-stroke" />';
+      if (kind === "arrow") {
+        var ah = Math.max(4, Math.min(10, h * 0.45));
+        var aw = Math.max(6, Math.min(14, w * 0.12));
+        line += '<polygon points="' + x2 + "," + y + " " + (x2 - aw) + "," + (y - ah) + " " + (x2 - aw) + "," + (y + ah) + '" fill="' + stroke + '" stroke="none" />';
+      }
+      return line;
+    }
+    return '<rect x="' + sw + '" y="' + sw + '" width="' + Math.max(1, w - sw * 2) + '" height="' + Math.max(1, h - sw * 2) + '"' + common + " />";
+  }
+
+  function pickShapeKind(cb) {
+    var overlay = document.createElement("div");
+    overlay.className = "cat-modal";
+    overlay.innerHTML = "<div class='cat-modal-dialog' role='dialog' aria-modal='true'><h3>図形を挿入</h3>" +
+      "<p class='hint' style='margin:0 0 10px'>Excelと同様に四角形・楕円・線・矢印を名刺へ置けます。配置後にドラッグと右下のハンドルでサイズを変えられます。</p>" +
+      "<div class='shape-pick-grid'>" +
+      SHAPE_KINDS.map(function (k) {
+        return "<button type='button' class='btn sm ghost' data-kind='" + k.id + "'>" + k.label + "</button>";
+      }).join("") +
+      "</div><div class='btn-row'><button type='button' class='btn sm ghost' data-cancel>キャンセル</button></div></div>";
+    function close() {
+      if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+    }
+    overlay.addEventListener("click", function (ev) {
+      if (ev.target === overlay) { close(); return; }
+      var cancel = ev.target.closest("[data-cancel]");
+      if (cancel) { close(); return; }
+      var btn = ev.target.closest("[data-kind]");
+      if (btn) {
+        var kind = btn.getAttribute("data-kind");
+        close();
+        if (typeof cb === "function") cb(kind);
+      }
+    });
+    document.body.appendChild(overlay);
   }
 
   function isValidBackLayout(v) {
@@ -187,6 +306,12 @@
     defLayout: defLayout,
     defBackLayout: defBackLayout,
     defTextBlock: defTextBlock,
+    defFixedTextBlock: defFixedTextBlock,
+    SHAPE_KINDS: SHAPE_KINDS,
+    defShape: defShape,
+    normalizeShape: normalizeShape,
+    shapeSvgInner: shapeSvgInner,
+    pickShapeKind: pickShapeKind,
     BACK_FONTS: BACK_FONTS,
     resolveBackFontFamily: resolveBackFontFamily,
     fillFontSelect: fillFontSelect,
