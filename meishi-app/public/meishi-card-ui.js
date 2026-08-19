@@ -2159,7 +2159,12 @@
         designCtl.style.display = "";
         var st = hit.st;
         if (desTarget) {
-          if (hit.kind === "text") desTarget.textContent = "対象: 自由テキスト";
+          if (hit.kind === "text") {
+            var fld = hit.st && hit.st.field;
+            if (fld === "aff") desTarget.textContent = "対象: 固定・所属";
+            else if (fld === "address") desTarget.textContent = "対象: 固定・住所";
+            else desTarget.textContent = "対象: 自由テキスト";
+          }
           else {
             var lbl = (MeishiLayout.ELS.find(function (e) { return e.id === hit.id; }) || {}).label || hit.id;
             desTarget.textContent = "対象: " + lbl;
@@ -2381,6 +2386,26 @@
       return addTextBlock({ fixed: 1 });
     }
 
+    function addExtraField(kind, content) {
+      var layout = MeishiCatalog.normalizeLayout(getLayout());
+      layout.texts = layout.texts || [];
+      var meta = MeishiLayout.extraFieldMeta ? MeishiLayout.extraFieldMeta(kind) : null;
+      var elId = (meta && meta.elId) || kind;
+      var styleSrc = layout.el && layout.el[elId] ? layout.el[elId] : null;
+      var block = MeishiLayout.defExtraFieldBlock
+        ? MeishiLayout.defExtraFieldBlock(kind, layout.texts.length, styleSrc)
+        : MeishiLayout.defTextBlock(layout.texts.length);
+      block.field = kind || "aff";
+      block.fixed = 1;
+      if (content) block.content = content;
+      block.z = nextLayerZ(layout);
+      layout.texts.push(block);
+      saveLayout();
+      renderCard();
+      editTextById(block.id, true);
+      return block;
+    }
+
     function addShape(kind) {
       var layout = MeishiCatalog.normalizeLayout(getLayout());
       layout.shapes = layout.shapes || [];
@@ -2507,6 +2532,7 @@
       editTextById: editTextById,
       addTextBlock: addTextBlock,
       addFixedTextBlock: addFixedTextBlock,
+      addExtraField: addExtraField,
       addShape: addShape,
       removeShapeById: removeShapeById,
       removeTextBlock: removeTextBlock,

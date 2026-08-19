@@ -1688,6 +1688,22 @@
       addFixedTextBlock: function () {
         return this.addTextBlock({ fixed: 1 });
       },
+      addExtraField: function (kind, content) {
+        var layout = getLayout();
+        layout.texts = layout.texts || [];
+        var block = MeishiLayout.defExtraFieldBlock
+          ? MeishiLayout.defExtraFieldBlock(kind, layout.texts.length, null)
+          : MeishiLayout.defTextBlock(layout.texts.length);
+        block.field = kind || "aff";
+        block.fixed = 1;
+        if (content) block.content = content;
+        block.z = nextLayerZ(layout);
+        layout.texts.push(block);
+        saveLayout();
+        renderCard();
+        editTextById(block.id, true);
+        return block;
+      },
       addShape: function (kind) {
         var layout = getLayout();
         layout.shapes = layout.shapes || [];

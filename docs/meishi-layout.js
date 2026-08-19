@@ -72,6 +72,37 @@
     return t;
   }
 
+  var EXTRA_FIELD_KINDS = [
+    { id: "aff", label: "所属", elId: "aff", placeholder: "所属" },
+    { id: "address", label: "住所", elId: "address", placeholder: "住所" },
+  ];
+
+  function extraFieldMeta(kind) {
+    var id = String(kind || "");
+    for (var i = 0; i < EXTRA_FIELD_KINDS.length; i++) {
+      if (EXTRA_FIELD_KINDS[i].id === id) return EXTRA_FIELD_KINDS[i];
+    }
+    return null;
+  }
+
+  function defExtraFieldBlock(kind, index, styleSrc) {
+    var meta = extraFieldMeta(kind) || EXTRA_FIELD_KINDS[0];
+    var t = defTextBlock(index);
+    t.field = meta.id;
+    t.fixed = 1;
+    t.content = meta.placeholder;
+    if (styleSrc && typeof styleSrc === "object") {
+      if (typeof styleSrc.size === "number") t.size = styleSrc.size;
+      if (styleSrc.color) t.color = styleSrc.color;
+      if (styleSrc.bold != null) t.bold = styleSrc.bold ? 1 : 0;
+      if (styleSrc.font != null) t.font = styleSrc.font;
+      if (styleSrc.align) t.align = styleSrc.align;
+      if (typeof styleSrc.x === "number") t.x = styleSrc.x;
+      if (typeof styleSrc.y === "number") t.y = styleSrc.y + Math.max(12, Math.round((styleSrc.size || 9) * 1.4));
+    }
+    return t;
+  }
+
   var BACK_FONTS = [
     { id: "", label: "標準" },
     { id: "gothic", label: "ゴシック" },
@@ -295,6 +326,70 @@
     document.body.appendChild(overlay);
   }
 
+  function pickExtraField(getChoices, cb) {
+    var overlay = document.createElement("div");
+    overlay.className = "cat-modal";
+    function close() {
+      if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+    }
+    function showKinds() {
+      overlay.innerHTML = "<div class='cat-modal-dialog' role='dialog' aria-modal='true'><h3>項目を追加</h3>" +
+        "<p class='hint' style='margin:0 0 10px'>氏名が変わっても同じ内容で出す所属・住所を追加します。配置と文言は共通デザインに保存されます。</p>" +
+        "<div class='shape-pick-grid'>" +
+        EXTRA_FIELD_KINDS.map(function (k) {
+          return "<button type='button' class='btn sm ghost' data-kind='" + k.id + "'>" + k.label + "</button>";
+        }).join("") +
+        "</div><div class='btn-row'><button type='button' class='btn sm ghost' data-cancel>キャンセル</button></div></div>";
+    }
+    function showValues(kind) {
+      var meta = extraFieldMeta(kind) || { id: kind, label: kind, placeholder: kind };
+      var choices = [];
+      try { choices = (typeof getChoices === "function" ? getChoices(kind) : []) || []; } catch (e) { choices = []; }
+      var listHtml = choices.length
+        ? choices.map(function (v, i) {
+            return "<button type='button' class='btn sm ghost' data-val='" + i + "'>" + String(v).replace(/</g, "&lt;") + "</button>";
+          }).join("")
+        : "<p class='hint' style='margin:0'>マスタに候補がありません。下に直接入力してください。</p>";
+      overlay.innerHTML = "<div class='cat-modal-dialog' role='dialog' aria-modal='true'><h3>固定する" + meta.label + "</h3>" +
+        "<p class='hint' style='margin:0 0 10px'>表示する内容を選ぶか、入力してください。名刺上で後から直せます。</p>" +
+        "<div class='shape-pick-grid' style='max-height:220px;overflow:auto'>" + listHtml + "</div>" +
+        "<div class='field' style='margin-top:10px'><label>手入力</label><input type='text' id='extraFieldCustom' placeholder='" + meta.placeholder + "' /></div>" +
+        "<div class='btn-row'>" +
+        "<button type='button' class='btn sm ghost' data-back>戻る</button>" +
+        "<button type='button' class='btn sm' data-custom>この内容で追加</button>" +
+        "<button type='button' class='btn sm ghost' data-cancel>キャンセル</button>" +
+        "</div></div>";
+      overlay._extraKind = kind;
+      overlay._extraChoices = choices;
+    }
+    overlay.addEventListener("click", function (ev) {
+      if (ev.target === overlay) { close(); return; }
+      if (ev.target.closest("[data-cancel]")) { close(); return; }
+      if (ev.target.closest("[data-back]")) { showKinds(); return; }
+      var kindBtn = ev.target.closest("[data-kind]");
+      if (kindBtn) { showValues(kindBtn.getAttribute("data-kind")); return; }
+      var valBtn = ev.target.closest("[data-val]");
+      if (valBtn) {
+        var idx = Number(valBtn.getAttribute("data-val"));
+        var val = (overlay._extraChoices || [])[idx] || "";
+        var kind = overlay._extraKind;
+        close();
+        if (typeof cb === "function") cb(kind, val);
+        return;
+      }
+      if (ev.target.closest("[data-custom]")) {
+        var inp = overlay.querySelector("#extraFieldCustom");
+        var kind2 = overlay._extraKind;
+        var typed = inp ? String(inp.value || "").trim() : "";
+        var meta2 = extraFieldMeta(kind2);
+        close();
+        if (typeof cb === "function") cb(kind2, typed || (meta2 && meta2.placeholder) || "");
+      }
+    });
+    showKinds();
+    document.body.appendChild(overlay);
+  }
+
   function isValidBackLayout(v) {
     return v && typeof v === "object" && Array.isArray(v.texts) && Array.isArray(v.images);
   }
@@ -307,6 +402,10 @@
     defBackLayout: defBackLayout,
     defTextBlock: defTextBlock,
     defFixedTextBlock: defFixedTextBlock,
+    EXTRA_FIELD_KINDS: EXTRA_FIELD_KINDS,
+    extraFieldMeta: extraFieldMeta,
+    defExtraFieldBlock: defExtraFieldBlock,
+    pickExtraField: pickExtraField,
     SHAPE_KINDS: SHAPE_KINDS,
     defShape: defShape,
     normalizeShape: normalizeShape,

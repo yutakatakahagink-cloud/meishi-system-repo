@@ -2105,6 +2105,44 @@
         ui.addShape(kind);
       });
     }
+    function extraFieldChoices(kind, company) {
+      var cat = {};
+      try {
+        var p = MeishiStore.getCompanyProfileForEdit(company || currentCo) || {};
+        cat = p.catalog || {};
+      } catch (e) { cat = {}; }
+      if (kind === "aff") {
+        var list = (cat.aff1 || []).slice();
+        function addMap(map) {
+          if (!map || typeof map !== "object") return;
+          Object.keys(map).forEach(function (k) {
+            var arr = map[k];
+            if (Array.isArray(arr)) arr.forEach(function (v) { if (v) list.push(v); });
+          });
+        }
+        addMap(cat.aff2);
+        addMap(cat.aff3);
+        return MeishiFields.uniq(list);
+      }
+      if (kind === "address") {
+        return (cat.locations || []).map(function (l) {
+          if (!l) return "";
+          var a = String(l.address || "").trim();
+          if (!a) return "";
+          return (l.postal ? "〒" + l.postal + " " : "") + a;
+        }).filter(Boolean);
+      }
+      return [];
+    }
+    function pickAndAddExtraField(ui, company) {
+      if (!ui || !MeishiLayout.pickExtraField) return;
+      MeishiLayout.pickExtraField(function (kind) {
+        return extraFieldChoices(kind, company);
+      }, function (kind, val) {
+        if (!kind || !ui.addExtraField) return;
+        ui.addExtraField(kind, val);
+      });
+    }
     function addFixedToUi(ui) {
       if (!ui) return;
       if (ui.addFixedTextBlock) ui.addFixedTextBlock();
@@ -2126,16 +2164,16 @@
         var el = document.getElementById(id);
         if (el) el.onclick = fn;
       }
-      on("btnCoFrontFixed", function () { addFixedToUi(coUI); });
+      on("btnCoFrontFixed", function () { pickAndAddExtraField(coUI, currentCo); });
       on("btnCoFrontShape", function () { pickAndAddShape(coUI); });
-      on("btnCoBackFixed", function () { addFixedToUi(coBackUI); });
+      on("btnCoBackFixed", function () { pickAndAddExtraField(coBackUI, currentCo); });
       on("btnCoBackShape", function () { pickAndAddShape(coBackUI); });
       on("btnDeFrontFixed", function () {
         var pk = getDeptPickers();
         pk.aff1 = document.getElementById("deAff1Pick").value;
         if (!pk.co || !pk.aff1) return alert("会社と所属1を選択してください");
         if (!deLayout) loadDeptLayout();
-        addFixedToUi(deUI);
+        pickAndAddExtraField(deUI, pk.co);
       });
       on("btnDeFrontShape", function () {
         var pk = getDeptPickers();
@@ -2149,7 +2187,7 @@
         pk.aff1 = document.getElementById("deAff1Pick").value;
         if (!pk.co || !pk.aff1) return alert("会社と所属1を選択してください");
         if (!deLayoutBack) loadDeptLayout();
-        addFixedToUi(deBackUI);
+        pickAndAddExtraField(deBackUI, pk.co);
       });
       on("btnDeBackShape", function () {
         var pk = getDeptPickers();
