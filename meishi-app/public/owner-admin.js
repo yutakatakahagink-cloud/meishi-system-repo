@@ -1463,13 +1463,16 @@
   }
 
   /** 名刺データ行から会社ごとの候補値を集める（共通データ未登録でも選択できるようにする） */
-  function recordFieldValues(company, key) {
+  function recordFieldValues(company, key, ctx) {
     var co = MeishiFields.norm(company);
     if (!co || !key) return [];
+    ctx = ctx || {};
     var out = [];
     MeishiStore.getRecords().forEach(function (r) {
       if (!r) return;
       if (co && MeishiFields.norm(r.company) !== co) return;
+      if (ctx.aff1 && (key === "aff2" || key === "aff3") && MeishiFields.norm(r.aff1) !== MeishiFields.norm(ctx.aff1)) return;
+      if (ctx.aff2 && key === "aff3" && MeishiFields.norm(r.aff2) !== MeishiFields.norm(ctx.aff2)) return;
       var v = r[key];
       if (v == null || String(v).trim() === "") return;
       out.push(String(v).trim());
@@ -1501,10 +1504,16 @@
         return MeishiFields.uniq((cat.aff1 || []).concat(recordFieldValues(company, "aff1")));
       }
       if (key === "aff2") {
-        return MeishiFields.uniq(MeishiCatalog.getAff2List(cat).concat(recordFieldValues(company, "aff2")));
+        var aff2List = (ctx && ctx.aff1 && MeishiCatalog.getListByPath)
+          ? MeishiCatalog.getListByPath(cat.aff2, ctx.aff1)
+          : MeishiCatalog.getAff2List(cat);
+        return MeishiFields.uniq(aff2List.concat(recordFieldValues(company, "aff2", ctx)));
       }
       if (key === "aff3") {
-        return MeishiFields.uniq(MeishiCatalog.getAff3List(cat).concat(recordFieldValues(company, "aff3")));
+        var aff3List = (ctx && ctx.aff1 && MeishiCatalog.getListByPath)
+          ? MeishiCatalog.getListByPath(cat.aff3, ctx.aff1, ctx.aff2)
+          : MeishiCatalog.getAff3List(cat);
+        return MeishiFields.uniq(aff3List.concat(recordFieldValues(company, "aff3", ctx)));
       }
       if (key === "title") {
         // 共通データの役職マスタ ＋ 名刺データに既にある役職
@@ -1512,9 +1521,16 @@
           .sort(function (a, b) { return String(a).localeCompare(String(b), "ja"); });
       }
       if (key === "postal") return MeishiFields.uniq((cat.locations || []).map(function (l) { return l.postal; }).concat(cat.postal || []).concat(recordFieldValues(company, "postal")));
-      if (key === "address") return MeishiFields.uniq((cat.locations || []).map(function (l) { return l.address; }).filter(Boolean).concat(recordFieldValues(company, "address")));
-      if (key === "tel") return MeishiFields.uniq((cat.locations || []).map(function (l) { return l.tel; }).filter(Boolean).concat(recordFieldValues(company, "tel")));
-      if (key === "fax") return MeishiFields.uniq((cat.locations || []).map(function (l) { return l.fax; }).filter(Boolean).concat(recordFieldValues(company, "fax")));
+      if (key === "address" || key === "tel" || key === "fax") {
+        var locs = cat.locations || [];
+        if (ctx && ctx.postal) {
+          var linked = locs.filter(function (l) {
+            return MeishiFields.norm(l.postal) === MeishiFields.norm(ctx.postal);
+          }).map(function (l) { return l[key]; }).filter(Boolean);
+          if (linked.length) return MeishiFields.uniq(linked.concat(recordFieldValues(company, key, ctx)));
+        }
+        return MeishiFields.uniq(locs.map(function (l) { return l[key]; }).filter(Boolean).concat(recordFieldValues(company, key, ctx)));
+      }
       if (key === "url") return MeishiFields.uniq((cat.urls || []).concat(recordFieldValues(company, "url")));
       if (key === "category") return MeishiFields.uniq((cat.categories || []).concat(recordFieldValues(company, "category")));
       return [];
@@ -1650,9 +1666,19 @@
     var co = coEl ? coEl.value : "";
     var po = poEl ? poEl.value : "";
     if (!co || !po) return;
-    var p = MeishiStore.getCompanyProfileForEdit(co);
-    if (!p || !p.catalog) return;
-    var loc = (p.catalog.locations || []).find(function (l) {
+    var cat = null;
+    if (window._coEditingCatalog && MeishiFields.norm(co) === MeishiFields.norm(currentCo)) {
+      cat = window._coEditingCatalog;
+    } else {
+      var p = MeishiStore.getCompanyProfileForEdit(co);
+      cat = p && p.catalog;
+    }
+    if ((!cat || !(cat.locations || []).length) && MeishiStore.getCompanyProfile) {
+      var p2 = MeishiStore.getCompanyProfile(co);
+      cat = (p2 && p2.catalog) || cat;
+    }
+    if (!cat) return;
+    var loc = (cat.locations || []).find(function (l) {
       return MeishiFields.norm(l.postal) === MeishiFields.norm(po);
     });
     if (!loc) return;
