@@ -56,6 +56,7 @@
 
     var records = [];
     var S = { name: "", company: "", aff1: "", aff2: "", aff3: "", title: "", postal: "", address: "", qual: "", mobile: "" };
+    var qualManual = false;
     var layout = null;
     var layoutBack = null;
     var cardUI = null;
@@ -388,6 +389,8 @@
       if (inp) inp.value = next;
       // カスケード候補内の氏名なら会社・所属を維持。全検索で別の人を選んだときだけクリア
       if (prev !== next) {
+        S.qual = "";
+        qualManual = false;
         if (nameOptionsAll.indexOf(next) < 0) {
           S.company = "";
           S.aff1 = "";
@@ -396,7 +399,6 @@
           S.title = "";
           S.postal = "";
           S.address = "";
-          S.qual = "";
           S.mobile = "";
         }
       }
@@ -456,8 +458,19 @@
         nextVal = "";
         if (S[stateKey] !== "") { S[stateKey] = ""; changed = true; }
       } else if (stateKey === "qual") {
-        if (S.qual && arr.indexOf(S.qual) >= 0) nextVal = S.qual;
-        else {
+        if (qualManual) {
+          if (S.qual && arr.indexOf(S.qual) >= 0) nextVal = S.qual;
+          else {
+            if (S.qual !== "") { S.qual = ""; changed = true; }
+            nextVal = "";
+          }
+        } else if (arr.length >= 1) {
+          if (!S.qual || arr.indexOf(S.qual) < 0) {
+            if (S.qual !== arr[0]) changed = true;
+            S.qual = arr[0];
+          }
+          nextVal = S.qual;
+        } else {
           if (S.qual !== "") { S.qual = ""; changed = true; }
           nextVal = "";
         }
@@ -752,6 +765,7 @@
       node.addEventListener("change", function () {
         S[stateKey] = this.value;
         (resetKeys || []).forEach(function (k) { S[k] = ""; });
+        if ((resetKeys || []).indexOf("qual") >= 0) qualManual = false;
         // 会社・所属を変えても氏名はクリアしない（氏名欄から全氏名を再検索できる）
         rebuild();
       });
@@ -951,6 +965,7 @@
         sq._mpBound = true;
         sq.addEventListener("change", function () {
           S.qual = this.value;
+          qualManual = true;
           rebuild();
         });
       }
@@ -1024,6 +1039,7 @@
 
     function clear() {
       S = { name: "", company: "", aff1: "", aff2: "", aff3: "", title: "", postal: "", address: "", qual: "", mobile: "" };
+      qualManual = false;
       selectSig = {};
       var nameInp = el("selName");
       if (nameInp) nameInp.value = "";
@@ -1061,6 +1077,7 @@
 
     function init() {
       S = { name: "", company: "", aff1: "", aff2: "", aff3: "", title: "", postal: "", address: "", qual: "", mobile: "" };
+      qualManual = false;
       reloadRecords();
       bindInputs();
       hookStore();
@@ -1099,6 +1116,7 @@
       S.postal = String(rec.postal || "").trim();
       S.address = String(rec.address || "").trim();
       S.qual = String(rec.qual || "").trim();
+      qualManual = true;
       S.mobile = String(rec.mobile || "").trim();
 
       var nameInp = el("selName");
