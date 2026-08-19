@@ -6,7 +6,7 @@
   var copySourceRec = null;
   var recFilter = "";
 
-  var REC_TEXT_INPUT_KEYS = { name: 1, furigana: 1, qual: 1, mobile: 1, email: 1 };
+  var REC_TEXT_INPUT_KEYS = { name: 1, furigana: 1, qual: 1, mobile: 1, email: 1, address: 1 };
   var coUI = null;
   var coPanel = null;
   var coLayout = null;
@@ -1527,8 +1527,19 @@
     }
   }
 
-  function textFieldHtml(c, rec) {
-    return "<div class='field'><label>" + c.label + "</label><input type='text' data-k='" + c.key + "' value='" + esc(rec[c.key] || "") + "' /></div>";
+  function textFieldHtml(c, rec, ctx) {
+    var listId = "";
+    var extra = "";
+    if (c.key === "address") {
+      listId = "recAddressList";
+      var opts = fieldOptions((ctx && ctx.company) || rec.company, "address", ctx || {});
+      extra = "<datalist id='" + listId + "'>" + opts.map(function (v) {
+        return "<option value='" + esc(v) + "'></option>";
+      }).join("") + "</datalist>";
+    }
+    return "<div class='field'><label>" + c.label + "</label><input type='text' data-k='" + c.key + "'" +
+      (listId ? " list='" + listId + "'" : "") +
+      " value='" + esc(rec[c.key] || "") + "' />" + extra + "</div>";
   }
 
   function selectFieldHtml(c, rec, ctx) {
@@ -1597,8 +1608,9 @@
     return { company: g("company"), aff1: g("aff1"), aff2: g("aff2"), aff3: g("aff3"), title: g("title"), postal: g("postal") };
   }
 
-  function rebuildRecFormFields(rec) {
+  function rebuildRecFormFields(rec, opts) {
     rec = rec || MeishiFields.emptyRecord();
+    opts = opts || {};
     var fieldsEl = document.getElementById("recFormFields");
     if (!fieldsEl) throw new Error("recFormFields がありません");
     var ctx = {
@@ -1612,20 +1624,24 @@
           return;
         }
         if (REC_TEXT_INPUT_KEYS[c.key]) {
-          html += textFieldHtml(c, rec);
+          html += textFieldHtml(c, rec, ctx);
           return;
         }
         html += selectFieldHtml(c, rec, ctx);
       } catch (e) {
         console.warn("[Meishi] rebuild field", c.key, e);
-        html += textFieldHtml(c, rec);
+        html += textFieldHtml(c, rec, ctx);
       }
     });
     fieldsEl.innerHTML = html;
     fieldsEl.querySelectorAll("select[data-k]").forEach(function (sel) {
       sel.addEventListener("change", onRecFieldChange);
     });
-    try { applyLocAuto(); } catch (e2) { console.warn("[Meishi] applyLocAuto", e2); }
+    // 郵便番号／会社を変えたときだけ拠点住所を自動補完する。
+    // 毎回上書きすると、氏名ごとの住所変更が保存前に戻ってしまう。
+    if (opts.autoLoc) {
+      try { applyLocAuto(); } catch (e2) { console.warn("[Meishi] applyLocAuto", e2); }
+    }
   }
 
   function onRecFieldChange(ev) {
@@ -1635,7 +1651,7 @@
     if (k === "company") { rec.aff1 = rec.aff2 = rec.aff3 = rec.title = ""; }
     if (k === "aff1") { rec.aff2 = rec.aff3 = ""; }
     if (k === "aff2") { rec.aff3 = ""; }
-    rebuildRecFormFields(rec);
+    rebuildRecFormFields(rec, { autoLoc: k === "postal" || k === "company" });
   }
 
   function applyLocAuto() {
@@ -1647,12 +1663,19 @@
     if (!co || !po) return;
     var p = MeishiStore.getCompanyProfileForEdit(co);
     if (!p || !p.catalog) return;
-    var loc = (p.catalog.locations || []).find(function (l) { return l.postal === po; });
+    var loc = (p.catalog.locations || []).find(function (l) {
+      return MeishiFields.norm(l.postal) === MeishiFields.norm(po);
+    });
     if (!loc) return;
-    function setSel(k, v) {
+    function setField(k, v) {
       if (!v) return;
       var el = root.querySelector("[data-k='" + k + "']");
-      if (!el || el.tagName !== "SELECT") return;
+      if (!el) return;
+      if (el.tagName === "INPUT") {
+        el.value = v;
+        return;
+      }
+      if (el.tagName !== "SELECT") return;
       var hit = false;
       Array.prototype.forEach.call(el.options, function (opt) {
         if (MeishiFields.norm(opt.value) === MeishiFields.norm(v)) { opt.selected = true; hit = true; }
@@ -1665,9 +1688,9 @@
         el.appendChild(o);
       }
     }
-    setSel("address", loc.address);
-    setSel("tel", loc.tel);
-    setSel("fax", loc.fax);
+    setField("address", loc.address);
+    setField("tel", loc.tel);
+    setField("fax", loc.fax);
   }
 
   function readRecFromForm() {

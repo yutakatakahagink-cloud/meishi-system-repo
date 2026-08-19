@@ -340,11 +340,12 @@
 
         if (!recordMatchesCo(r, co) || norm(r.postal) !== norm(loc.postal)) return;
 
-        if (loc.address && norm(r.address) !== norm(loc.address)) { r.address = loc.address; recChanged = true; }
+        // 空欄だけ補完する。氏名ごとに保存した住所・TEL・FAXは上書きしない。
+        if (loc.address && !norm(r.address)) { r.address = loc.address; recChanged = true; }
 
-        if (loc.tel && norm(r.tel) !== norm(loc.tel)) { r.tel = loc.tel; recChanged = true; }
+        if (loc.tel && !norm(r.tel)) { r.tel = loc.tel; recChanged = true; }
 
-        if (loc.fax && norm(r.fax) !== norm(loc.fax)) { r.fax = loc.fax; recChanged = true; }
+        if (loc.fax && !norm(r.fax)) { r.fax = loc.fax; recChanged = true; }
 
       });
 
