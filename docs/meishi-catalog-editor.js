@@ -263,7 +263,7 @@
         html += "<tr>";
         html += "<td class='col-act'>";
         if (fieldId === "postal" || fieldId === "address" || fieldId === "tel" || fieldId === "fax") {
-          html += "<button type='button' class='linkbtn btn-loc-edit' data-i='" + row.meta.locIndex + "'>編集</button> ";
+          html += "<button type='button' class='linkbtn btn-loc-edit' data-i='" + row.meta.locIndex + "'>セット編集</button> ";
           html += "<button type='button' class='linkbtn btn-loc-del' data-i='" + row.meta.locIndex + "'>×</button>";
         } else {
           html += "<button type='button' class='linkbtn btn-cat-edit' data-v='" + escAttr(row.meta.value || row.value) + "' data-meta='" + rowMetaAttr(row.meta) + "'>編集</button> ";
@@ -276,26 +276,109 @@
     }
     html += "</tbody></table></div>";
     html += renderAddForm(cat, fieldId);
+    html += "<div class='cat-edit-box' id='catEditBox' style='display:none'></div>";
     container.innerHTML = html;
+
+    function parseMeta(btn) {
+      try { return JSON.parse(btn.getAttribute("data-meta") || "{}"); } catch (e) { return {}; }
+    }
+
+    function moveMapItem(map, oldParent, newParent, oldV, newV) {
+      oldParent = oldParent || "*";
+      newParent = newParent || "*";
+      oldV = MeishiFields.norm(oldV);
+      newV = MeishiFields.norm(newV);
+      if (!map) return;
+      if (map[oldParent]) {
+        map[oldParent] = map[oldParent].filter(function (x) { return MeishiFields.norm(x) !== oldV; });
+      }
+      MeishiCatalog.addUnique(MeishiCatalog.ensureList(map, newParent), newV);
+    }
+
+    function fillParent2Options(sel, aff1, selected) {
+      if (!sel) return;
+      var list = [];
+      if (aff1 && cat.aff2) list = (cat.aff2[aff1] || []).concat(cat.aff2["*"] || []);
+      list = MeishiFields.uniq(list);
+      sel.innerHTML = "<option value=''>（所属2を選択）</option>" +
+        list.map(function (x) {
+          return "<option" + (x === selected ? " selected" : "") + ">" + esc(x) + "</option>";
+        }).join("");
+    }
 
     container.querySelectorAll(".btn-cat-edit").forEach(function (btn) {
       btn.onclick = function () {
         var oldV = btn.getAttribute("data-v");
-        var nv = prompt("新しい名称", oldV);
-        if (nv == null) return;
-        nv = nv.trim();
-        if (!nv || nv === oldV) return;
-        renameCatalogValue(cat, fieldId, oldV, nv);
-        emit(emitRenameOp(fieldId, oldV, nv));
-        refresh();
+        var meta = parseMeta(btn);
+        if (fieldId !== "aff2" && fieldId !== "aff3") {
+          var nv = prompt("新しい名称", oldV);
+          if (nv == null) return;
+          nv = nv.trim();
+          if (!nv || nv === oldV) return;
+          renameCatalogValue(cat, fieldId, oldV, nv);
+          emit(emitRenameOp(fieldId, oldV, nv));
+          refresh();
+          return;
+        }
+        var box = container.querySelector("#catEditBox");
+        if (!box) return;
+        var parent = meta.parent || "*";
+        var parts = parent === "*" ? ["", ""] : String(parent).split("|");
+        var html = "<div class='cat-add-form'><div class='cat-add-title'>紐づけを編集</div>";
+        html += "<div class='field'><label>名称</label><input class='cat-edit-val' value='" + escAttr(oldV) + "' /></div>";
+        html += "<div class='field'><label>紐づける所属1</label><select class='cat-edit-parent'>";
+        html += "<option value=''>（所属1を選択）</option>";
+        (cat.aff1 || []).forEach(function (v) {
+          html += "<option" + (v === parts[0] ? " selected" : "") + ">" + esc(v) + "</option>";
+        });
+        html += "</select></div>";
+        if (fieldId === "aff3") {
+          html += "<div class='field'><label>紐づける所属2</label><select class='cat-edit-parent2'></select></div>";
+        }
+        html += "<div class='btn-row'><button type='button' class='btn sm cat-edit-save'>保存</button>";
+        html += "<button type='button' class='btn sm ghost cat-edit-cancel'>キャンセル</button></div></div>";
+        box.innerHTML = html;
+        box.style.display = "";
+        var p1 = box.querySelector(".cat-edit-parent");
+        var p2 = box.querySelector(".cat-edit-parent2");
+        if (p1 && p2) {
+          fillParent2Options(p2, p1.value, parts[1] || "");
+          p1.onchange = function () { fillParent2Options(p2, p1.value, ""); };
+        }
+        box.querySelector(".cat-edit-cancel").onclick = function () {
+          box.style.display = "none";
+          box.innerHTML = "";
+        };
+        box.querySelector(".cat-edit-save").onclick = function () {
+          var nv = (box.querySelector(".cat-edit-val") || {}).value;
+          nv = nv ? nv.trim() : "";
+          if (!nv) return alert("名称を入力してください");
+          var n1 = p1 ? p1.value : "";
+          var n2 = p2 ? p2.value : "";
+          if (fieldId === "aff2" && !n1) return alert("紐づける所属1を選んでください");
+          if (fieldId === "aff3" && (!n1 || !n2)) return alert("紐づける所属1と所属2を選んでください");
+          var newParent = fieldId === "aff3" ? MeishiCatalog.pathKey(n1, n2) : n1;
+          if (fieldId === "aff2") moveMapItem(cat.aff2, parent, newParent, oldV, nv);
+          else moveMapItem(cat.aff3, parent, newParent, oldV, nv);
+          if (nv !== oldV) emit(emitRenameOp(fieldId, oldV, nv));
+          else emit();
+          refresh();
+        };
       };
     });
 
     container.querySelectorAll(".btn-cat-del").forEach(function (btn) {
       btn.onclick = function () {
         var v = btn.getAttribute("data-v");
+        var meta = parseMeta(btn);
         if (!confirm("「" + v + "」を削除しますか？")) return;
-        deleteCatalogValue(cat, fieldId, v);
+        if ((fieldId === "aff2" || fieldId === "aff3") && meta.parent && cat[fieldId] && cat[fieldId][meta.parent]) {
+          cat[fieldId][meta.parent] = cat[fieldId][meta.parent].filter(function (x) {
+            return MeishiFields.norm(x) !== MeishiFields.norm(v);
+          });
+        } else {
+          deleteCatalogValue(cat, fieldId, v);
+        }
         emit(emitDeleteOp(fieldId, v));
         refresh();
       };
@@ -354,18 +437,35 @@
       btn.onclick = function () {
         var loc = cat.locations[+btn.getAttribute("data-i")];
         if (!loc) return;
+        var box = container.querySelector("#catEditBox");
+        if (!box) return;
         var oldPostal = loc.postal;
-        var labels = { postal: "郵便番号", address: "住所", tel: "TEL", fax: "FAX" };
-        var nv = prompt(labels[fieldId] || "値", loc[fieldId] || "");
-        if (nv == null) return;
-        loc[fieldId] = nv.trim();
-        if (fieldId === "postal") MeishiCatalog.addUnique(cat.postal, loc.postal);
-        emit({
-          type: "updateLocation",
-          oldPostal: oldPostal,
-          loc: { postal: loc.postal, address: loc.address, tel: loc.tel, fax: loc.fax },
-        });
-        refresh();
+        box.innerHTML = "<div class='cat-add-form'><div class='cat-add-title'>所在地セットを編集</div>" +
+          "<div class='field'><label>郵便番号</label><input class='cat-edit-postal' value='" + escAttr(loc.postal || "") + "' /></div>" +
+          "<div class='field'><label>住所</label><input class='cat-edit-address' value='" + escAttr(loc.address || "") + "' /></div>" +
+          "<div class='field'><label>TEL</label><input class='cat-edit-tel' value='" + escAttr(loc.tel || "") + "' /></div>" +
+          "<div class='field'><label>FAX</label><input class='cat-edit-fax' value='" + escAttr(loc.fax || "") + "' /></div>" +
+          "<div class='btn-row'><button type='button' class='btn sm cat-edit-save'>保存</button>" +
+          "<button type='button' class='btn sm ghost cat-edit-cancel'>キャンセル</button></div></div>";
+        box.style.display = "";
+        box.querySelector(".cat-edit-cancel").onclick = function () {
+          box.style.display = "none";
+          box.innerHTML = "";
+        };
+        box.querySelector(".cat-edit-save").onclick = function () {
+          loc.postal = (box.querySelector(".cat-edit-postal") || {}).value.trim();
+          loc.address = (box.querySelector(".cat-edit-address") || {}).value.trim();
+          loc.tel = (box.querySelector(".cat-edit-tel") || {}).value.trim();
+          loc.fax = (box.querySelector(".cat-edit-fax") || {}).value.trim();
+          if (!loc.postal) return alert("郵便番号を入力してください");
+          MeishiCatalog.addUnique(cat.postal, loc.postal);
+          emit({
+            type: "updateLocation",
+            oldPostal: oldPostal,
+            loc: { postal: loc.postal, address: loc.address, tel: loc.tel, fax: loc.fax },
+          });
+          refresh();
+        };
       };
     });
     container.querySelectorAll(".btn-loc-del").forEach(function (btn) {
@@ -389,7 +489,7 @@
       else render(container, cat, onRefresh, onMutate);
     }
 
-    var html = "<p class='hint'>各項目の候補を追加・編集・削除します。誰に紐づくかは下の「名刺データ編集」で会社・所属・役職を選んで判断します。変更後は「共通データを保存」を押してください。</p>";
+    var html = "<p class='hint'>所属2は所属1へ、所在地は郵便番号・住所・TEL・FAXをセットで紐づけます。「編集」から紐づけ先も変更できます。変更後は「共通データを保存」を押してください。</p>";
     html += "<div class='cat-master-detail'>";
     html += "<nav class='cat-field-nav'>";
     FIELD_TYPES.forEach(function (ft) {

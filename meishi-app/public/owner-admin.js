@@ -1520,16 +1520,18 @@
         return MeishiFields.uniq(MeishiCatalog.getTitleList(cat).concat(recordFieldValues(company, "title")))
           .sort(function (a, b) { return String(a).localeCompare(String(b), "ja"); });
       }
-      if (key === "postal") return MeishiFields.uniq((cat.locations || []).map(function (l) { return l.postal; }).concat(cat.postal || []).concat(recordFieldValues(company, "postal")));
-      if (key === "address" || key === "tel" || key === "fax") {
+      if (key === "postal" || key === "address" || key === "tel" || key === "fax") {
         var locs = cat.locations || [];
-        if (ctx && ctx.postal) {
-          var linked = locs.filter(function (l) {
-            return MeishiFields.norm(l.postal) === MeishiFields.norm(ctx.postal);
-          }).map(function (l) { return l[key]; }).filter(Boolean);
-          if (linked.length) return MeishiFields.uniq(linked.concat(recordFieldValues(company, key, ctx)));
+        function locMatch(l) {
+          if (key !== "postal" && ctx && ctx.postal && MeishiFields.norm(l.postal) === MeishiFields.norm(ctx.postal)) return true;
+          if (key !== "address" && ctx && ctx.address && MeishiFields.norm(l.address) === MeishiFields.norm(ctx.address)) return true;
+          if (key !== "tel" && ctx && ctx.tel && MeishiFields.norm(l.tel) === MeishiFields.norm(ctx.tel)) return true;
+          if (key !== "fax" && ctx && ctx.fax && MeishiFields.norm(l.fax) === MeishiFields.norm(ctx.fax)) return true;
+          return false;
         }
-        return MeishiFields.uniq(locs.map(function (l) { return l[key]; }).filter(Boolean).concat(recordFieldValues(company, key, ctx)));
+        var linked = locs.filter(locMatch).map(function (l) { return l[key]; }).filter(Boolean);
+        if (linked.length) return MeishiFields.uniq(linked.concat(recordFieldValues(company, key, ctx)));
+        return MeishiFields.uniq(locs.map(function (l) { return l[key]; }).filter(Boolean).concat(cat[key] || []).concat(recordFieldValues(company, key, ctx)));
       }
       if (key === "url") return MeishiFields.uniq((cat.urls || []).concat(recordFieldValues(company, "url")));
       if (key === "category") return MeishiFields.uniq((cat.categories || []).concat(recordFieldValues(company, "category")));
@@ -1619,7 +1621,8 @@
     var fieldsEl = document.getElementById("recFormFields");
     if (!fieldsEl) throw new Error("recFormFields がありません");
     var ctx = {
-      company: rec.company, aff1: rec.aff1, aff2: rec.aff2, aff3: rec.aff3, title: rec.title, postal: rec.postal,
+      company: rec.company, aff1: rec.aff1, aff2: rec.aff2, aff3: rec.aff3, title: rec.title,
+      postal: rec.postal, address: rec.address, tel: rec.tel, fax: rec.fax,
     };
     var html = bindingSummaryHtml(ctx);
     MeishiFields.COLUMNS.forEach(function (c) {
@@ -1645,7 +1648,7 @@
     // 郵便番号／会社を変えたときだけ拠点住所を自動補完する。
     // 毎回上書きすると、氏名ごとの住所変更が保存前に戻ってしまう。
     if (opts.autoLoc) {
-      try { applyLocAuto(); } catch (e2) { console.warn("[Meishi] applyLocAuto", e2); }
+      try { applyLocAuto(opts.locFrom); } catch (e2) { console.warn("[Meishi] applyLocAuto", e2); }
     }
   }
 
@@ -1656,30 +1659,43 @@
     if (k === "company") { rec.aff1 = rec.aff2 = rec.aff3 = rec.title = ""; }
     if (k === "aff1") { rec.aff2 = rec.aff3 = ""; }
     if (k === "aff2") { rec.aff3 = ""; }
-    rebuildRecFormFields(rec, { autoLoc: k === "postal" || k === "company" });
+    var locKeys = { postal: 1, address: 1, tel: 1, fax: 1 };
+    rebuildRecFormFields(rec, {
+      autoLoc: !!locKeys[k] || k === "company",
+      locFrom: locKeys[k] ? k : "postal",
+    });
   }
 
-  function applyLocAuto() {
-    var root = document.getElementById("recFormFields") || document;
-    var coEl = root.querySelector("[data-k='company']");
-    var poEl = root.querySelector("[data-k='postal']");
-    var co = coEl ? coEl.value : "";
-    var po = poEl ? poEl.value : "";
-    if (!co || !po) return;
-    var cat = null;
+  function getRecCatalog(co) {
     if (window._coEditingCatalog && MeishiFields.norm(co) === MeishiFields.norm(currentCo)) {
-      cat = window._coEditingCatalog;
-    } else {
-      var p = MeishiStore.getCompanyProfileForEdit(co);
-      cat = p && p.catalog;
+      return window._coEditingCatalog;
     }
+    var p = MeishiStore.getCompanyProfileForEdit(co);
+    var cat = p && p.catalog;
     if ((!cat || !(cat.locations || []).length) && MeishiStore.getCompanyProfile) {
       var p2 = MeishiStore.getCompanyProfile(co);
       cat = (p2 && p2.catalog) || cat;
     }
+    return cat;
+  }
+
+  function applyLocAuto(fromKey) {
+    fromKey = fromKey || "postal";
+    var root = document.getElementById("recFormFields") || document;
+    var coEl = root.querySelector("[data-k='company']");
+    var co = coEl ? coEl.value : "";
+    if (!co) return;
+    var cat = getRecCatalog(co);
     if (!cat) return;
+    function val(k) {
+      var el = root.querySelector("[data-k='" + k + "']");
+      return el ? el.value.trim() : "";
+    }
     var loc = (cat.locations || []).find(function (l) {
-      return MeishiFields.norm(l.postal) === MeishiFields.norm(po);
+      if (fromKey === "address") return MeishiFields.norm(l.address) === MeishiFields.norm(val("address"));
+      if (fromKey === "tel") return MeishiFields.norm(l.tel) === MeishiFields.norm(val("tel"));
+      if (fromKey === "fax") return MeishiFields.norm(l.fax) === MeishiFields.norm(val("fax"));
+      return MeishiFields.norm(l.postal) === MeishiFields.norm(val("postal"));
     });
     if (!loc) return;
     function setField(k, v) {
@@ -1703,6 +1719,7 @@
         el.appendChild(o);
       }
     }
+    setField("postal", loc.postal);
     setField("address", loc.address);
     setField("tel", loc.tel);
     setField("fax", loc.fax);
