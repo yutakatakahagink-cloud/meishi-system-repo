@@ -196,15 +196,7 @@
           if (aff3 && (r.aff3 || "") !== aff3) return false;
           return true;
         }, "title"),
-        postal: collectField(function (r) {
-          if (name && r.name !== name) return false;
-          if (company && r.company !== company) return false;
-          if (aff1 && (r.aff1 || "") !== aff1) return false;
-          if (aff2 && (r.aff2 || "") !== aff2) return false;
-          if (aff3 && (r.aff3 || "") !== aff3) return false;
-          if (title && (r.title || "") !== title) return false;
-          return true;
-        }, "postal").concat(locationChoices().map(function (l) { return l.postal; }).filter(Boolean)),
+        postal: locationChoices().map(function (l) { return l.postal; }).filter(Boolean),
         address: locationChoices().map(function (l) { return l.address; }).filter(Boolean),
         qual: collectField(function (r) {
           if (name && r.name !== name) return false;
@@ -261,69 +253,28 @@
       return filterRecords({});
     }
 
-    function parseNoteLocations(note) {
-      var s = String(note || "");
-      var out = [];
-      var re = /〒\s*([0-9]{3}-?[0-9]{4})\s+(.+?)(?=\s*TEL|\s*FAX|$)/gi;
-      var m;
-      while ((m = re.exec(s))) {
-        var address = String(m[2] || "").replace(/\s*(TEL|FAX).*$/i, "").trim();
-        if (!address) continue;
-        var telM = s.match(/TEL\s*([0-9\-]{9,})/i);
-        var faxM = s.match(/FAX\s*([0-9\-]{9,})/i);
-        out.push({
-          postal: m[1],
-          address: address,
-          tel: telM ? telM[1] : "",
-          fax: faxM ? faxM[1] : "",
-        });
-      }
-      return out;
-    }
-
-    /** 氏名の名刺住所 + 会社拠点 + 備考内の営業所住所 */
+    /** 名刺データ編集でその氏名に保存した住所だけ（会社拠点・備考は含めない） */
     function locationChoices() {
       var seen = Object.create(null);
       var out = [];
-      function add(loc) {
-        if (!loc) return;
-        var address = String(loc.address || "").trim();
-        if (!address || seen[address]) return;
-        seen[address] = 1;
-        out.push({
-          address: address,
-          postal: String(loc.postal || "").trim(),
-          tel: String(loc.tel || "").trim(),
-          fax: String(loc.fax || "").trim(),
-        });
-      }
+      if (!S.name) return out;
       var raw = [];
       try {
         if (MeishiStore.getRecords) raw = MeishiStore.getRecords() || [];
       } catch (e0) {}
-      var all = records.concat(raw);
-      all.forEach(function (r) {
-        if (!r) return;
-        if (S.name && r.name !== S.name) return;
+      var src = raw.length ? raw : records;
+      src.forEach(function (r) {
+        if (!r || r.name !== S.name) return;
         if (S.company && r.company !== S.company) return;
-        add(r);
-        parseNoteLocations(r.note).forEach(add);
-      });
-      var companies = [];
-      if (S.company) companies = [S.company];
-      else {
-        all.forEach(function (r) {
-          if (!r || !r.company) return;
-          if (S.name && r.name !== S.name) return;
-          if (companies.indexOf(r.company) < 0) companies.push(r.company);
+        var address = String(r.address || "").trim();
+        if (!address || seen[address]) return;
+        seen[address] = 1;
+        out.push({
+          address: address,
+          postal: String(r.postal || "").trim(),
+          tel: String(r.tel || "").trim(),
+          fax: String(r.fax || "").trim(),
         });
-      }
-      companies.forEach(function (co) {
-        try {
-          var p = MeishiStore.getCompanyProfile ? MeishiStore.getCompanyProfile(co) : null;
-          var locs = (p && p.catalog && p.catalog.locations) || [];
-          locs.forEach(add);
-        } catch (e1) {}
       });
       return out;
     }
