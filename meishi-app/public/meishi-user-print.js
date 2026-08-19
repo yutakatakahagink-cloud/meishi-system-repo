@@ -13,6 +13,7 @@
     selAff3: "selAff3",
     selTitle: "selTitle",
     selPostal: "selPostal",
+    selAddress: "selAddress",
     selMobile: "selMobile",
     inQual: "inQual",
     inAddress: "inAddress",
@@ -53,7 +54,7 @@
     function el(key) { return document.getElementById(ids[key]); }
 
     var records = [];
-    var S = { name: "", company: "", aff1: "", aff2: "", aff3: "", title: "", postal: "", mobile: "" };
+    var S = { name: "", company: "", aff1: "", aff2: "", aff3: "", title: "", postal: "", address: "", mobile: "" };
     var layout = null;
     var layoutBack = null;
     var cardUI = null;
@@ -136,6 +137,7 @@
           : field === "aff3" ? r.aff3
           : field === "title" ? r.title
           : field === "mobile" ? r.mobile
+          : field === "address" ? r.address
           : r.postal;
         if (v == null || String(v).trim() === "") continue;
         var key = String(v);
@@ -201,6 +203,15 @@
           if (title && (r.title || "") !== title) return false;
           return true;
         }, "postal"),
+        address: collectField(function (r) {
+          if (name && r.name !== name) return false;
+          if (company && r.company !== company) return false;
+          if (aff1 && (r.aff1 || "") !== aff1) return false;
+          if (aff2 && (r.aff2 || "") !== aff2) return false;
+          if (aff3 && (r.aff3 || "") !== aff3) return false;
+          if (title && (r.title || "") !== title) return false;
+          return true;
+        }, "address"),
         mobile: collectField(function (r) {
           if (name && r.name !== name) return false;
           if (company && r.company !== company) return false;
@@ -227,6 +238,7 @@
         if (!opts.skipAff3 && S.aff3 && (r.aff3 || "") !== S.aff3) return false;
         if (!opts.skipTitle && S.title && (r.title || "") !== S.title) return false;
         if (!opts.skipPostal && S.postal && (r.postal || "") !== S.postal) return false;
+        if (!opts.skipAddress && S.address && (r.address || "") !== S.address) return false;
         return true;
       });
     }
@@ -240,6 +252,7 @@
       if (skipKey === "aff3") opts.skipAff3 = true;
       if (skipKey === "title") opts.skipTitle = true;
       if (skipKey === "postal") opts.skipPostal = true;
+      if (skipKey === "address") opts.skipAddress = true;
       return filterRecords(opts);
     }
 
@@ -362,6 +375,7 @@
           S.aff3 = "";
           S.title = "";
           S.postal = "";
+          S.address = "";
           S.mobile = "";
         }
       }
@@ -425,7 +439,7 @@
         if (S[stateKey] !== arr[0]) changed = true;
         S[stateKey] = arr[0];
         nextVal = arr[0];
-      } else if (stateKey === "mobile" && arr.length >= 1) {
+      } else if ((stateKey === "mobile" || stateKey === "address" || stateKey === "postal") && arr.length >= 1) {
         // 複数ある場合は先頭を初期選択しつつ、ドロップダウンで切替可能
         if (!S[stateKey] || arr.indexOf(S[stateKey]) < 0) {
           if (S[stateKey] !== arr[0]) changed = true;
@@ -512,8 +526,9 @@
       if (id === "qual") return el("inQual").value;
       if (id === "koji") return el("inKoji").value;
       if (id === "address") {
-        var p = el("inAddress").value;
-        var po = el("selPostal").value;
+        var addrEl = el("selAddress") || el("inAddress");
+        var p = addrEl ? addrEl.value : "";
+        var po = el("selPostal") ? el("selPostal").value : "";
         return (po ? "〒" + po + " " : "") + p;
       }
       if (id === "telfax") {
@@ -617,8 +632,30 @@
       changed = fillSelect(el("selAff3"), opts.aff3, "所属3", "aff3", skipAutoPick) || changed;
       changed = fillSelect(el("selTitle"), opts.title, "役職", "title", skipAutoPick) || changed;
       changed = fillSelect(el("selPostal"), opts.postal, "郵便番号", "postal", skipAutoPick) || changed;
+      changed = fillSelect(el("selAddress") || el("inAddress"), opts.address, "住所", "address", skipAutoPick) || changed;
       changed = fillSelect(el("selMobile"), opts.mobile, "携帯", "mobile", skipAutoPick) || changed;
       return changed;
+    }
+
+    /** 郵便番号と住所が別レコードにならないよう揃える（住所を優先） */
+    function syncPostalAndAddress() {
+      var rows = filterRecords({ skipPostal: true, skipAddress: true });
+      if (!rows.length) return;
+      if (S.address) {
+        var byAddr = rows.filter(function (r) { return (r.address || "") === S.address; });
+        if (byAddr.length) {
+          if (!S.postal || !byAddr.some(function (r) { return (r.postal || "") === S.postal; })) {
+            S.postal = byAddr[0].postal || "";
+          }
+          return;
+        }
+      }
+      if (S.postal) {
+        var byPostal = rows.filter(function (r) { return (r.postal || "") === S.postal; });
+        if (byPostal.length && (!S.address || !byPostal.some(function (r) { return (r.address || "") === S.address; }))) {
+          S.address = byPostal[0].address || "";
+        }
+      }
     }
 
     function rebuild() {
@@ -631,14 +668,21 @@
         opts = computeCascadeOptions();
         if (pruneAgainst(opts)) opts = computeCascadeOptions();
       }
+      syncPostalAndAddress();
+      applyCascadeOptions(computeCascadeOptions(), false);
       var rows = filtered();
       el("inUrl").value = firstNonEmpty(rows, "url");
       var emailEl = el("inEmail");
       if (emailEl && !emailEl._pvTyping) emailEl.value = firstNonEmpty(rows, "email");
       var qualEl = el("inQual");
       if (qualEl && !qualEl._pvTyping) qualEl.value = firstNonEmpty(rows, "qual");
-      var locRows = S.postal ? rows.filter(function (r) { return (r.postal || "") === S.postal; }) : rows;
-      el("inAddress").value = firstNonEmpty(locRows, "address");
+      var locRows = rows;
+      if (S.address) locRows = rows.filter(function (r) { return (r.address || "") === S.address; });
+      else if (S.postal) locRows = rows.filter(function (r) { return (r.postal || "") === S.postal; });
+      var addrInp = el("inAddress");
+      if (addrInp && addrInp.tagName === "INPUT") {
+        addrInp.value = firstNonEmpty(locRows, "address");
+      }
       el("inTel").value = firstNonEmpty(locRows, "tel");
       el("inFax").value = firstNonEmpty(locRows, "fax");
       refreshLayoutFromStore();
@@ -829,15 +873,33 @@
 
     function bindInputs() {
       bindNameCombo();
-      bindSel("selCompany", "company", ["aff1", "aff2", "aff3", "title", "postal", "mobile"]);
-      bindSel("selAff1", "aff1", ["aff2", "aff3", "title", "postal", "mobile"]);
-      bindSel("selAff2", "aff2", ["aff3", "title", "postal", "mobile"]);
-      bindSel("selAff3", "aff3", ["title", "postal", "mobile"]);
-      bindSel("selTitle", "title", ["postal", "mobile"]);
+      bindSel("selCompany", "company", ["aff1", "aff2", "aff3", "title", "postal", "address", "mobile"]);
+      bindSel("selAff1", "aff1", ["aff2", "aff3", "title", "postal", "address", "mobile"]);
+      bindSel("selAff2", "aff2", ["aff3", "title", "postal", "address", "mobile"]);
+      bindSel("selAff3", "aff3", ["title", "postal", "address", "mobile"]);
+      bindSel("selTitle", "title", ["postal", "address", "mobile"]);
       var sp = el("selPostal");
       if (sp && !sp._mpBound) {
         sp._mpBound = true;
-        sp.addEventListener("change", function () { S.postal = this.value; rebuild(); });
+        sp.addEventListener("change", function () {
+          S.postal = this.value;
+          var rows = filterRecords({ skipAddress: true });
+          var addrs = uniq(rows.map(function (r) { return r.address; }).filter(Boolean));
+          if (!S.address || addrs.indexOf(S.address) < 0) S.address = addrs[0] || "";
+          rebuild();
+        });
+      }
+      var sa = el("selAddress");
+      if (sa && !sa._mpBound) {
+        sa._mpBound = true;
+        sa.addEventListener("change", function () {
+          S.address = this.value;
+          var rows = filterRecords({ skipPostal: true, skipAddress: true }).filter(function (r) {
+            return (r.address || "") === S.address;
+          });
+          if (rows[0]) S.postal = rows[0].postal || "";
+          rebuild();
+        });
       }
       var sm = el("selMobile");
       if (sm && !sm._mpBound) {
@@ -908,7 +970,7 @@
     }
 
     function clear() {
-      S = { name: "", company: "", aff1: "", aff2: "", aff3: "", title: "", postal: "", mobile: "" };
+      S = { name: "", company: "", aff1: "", aff2: "", aff3: "", title: "", postal: "", address: "", mobile: "" };
       selectSig = {};
       var nameInp = el("selName");
       if (nameInp) nameInp.value = "";
@@ -945,7 +1007,7 @@
     }
 
     function init() {
-      S = { name: "", company: "", aff1: "", aff2: "", aff3: "", title: "", postal: "" };
+      S = { name: "", company: "", aff1: "", aff2: "", aff3: "", title: "", postal: "", address: "", mobile: "" };
       reloadRecords();
       bindInputs();
       hookStore();
@@ -957,6 +1019,10 @@
     function forceSelectValue(selEl, value) {
       if (!selEl) return;
       var v = String(value == null ? "" : value);
+      if (selEl.tagName !== "SELECT") {
+        selEl.value = v;
+        return;
+      }
       if (v && ![].some.call(selEl.options || [], function (o) { return o.value === v; })) {
         var opt = document.createElement("option");
         opt.value = v;
@@ -978,6 +1044,7 @@
       S.aff3 = String(rec.aff3 || "").trim();
       S.title = String(rec.title || "").trim();
       S.postal = String(rec.postal || "").trim();
+      S.address = String(rec.address || "").trim();
       S.mobile = String(rec.mobile || "").trim();
 
       var nameInp = el("selName");
@@ -988,12 +1055,13 @@
       forceSelectValue(el("selAff3"), S.aff3);
       forceSelectValue(el("selTitle"), S.title);
       forceSelectValue(el("selPostal"), S.postal);
+      forceSelectValue(el("selAddress") || el("inAddress"), S.address);
       forceSelectValue(el("selMobile"), S.mobile);
 
       var qualEl = el("inQual");
       if (qualEl) qualEl.value = rec.qual || "";
       var addrEl = el("inAddress");
-      if (addrEl) addrEl.value = rec.address || "";
+      if (addrEl && addrEl.tagName === "INPUT") addrEl.value = rec.address || "";
       var telEl = el("inTel");
       if (telEl) telEl.value = rec.tel || "";
       var faxEl = el("inFax");
@@ -1013,11 +1081,7 @@
         MeishiStore.setImageLibraryContext(S.company);
       }
       previewSide = "front";
-      refreshLayoutFromStore();
-      if (!layout) layout = MeishiCatalog.normalizeLayout(resolveStdLayout());
-      if (cardUI && cardUI.invalidate) cardUI.invalidate();
-      ensureCardUI();
-      renderCard();
+      rebuild();
       if (typeof opts.onApplied === "function") opts.onApplied();
     }
 

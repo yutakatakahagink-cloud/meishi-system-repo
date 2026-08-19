@@ -12,6 +12,7 @@
     selAff3: "pvSelAff3",
     selTitle: "pvSelTitle",
     selPostal: "pvSelPostal",
+    selAddress: "pvSelAddress",
     inQual: "pvInQual",
     inAddress: "pvInAddress",
     inTel: "pvInTel",
@@ -55,6 +56,8 @@
       var aff2 = previewField("pvSelAff2");
       var aff3 = previewField("pvSelAff3");
       var title = previewField("pvSelTitle");
+      var postal = previewField("pvSelPostal");
+      var address = previewField("pvSelAddress") || previewField("pvInAddress");
       var recs = MeishiStore.getRecords();
       var best = -1;
       var bestScore = -1;
@@ -66,6 +69,8 @@
         if (aff2 && MeishiFields.norm(r.aff2) === MeishiFields.norm(aff2)) score += 2;
         if (aff3 && MeishiFields.norm(r.aff3) === MeishiFields.norm(aff3)) score += 1;
         if (title && MeishiFields.norm(r.title) === MeishiFields.norm(title)) score += 1;
+        if (postal && MeishiFields.norm(r.postal) === MeishiFields.norm(postal)) score += 2;
+        if (address && MeishiFields.norm(r.address) === MeishiFields.norm(address)) score += 3;
         if (score > bestScore) { bestScore = score; best = i; }
       });
       return best;
