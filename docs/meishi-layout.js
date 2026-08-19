@@ -255,18 +255,17 @@
     var sw = Number(sh.strokeW);
     if (!isFinite(sw) || sw < 0) sw = lineLike ? 2 : 1.5;
     sw = Math.max(0, Math.min(12, Math.round(sw * 10) / 10));
-    return {
-      id: sh.id || ("shp" + Date.now() + i),
-      kind: kind,
-      x: typeof sh.x === "number" ? sh.x : 28,
-      y: typeof sh.y === "number" ? sh.y : 28,
-      w: typeof sh.w === "number" ? Math.max(8, sh.w) : (lineLike ? 90 : 72),
-      h: typeof sh.h === "number" ? Math.max(4, sh.h) : (lineLike ? 12 : 40),
-      fill: fill,
-      stroke: stroke,
-      strokeW: sw,
-      z: isFinite(Number(sh.z)) ? Math.round(Number(sh.z)) : 4,
-    };
+    sh.id = sh.id || ("shp" + Date.now() + i);
+    sh.kind = kind;
+    sh.x = typeof sh.x === "number" ? sh.x : 28;
+    sh.y = typeof sh.y === "number" ? sh.y : 28;
+    sh.w = typeof sh.w === "number" ? Math.max(8, sh.w) : (lineLike ? 90 : 72);
+    sh.h = typeof sh.h === "number" ? Math.max(4, sh.h) : (lineLike ? 12 : 40);
+    sh.fill = fill;
+    sh.stroke = stroke;
+    sh.strokeW = sw;
+    sh.z = isFinite(Number(sh.z)) ? Math.round(Number(sh.z)) : 4;
+    return sh;
   }
 
   function shapeSvgInner(st) {

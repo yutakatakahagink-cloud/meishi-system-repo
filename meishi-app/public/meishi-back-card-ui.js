@@ -117,6 +117,19 @@
     function shpSelId(id) { return "__shp:" + id; }
     function isShpSel(s) { return s && s.indexOf("__shp:") === 0; }
 
+    function shapeStById(id) {
+      if (!id) return null;
+      var layout = getLayout();
+      return ((layout && layout.shapes) || []).find(function (s) { return s && s.id === id; }) || null;
+    }
+
+    function liveShapeSt(st, node) {
+      if (node && node.classList.contains("shpel") && st && st.id) {
+        return shapeStById(st.id) || st;
+      }
+      return st;
+    }
+
     function saveLayout() {
       onLayoutChange(getLayout());
     }
@@ -1114,7 +1127,8 @@
         var pid = ev.pointerId;
         var p = pxFromEvent(ev);
         var start = screenToCard(cardEl, p.clientX, p.clientY);
-        var ox = st.x, oy = st.y;
+        var liveSt = liveShapeSt(st, node);
+        var ox = liveSt.x, oy = liveSt.y;
         var raf = 0, nx = ox, ny = oy;
         var dragging = false;
         var ended = false;
@@ -1125,7 +1139,8 @@
         }
         function applyPos() {
           raf = 0;
-          st.x = nx; st.y = ny;
+          var target = liveShapeSt(st, node);
+          target.x = nx; target.y = ny;
           node.style.left = nx + "px";
           node.style.top = ny + "px";
         }
@@ -1188,7 +1203,8 @@
         cardEl.classList.add("is-dragging");
         var p = pxFromEvent(ev);
         var start = screenToCard(cardEl, p.clientX, p.clientY);
-        var ow = im.w, oh = im.h;
+        var liveIm = liveShapeSt(im, wrap);
+        var ow = liveIm.w, oh = liveIm.h;
         var raf = 0, nw = ow, nh = oh;
         var ended = false;
         function detachPointer() {
@@ -1198,9 +1214,17 @@
         }
         function applySize() {
           raf = 0;
-          im.w = nw; im.h = nh;
+          var target = liveShapeSt(im, wrap);
+          target.w = nw; target.h = nh;
           wrap.style.width = nw + "px";
           wrap.style.height = nh + "px";
+          if (wrap.classList.contains("shpel") && MeishiLayout.shapeSvgInner) {
+            var svg = wrap.querySelector("svg");
+            if (svg) {
+              svg.setAttribute("viewBox", "0 0 " + nw + " " + nh);
+              svg.innerHTML = MeishiLayout.shapeSvgInner(target);
+            }
+          }
         }
         function mv(e2) {
           if (ended || e2.pointerId !== pid) return;
@@ -1208,12 +1232,13 @@
           var cur = screenToCard(cardEl, q.clientX, q.clientY);
           nw = Math.max(16, Math.round(ow + (cur.x - start.x)));
           nh = Math.max(12, Math.round(oh + (cur.y - start.y)));
-          var sized = clampSizeInCard(im.x, im.y, nw, nh);
+          var posIm = liveShapeSt(im, wrap);
+          var sized = clampSizeInCard(posIm.x, posIm.y, nw, nh);
           nw = sized.w;
           nh = sized.h;
-          im.aspectFit = 1;
-          var guides = guideForDrag(cardEl, wrap, im.x, im.y, snapExtraCardEls);
-          showDragGuides(guides, im.x, im.y, nw, nh, "br");
+          posIm.aspectFit = 1;
+          var guides = guideForDrag(cardEl, wrap, posIm.x, posIm.y, snapExtraCardEls);
+          showDragGuides(guides, posIm.x, posIm.y, nw, nh, "br");
           if (!raf) raf = requestAnimationFrame(applySize);
         }
         function up(e2) {

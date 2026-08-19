@@ -486,6 +486,31 @@
       return String(selId).replace(/^__shp:/, "");
     }
 
+    function shapeStById(id) {
+      if (!id) return null;
+      var layout = getLayout();
+      return ((layout && layout.shapes) || []).find(function (s) { return s && s.id === id; }) || null;
+    }
+
+    function liveShapeSt(st, node) {
+      if (node && node.classList.contains("shpel") && st && st.id) {
+        return shapeStById(st.id) || st;
+      }
+      return st;
+    }
+
+    function syncShapeFromNode(st, node) {
+      if (!st || !node) return;
+      var x = parseFloat(node.style.left);
+      var y = parseFloat(node.style.top);
+      var w = parseFloat(node.style.width);
+      var h = parseFloat(node.style.height);
+      if (isFinite(x)) st.x = x;
+      if (isFinite(y)) st.y = y;
+      if (isFinite(w)) st.w = w;
+      if (isFinite(h)) st.h = h;
+    }
+
     function updateSelectionHighlight() {
       Object.keys(elNodes).forEach(function (id) {
         elNodes[id].classList.toggle("sel", id === sel);
@@ -1782,7 +1807,8 @@
         var pid = ev.pointerId;
         var p = pxFromEvent(ev);
         var start = screenToCard(cardEl, p.clientX, p.clientY);
-        var ox = st.x, oy = st.y;
+        var liveSt = liveShapeSt(st, node);
+        var ox = liveSt.x, oy = liveSt.y;
         var isTextDrag = !isImage && !isFreeText && useZoneTextLayout() && node.classList.contains("el");
         var isImageDrag = !!isImage || node.classList.contains("imgel") || node.classList.contains("shpel");
         var raf = 0, nx = ox, ny = oy;
@@ -1795,7 +1821,8 @@
         }
         function applyPos() {
           raf = 0;
-          st.x = nx; st.y = ny;
+          var target = liveShapeSt(st, node);
+          target.x = nx; target.y = ny;
           node.style.left = nx + "px";
           node.style.top = ny + "px";
           if (isTextDrag) node.style.maxWidth = textMaxWidth(st) + "px";
@@ -1874,7 +1901,8 @@
         cardEl.classList.add("is-dragging");
         var p = pxFromEvent(ev);
         var start = screenToCard(cardEl, p.clientX, p.clientY);
-        var ow = im.w, oh = im.h;
+        var liveIm = liveShapeSt(im, wrap);
+        var ow = liveIm.w, oh = liveIm.h;
         var raf = 0, nw = ow, nh = oh;
         var ended = false;
         function detachPointer() {
@@ -1884,14 +1912,15 @@
         }
         function applySize() {
           raf = 0;
-          im.w = nw; im.h = nh;
+          var target = liveShapeSt(im, wrap);
+          target.w = nw; target.h = nh;
           wrap.style.width = nw + "px";
           wrap.style.height = nh + "px";
           if (wrap.classList.contains("shpel") && MeishiLayout.shapeSvgInner) {
             var svg = wrap.querySelector("svg");
             if (svg) {
               svg.setAttribute("viewBox", "0 0 " + nw + " " + nh);
-              svg.innerHTML = MeishiLayout.shapeSvgInner(im);
+              svg.innerHTML = MeishiLayout.shapeSvgInner(target);
             }
           }
         }
@@ -1901,12 +1930,13 @@
           var cur = screenToCard(cardEl, q.clientX, q.clientY);
           var rawW = Math.max(16, Math.round(ow + (cur.x - start.x)));
           var rawH = Math.max(12, Math.round(oh + (cur.y - start.y)));
-          var sized = clampSizeInCard(im.x, im.y, rawW, rawH);
+          var posIm = liveShapeSt(im, wrap);
+          var sized = clampSizeInCard(posIm.x, posIm.y, rawW, rawH);
           nw = sized.w;
           nh = sized.h;
-          im.aspectFit = 1;
-          var guides = snapResizeBox(cardEl, wrap, im.x, im.y, nw, nh, zoneSnapEdges(), snapExtraCardEls);
-          showDragGuides(guides, im.x, im.y, nw, nh, "br");
+          posIm.aspectFit = 1;
+          var guides = snapResizeBox(cardEl, wrap, posIm.x, posIm.y, nw, nh, zoneSnapEdges(), snapExtraCardEls);
+          showDragGuides(guides, posIm.x, posIm.y, nw, nh, "br");
           if (!raf) raf = requestAnimationFrame(applySize);
         }
         function up(e2) {
@@ -2111,6 +2141,7 @@
       function applySelectedShape(patch) {
         var hit = getSelectedLayerTarget();
         if (!hit || hit.kind !== "shape" || !hit.st) return;
+        syncShapeFromNode(hit.st, hit.node);
         Object.assign(hit.st, patch);
         if (hit.node) paintShapeNode(hit.node, hit.st);
         saveLayout();
