@@ -27,6 +27,10 @@
     { id: "dashed", label: "破線" },
     { id: "wave", label: "波線" },
   ];
+  /** 所属・住所等（.el）＞ 通常の自由テキスト(20) ＞ 項目(15) ＞ 画像(10) ＞ 最背面(1) */
+  var Z_LAYER_BACK = 1;
+  var Z_LAYER_FIELD = 15;
+  var Z_LAYER_TEXT_BACK = 16;
 
   /** 表裏共通: 自由テキストのクリップボード + Ctrl+C / Ctrl+V */
   (function initMeishiTextClip() {
@@ -668,6 +672,7 @@
       }
       node.style.left = st.x + "px";
       node.style.top = st.y + "px";
+      node.style.zIndex = String(Z_LAYER_FIELD);
       node.style.fontSize = st.size + "px";
       node.style.color = st.color;
       node.style.fontFamily = MeishiLayout.resolveBackFontFamily(st.font || "");
@@ -1343,6 +1348,22 @@
       var hit = getSelectedLayerTarget();
       if (!hit) return false;
       var layout = getLayout();
+      if (hit.kind === "image" || hit.kind === "shape") {
+        hit.st.z = Z_LAYER_BACK;
+        applyLayerZToNode(hit);
+        ((layout.texts) || []).forEach(function (t) {
+          if (t && textNodes[t.id]) textNodes[t.id].style.zIndex = String(ensureItemZ(t, 20));
+        });
+        ((layout.images) || []).forEach(function (im) {
+          if (im && imgNodes[im.id]) imgNodes[im.id].wrap.style.zIndex = String(ensureItemZ(im, 10));
+        });
+        ((layout.shapes) || []).forEach(function (sh) {
+          if (sh && shapeNodes[sh.id]) shapeNodes[sh.id].style.zIndex = String(ensureItemZ(sh, 4));
+        });
+        saveLayout();
+        if (panelShowDesign) panelShowDesign();
+        return true;
+      }
       var min = Infinity;
       layerableItems(layout).forEach(function (it) {
         if (it === hit.st) return;
@@ -1350,13 +1371,8 @@
         if (z < min) min = z;
       });
       if (!isFinite(min)) min = 10;
-      hit.st.z = min - 1;
-      if (hit.st.z < 1) {
-        var shift = 1 - hit.st.z;
-        layerableItems(layout).forEach(function (it) {
-          it.z = ensureItemZ(it, 10) + shift;
-        });
-      }
+      hit.st.z = Math.max(Z_LAYER_TEXT_BACK, min - 1);
+      if (hit.st.z < Z_LAYER_TEXT_BACK) hit.st.z = Z_LAYER_TEXT_BACK;
       applyLayerZToNode(hit);
       // 他ノードの z も再反映
       ((layout.texts) || []).forEach(function (t) {

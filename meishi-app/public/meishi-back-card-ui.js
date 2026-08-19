@@ -20,6 +20,8 @@
     { id: "dashed", label: "破線" },
     { id: "wave", label: "波線" },
   ];
+  var Z_LAYER_BACK = 1;
+  var Z_LAYER_TEXT_BACK = 16;
   var LINE_H_MIN = 1.0;
   var LINE_H_MAX = 2.5;
   var LINE_H_STEP = 0.1;
@@ -785,6 +787,22 @@
       var hit = getSelectedLayerTarget();
       if (!hit) return false;
       var layout = getLayout();
+      if (hit.kind === "image" || hit.kind === "shape") {
+        hit.st.z = Z_LAYER_BACK;
+        applyLayerZToNode(hit);
+        ((layout.texts) || []).forEach(function (t) {
+          if (t && textNodes[t.id]) textNodes[t.id].style.zIndex = String(ensureItemZ(t, 20));
+        });
+        ((layout.images) || []).forEach(function (im) {
+          if (im && imgNodes[im.id]) imgNodes[im.id].wrap.style.zIndex = String(ensureItemZ(im, 10));
+        });
+        ((layout.shapes) || []).forEach(function (sh) {
+          if (sh && shapeNodes[sh.id]) shapeNodes[sh.id].style.zIndex = String(ensureItemZ(sh, 4));
+        });
+        saveLayout();
+        if (panelShowDesign) panelShowDesign();
+        return true;
+      }
       var min = Infinity;
       layerableItems(layout).forEach(function (it) {
         if (it === hit.st) return;
@@ -792,13 +810,7 @@
         if (z < min) min = z;
       });
       if (!isFinite(min)) min = 10;
-      hit.st.z = min - 1;
-      if (hit.st.z < 1) {
-        var shift = 1 - hit.st.z;
-        layerableItems(layout).forEach(function (it) {
-          it.z = ensureItemZ(it, 10) + shift;
-        });
-      }
+      hit.st.z = Math.max(Z_LAYER_TEXT_BACK, min - 1);
       applyLayerZToNode(hit);
       ((layout.texts) || []).forEach(function (t) {
         if (t && textNodes[t.id]) textNodes[t.id].style.zIndex = String(ensureItemZ(t, 20));

@@ -199,6 +199,10 @@
     print-color-adjust: exact;
   }
 
+  .meishi-print-card-wrap .el {
+    z-index: 15;
+  }
+
   .meishi-print-card-wrap .imgel,
   .meishi-print-card-wrap .shpel {
     position: absolute;
