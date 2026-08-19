@@ -6,7 +6,7 @@
   var copySourceRec = null;
   var recFilter = "";
 
-  var REC_TEXT_INPUT_KEYS = { name: 1, furigana: 1, qual: 1, mobile: 1, email: 1, address: 1 };
+  var REC_TEXT_INPUT_KEYS = { name: 1, furigana: 1, qual: 1, mobile: 1, email: 1 };
   var coUI = null;
   var coPanel = null;
   var coLayout = null;
@@ -1527,19 +1527,8 @@
     }
   }
 
-  function textFieldHtml(c, rec, ctx) {
-    var listId = "";
-    var extra = "";
-    if (c.key === "address") {
-      listId = "recAddressList";
-      var opts = fieldOptions((ctx && ctx.company) || rec.company, "address", ctx || {});
-      extra = "<datalist id='" + listId + "'>" + opts.map(function (v) {
-        return "<option value='" + esc(v) + "'></option>";
-      }).join("") + "</datalist>";
-    }
-    return "<div class='field'><label>" + c.label + "</label><input type='text' data-k='" + c.key + "'" +
-      (listId ? " list='" + listId + "'" : "") +
-      " value='" + esc(rec[c.key] || "") + "' />" + extra + "</div>";
+  function textFieldHtml(c, rec) {
+    return "<div class='field'><label>" + c.label + "</label><input type='text' data-k='" + c.key + "' value='" + esc(rec[c.key] || "") + "' /></div>";
   }
 
   function selectFieldHtml(c, rec, ctx) {
@@ -1624,13 +1613,13 @@
           return;
         }
         if (REC_TEXT_INPUT_KEYS[c.key]) {
-          html += textFieldHtml(c, rec, ctx);
+          html += textFieldHtml(c, rec);
           return;
         }
         html += selectFieldHtml(c, rec, ctx);
       } catch (e) {
         console.warn("[Meishi] rebuild field", c.key, e);
-        html += textFieldHtml(c, rec, ctx);
+        html += textFieldHtml(c, rec);
       }
     });
     fieldsEl.innerHTML = html;

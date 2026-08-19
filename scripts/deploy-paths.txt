@@ -77,3 +77,4 @@ meishi-app/public/owner.20250724at.css
 meishi-app/public/owner.20250724au.css
 meishi-app/public/owner-admin.20250724av.js
 meishi-app/public/owner-admin.20250724ax.js
+meishi-app/public/owner-admin.20250724ay.js
