@@ -42,6 +42,27 @@
     return window._catCtx;
   }
 
+  function closeCatModal() {
+    var m = document.querySelector(".cat-modal");
+    if (m && m.parentNode) m.parentNode.removeChild(m);
+  }
+
+  function openCatModal(title, innerHtml, onReady) {
+    closeCatModal();
+    var overlay = document.createElement("div");
+    overlay.className = "cat-modal";
+    overlay.innerHTML = "<div class='cat-modal-dialog' role='dialog' aria-modal='true'><h3>" +
+      esc(title) + "</h3>" + innerHtml + "</div>";
+    overlay.addEventListener("click", function (ev) {
+      if (ev.target === overlay) closeCatModal();
+    });
+    document.body.appendChild(overlay);
+    var dialog = overlay.querySelector(".cat-modal-dialog");
+    if (typeof onReady === "function") onReady(dialog);
+    var first = dialog.querySelector("input,select,button");
+    if (first && first.focus) first.focus();
+  }
+
   function rekeyMap(map, oldKey, newKey) {
     if (!map || oldKey === newKey) return;
     if (map[oldKey]) { map[newKey] = map[oldKey]; delete map[oldKey]; }
@@ -263,7 +284,7 @@
         html += "<tr>";
         html += "<td class='col-act'>";
         if (fieldId === "postal" || fieldId === "address" || fieldId === "tel" || fieldId === "fax") {
-          html += "<button type='button' class='linkbtn btn-loc-edit' data-i='" + row.meta.locIndex + "'>セット編集</button> ";
+          html += "<button type='button' class='linkbtn btn-loc-edit' data-i='" + row.meta.locIndex + "'>編集</button> ";
           html += "<button type='button' class='linkbtn btn-loc-del' data-i='" + row.meta.locIndex + "'>×</button>";
         } else {
           html += "<button type='button' class='linkbtn btn-cat-edit' data-v='" + escAttr(row.meta.value || row.value) + "' data-meta='" + rowMetaAttr(row.meta) + "'>編集</button> ";
@@ -276,7 +297,6 @@
     }
     html += "</tbody></table></div>";
     html += renderAddForm(cat, fieldId);
-    html += "<div class='cat-edit-box' id='catEditBox' style='display:none'></div>";
     container.innerHTML = html;
 
     function parseMeta(btn) {
@@ -311,21 +331,29 @@
         var oldV = btn.getAttribute("data-v");
         var meta = parseMeta(btn);
         if (fieldId !== "aff2" && fieldId !== "aff3") {
-          var nv = prompt("新しい名称", oldV);
-          if (nv == null) return;
-          nv = nv.trim();
-          if (!nv || nv === oldV) return;
-          renameCatalogValue(cat, fieldId, oldV, nv);
-          emit(emitRenameOp(fieldId, oldV, nv));
-          refresh();
+          openCatModal("編集",
+            "<div class='field'><label>名称</label><input class='cat-edit-val' value='" + escAttr(oldV) + "' /></div>" +
+            "<div class='btn-row'><button type='button' class='btn sm cat-edit-save'>保存</button>" +
+            "<button type='button' class='btn sm ghost cat-edit-cancel'>キャンセル</button></div>",
+            function (dlg) {
+              dlg.querySelector(".cat-edit-cancel").onclick = closeCatModal;
+              dlg.querySelector(".cat-edit-save").onclick = function () {
+                var nv = (dlg.querySelector(".cat-edit-val") || {}).value;
+                nv = nv ? nv.trim() : "";
+                if (!nv) return alert("名称を入力してください");
+                if (nv !== oldV) {
+                  renameCatalogValue(cat, fieldId, oldV, nv);
+                  emit(emitRenameOp(fieldId, oldV, nv));
+                }
+                closeCatModal();
+                refresh();
+              };
+            });
           return;
         }
-        var box = container.querySelector("#catEditBox");
-        if (!box) return;
         var parent = meta.parent || "*";
         var parts = parent === "*" ? ["", ""] : String(parent).split("|");
-        var html = "<div class='cat-add-form'><div class='cat-add-title'>紐づけを編集</div>";
-        html += "<div class='field'><label>名称</label><input class='cat-edit-val' value='" + escAttr(oldV) + "' /></div>";
+        var html = "<div class='field'><label>名称</label><input class='cat-edit-val' value='" + escAttr(oldV) + "' /></div>";
         html += "<div class='field'><label>紐づける所属1</label><select class='cat-edit-parent'>";
         html += "<option value=''>（所属1を選択）</option>";
         (cat.aff1 || []).forEach(function (v) {
@@ -336,34 +364,32 @@
           html += "<div class='field'><label>紐づける所属2</label><select class='cat-edit-parent2'></select></div>";
         }
         html += "<div class='btn-row'><button type='button' class='btn sm cat-edit-save'>保存</button>";
-        html += "<button type='button' class='btn sm ghost cat-edit-cancel'>キャンセル</button></div></div>";
-        box.innerHTML = html;
-        box.style.display = "";
-        var p1 = box.querySelector(".cat-edit-parent");
-        var p2 = box.querySelector(".cat-edit-parent2");
-        if (p1 && p2) {
-          fillParent2Options(p2, p1.value, parts[1] || "");
-          p1.onchange = function () { fillParent2Options(p2, p1.value, ""); };
-        }
-        box.querySelector(".cat-edit-cancel").onclick = function () {
-          box.style.display = "none";
-          box.innerHTML = "";
-        };
-        box.querySelector(".cat-edit-save").onclick = function () {
-          var nv = (box.querySelector(".cat-edit-val") || {}).value;
-          nv = nv ? nv.trim() : "";
-          if (!nv) return alert("名称を入力してください");
-          var n1 = p1 ? p1.value : "";
-          var n2 = p2 ? p2.value : "";
-          if (fieldId === "aff2" && !n1) return alert("紐づける所属1を選んでください");
-          if (fieldId === "aff3" && (!n1 || !n2)) return alert("紐づける所属1と所属2を選んでください");
-          var newParent = fieldId === "aff3" ? MeishiCatalog.pathKey(n1, n2) : n1;
-          if (fieldId === "aff2") moveMapItem(cat.aff2, parent, newParent, oldV, nv);
-          else moveMapItem(cat.aff3, parent, newParent, oldV, nv);
-          if (nv !== oldV) emit(emitRenameOp(fieldId, oldV, nv));
-          else emit();
-          refresh();
-        };
+        html += "<button type='button' class='btn sm ghost cat-edit-cancel'>キャンセル</button></div>";
+        openCatModal("紐づけを編集", html, function (dlg) {
+          var p1 = dlg.querySelector(".cat-edit-parent");
+          var p2 = dlg.querySelector(".cat-edit-parent2");
+          if (p1 && p2) {
+            fillParent2Options(p2, p1.value, parts[1] || "");
+            p1.onchange = function () { fillParent2Options(p2, p1.value, ""); };
+          }
+          dlg.querySelector(".cat-edit-cancel").onclick = closeCatModal;
+          dlg.querySelector(".cat-edit-save").onclick = function () {
+            var nv = (dlg.querySelector(".cat-edit-val") || {}).value;
+            nv = nv ? nv.trim() : "";
+            if (!nv) return alert("名称を入力してください");
+            var n1 = p1 ? p1.value : "";
+            var n2 = p2 ? p2.value : "";
+            if (fieldId === "aff2" && !n1) return alert("紐づける所属1を選んでください");
+            if (fieldId === "aff3" && (!n1 || !n2)) return alert("紐づける所属1と所属2を選んでください");
+            var newParent = fieldId === "aff3" ? MeishiCatalog.pathKey(n1, n2) : n1;
+            if (fieldId === "aff2") moveMapItem(cat.aff2, parent, newParent, oldV, nv);
+            else moveMapItem(cat.aff3, parent, newParent, oldV, nv);
+            if (nv !== oldV) emit(emitRenameOp(fieldId, oldV, nv));
+            else emit();
+            closeCatModal();
+            refresh();
+          };
+        });
       };
     });
 
@@ -437,35 +463,31 @@
       btn.onclick = function () {
         var loc = cat.locations[+btn.getAttribute("data-i")];
         if (!loc) return;
-        var box = container.querySelector("#catEditBox");
-        if (!box) return;
         var oldPostal = loc.postal;
-        box.innerHTML = "<div class='cat-add-form'><div class='cat-add-title'>所在地セットを編集</div>" +
-          "<div class='field'><label>郵便番号</label><input class='cat-edit-postal' value='" + escAttr(loc.postal || "") + "' /></div>" +
+        var html = "<div class='field'><label>郵便番号</label><input class='cat-edit-postal' value='" + escAttr(loc.postal || "") + "' /></div>" +
           "<div class='field'><label>住所</label><input class='cat-edit-address' value='" + escAttr(loc.address || "") + "' /></div>" +
           "<div class='field'><label>TEL</label><input class='cat-edit-tel' value='" + escAttr(loc.tel || "") + "' /></div>" +
           "<div class='field'><label>FAX</label><input class='cat-edit-fax' value='" + escAttr(loc.fax || "") + "' /></div>" +
           "<div class='btn-row'><button type='button' class='btn sm cat-edit-save'>保存</button>" +
-          "<button type='button' class='btn sm ghost cat-edit-cancel'>キャンセル</button></div></div>";
-        box.style.display = "";
-        box.querySelector(".cat-edit-cancel").onclick = function () {
-          box.style.display = "none";
-          box.innerHTML = "";
-        };
-        box.querySelector(".cat-edit-save").onclick = function () {
-          loc.postal = (box.querySelector(".cat-edit-postal") || {}).value.trim();
-          loc.address = (box.querySelector(".cat-edit-address") || {}).value.trim();
-          loc.tel = (box.querySelector(".cat-edit-tel") || {}).value.trim();
-          loc.fax = (box.querySelector(".cat-edit-fax") || {}).value.trim();
-          if (!loc.postal) return alert("郵便番号を入力してください");
-          MeishiCatalog.addUnique(cat.postal, loc.postal);
-          emit({
-            type: "updateLocation",
-            oldPostal: oldPostal,
-            loc: { postal: loc.postal, address: loc.address, tel: loc.tel, fax: loc.fax },
-          });
-          refresh();
-        };
+          "<button type='button' class='btn sm ghost cat-edit-cancel'>キャンセル</button></div>";
+        openCatModal("所在地を編集", html, function (dlg) {
+          dlg.querySelector(".cat-edit-cancel").onclick = closeCatModal;
+          dlg.querySelector(".cat-edit-save").onclick = function () {
+            loc.postal = (dlg.querySelector(".cat-edit-postal") || {}).value.trim();
+            loc.address = (dlg.querySelector(".cat-edit-address") || {}).value.trim();
+            loc.tel = (dlg.querySelector(".cat-edit-tel") || {}).value.trim();
+            loc.fax = (dlg.querySelector(".cat-edit-fax") || {}).value.trim();
+            if (!loc.postal) return alert("郵便番号を入力してください");
+            MeishiCatalog.addUnique(cat.postal, loc.postal);
+            emit({
+              type: "updateLocation",
+              oldPostal: oldPostal,
+              loc: { postal: loc.postal, address: loc.address, tel: loc.tel, fax: loc.fax },
+            });
+            closeCatModal();
+            refresh();
+          };
+        });
       };
     });
     container.querySelectorAll(".btn-loc-del").forEach(function (btn) {

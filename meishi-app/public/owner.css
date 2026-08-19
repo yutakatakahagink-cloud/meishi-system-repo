@@ -414,6 +414,13 @@ th{background:#f3f6fb;position:sticky;top:0}tr.sel{background:#e8eef8}tr:hover{b
 }
 .qr-modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:100;padding:16px}
 .qr-modal[hidden]{display:none!important}
+.cat-modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:120;padding:16px}
+.cat-modal-dialog{background:#fff;border-radius:14px;padding:20px;max-width:440px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.2);text-align:left}
+.cat-modal-dialog h3{margin:0 0 12px;color:var(--brand-d);font-size:1.05rem}
+.cat-modal-dialog .field{margin:0 0 10px}
+.cat-modal-dialog .field label{display:block;font-size:.82rem;margin-bottom:4px}
+.cat-modal-dialog input,.cat-modal-dialog select{width:100%;box-sizing:border-box}
+.cat-modal-dialog .btn-row{margin-top:14px;display:flex;gap:8px;justify-content:flex-end}
 .qr-dialog{background:#fff;border-radius:14px;padding:20px;max-width:320px;width:100%;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,.2)}
 .qr-dialog h3{margin:0 0 8px;color:var(--brand-d);font-size:1rem}
 /* QR用のみ（名刺プレビュー内の img には当てない） */
