@@ -13,6 +13,7 @@
     selTitle: "pvSelTitle",
     selPostal: "pvSelPostal",
     selAddress: "pvSelAddress",
+    selQual: "pvSelQual",
     inQual: "pvInQual",
     inAddress: "pvInAddress",
     inTel: "pvInTel",

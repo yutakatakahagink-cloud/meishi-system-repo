@@ -14,6 +14,7 @@
     selTitle: "selTitle",
     selPostal: "selPostal",
     selAddress: "selAddress",
+    selQual: "selQual",
     selMobile: "selMobile",
     inQual: "inQual",
     inAddress: "inAddress",
@@ -54,7 +55,7 @@
     function el(key) { return document.getElementById(ids[key]); }
 
     var records = [];
-    var S = { name: "", company: "", aff1: "", aff2: "", aff3: "", title: "", postal: "", address: "", mobile: "" };
+    var S = { name: "", company: "", aff1: "", aff2: "", aff3: "", title: "", postal: "", address: "", qual: "", mobile: "" };
     var layout = null;
     var layoutBack = null;
     var cardUI = null;
@@ -138,6 +139,7 @@
           : field === "title" ? r.title
           : field === "mobile" ? r.mobile
           : field === "address" ? r.address
+          : field === "qual" ? r.qual
           : r.postal;
         if (v == null || String(v).trim() === "") continue;
         var key = String(v);
@@ -202,8 +204,9 @@
           if (aff3 && (r.aff3 || "") !== aff3) return false;
           if (title && (r.title || "") !== title) return false;
           return true;
-        }, "postal"),
-        address: collectField(function (r) {
+        }, "postal").concat(locationChoices().map(function (l) { return l.postal; }).filter(Boolean)),
+        address: locationChoices().map(function (l) { return l.address; }).filter(Boolean),
+        qual: collectField(function (r) {
           if (name && r.name !== name) return false;
           if (company && r.company !== company) return false;
           if (aff1 && (r.aff1 || "") !== aff1) return false;
@@ -211,7 +214,7 @@
           if (aff3 && (r.aff3 || "") !== aff3) return false;
           if (title && (r.title || "") !== title) return false;
           return true;
-        }, "address"),
+        }, "qual"),
         mobile: collectField(function (r) {
           if (name && r.name !== name) return false;
           if (company && r.company !== company) return false;
@@ -237,8 +240,6 @@
         if (!opts.skipAff2 && S.aff2 && (r.aff2 || "") !== S.aff2) return false;
         if (!opts.skipAff3 && S.aff3 && (r.aff3 || "") !== S.aff3) return false;
         if (!opts.skipTitle && S.title && (r.title || "") !== S.title) return false;
-        if (!opts.skipPostal && S.postal && (r.postal || "") !== S.postal) return false;
-        if (!opts.skipAddress && S.address && (r.address || "") !== S.address) return false;
         return true;
       });
     }
@@ -260,6 +261,73 @@
       return filterRecords({});
     }
 
+    function parseNoteLocations(note) {
+      var s = String(note || "");
+      var out = [];
+      var re = /〒\s*([0-9]{3}-?[0-9]{4})\s+(.+?)(?=\s*TEL|\s*FAX|$)/gi;
+      var m;
+      while ((m = re.exec(s))) {
+        var address = String(m[2] || "").replace(/\s*(TEL|FAX).*$/i, "").trim();
+        if (!address) continue;
+        var telM = s.match(/TEL\s*([0-9\-]{9,})/i);
+        var faxM = s.match(/FAX\s*([0-9\-]{9,})/i);
+        out.push({
+          postal: m[1],
+          address: address,
+          tel: telM ? telM[1] : "",
+          fax: faxM ? faxM[1] : "",
+        });
+      }
+      return out;
+    }
+
+    /** 氏名の名刺住所 + 会社拠点 + 備考内の営業所住所 */
+    function locationChoices() {
+      var seen = Object.create(null);
+      var out = [];
+      function add(loc) {
+        if (!loc) return;
+        var address = String(loc.address || "").trim();
+        if (!address || seen[address]) return;
+        seen[address] = 1;
+        out.push({
+          address: address,
+          postal: String(loc.postal || "").trim(),
+          tel: String(loc.tel || "").trim(),
+          fax: String(loc.fax || "").trim(),
+        });
+      }
+      var raw = [];
+      try {
+        if (MeishiStore.getRecords) raw = MeishiStore.getRecords() || [];
+      } catch (e0) {}
+      var all = records.concat(raw);
+      all.forEach(function (r) {
+        if (!r) return;
+        if (S.name && r.name !== S.name) return;
+        if (S.company && r.company !== S.company) return;
+        add(r);
+        parseNoteLocations(r.note).forEach(add);
+      });
+      var companies = [];
+      if (S.company) companies = [S.company];
+      else {
+        all.forEach(function (r) {
+          if (!r || !r.company) return;
+          if (S.name && r.name !== S.name) return;
+          if (companies.indexOf(r.company) < 0) companies.push(r.company);
+        });
+      }
+      companies.forEach(function (co) {
+        try {
+          var p = MeishiStore.getCompanyProfile ? MeishiStore.getCompanyProfile(co) : null;
+          var locs = (p && p.catalog && p.catalog.locations) || [];
+          locs.forEach(add);
+        } catch (e1) {}
+      });
+      return out;
+    }
+
     function pruneAgainst(opts) {
       var changed = false;
       function prune(key) {
@@ -276,6 +344,7 @@
       prune("aff3");
       prune("title");
       prune("postal");
+      prune("address");
       prune("mobile");
       return changed;
     }
@@ -376,6 +445,7 @@
           S.title = "";
           S.postal = "";
           S.address = "";
+          S.qual = "";
           S.mobile = "";
         }
       }
@@ -434,6 +504,12 @@
       if (skipAutoPick) {
         nextVal = "";
         if (S[stateKey] !== "") { S[stateKey] = ""; changed = true; }
+      } else if (stateKey === "qual") {
+        if (S.qual && arr.indexOf(S.qual) >= 0) nextVal = S.qual;
+        else {
+          if (S.qual !== "") { S.qual = ""; changed = true; }
+          nextVal = "";
+        }
       } else if (arr.length === 1) {
         // 候補が1件なら所属2・3も含め自動選択
         if (S[stateKey] !== arr[0]) changed = true;
@@ -523,7 +599,10 @@
       }
       if (id === "title") return el("selTitle").value;
       if (id === "name") return el("selName").value;
-      if (id === "qual") return el("inQual").value;
+      if (id === "qual") {
+        var qEl = el("selQual") || el("inQual");
+        return qEl ? qEl.value : "";
+      }
       if (id === "koji") return el("inKoji").value;
       if (id === "address") {
         var addrEl = el("selAddress") || el("inAddress");
@@ -633,26 +712,27 @@
       changed = fillSelect(el("selTitle"), opts.title, "役職", "title", skipAutoPick) || changed;
       changed = fillSelect(el("selPostal"), opts.postal, "郵便番号", "postal", skipAutoPick) || changed;
       changed = fillSelect(el("selAddress") || el("inAddress"), opts.address, "住所", "address", skipAutoPick) || changed;
+      changed = fillSelect(el("selQual"), opts.qual, "資格", "qual", skipAutoPick) || changed;
       changed = fillSelect(el("selMobile"), opts.mobile, "携帯", "mobile", skipAutoPick) || changed;
       return changed;
     }
 
     /** 郵便番号と住所が別レコードにならないよう揃える（住所を優先） */
     function syncPostalAndAddress() {
-      var rows = filterRecords({ skipPostal: true, skipAddress: true });
-      if (!rows.length) return;
+      var locs = locationChoices();
+      if (!locs.length) return;
       if (S.address) {
-        var byAddr = rows.filter(function (r) { return (r.address || "") === S.address; });
+        var byAddr = locs.filter(function (l) { return l.address === S.address; });
         if (byAddr.length) {
-          if (!S.postal || !byAddr.some(function (r) { return (r.postal || "") === S.postal; })) {
-            S.postal = byAddr[0].postal || "";
+          if (!S.postal || !byAddr.some(function (l) { return l.postal === S.postal; })) {
+            S.postal = byAddr[0].postal || S.postal;
           }
           return;
         }
       }
       if (S.postal) {
-        var byPostal = rows.filter(function (r) { return (r.postal || "") === S.postal; });
-        if (byPostal.length && (!S.address || !byPostal.some(function (r) { return (r.address || "") === S.address; }))) {
+        var byPostal = locs.filter(function (l) { return l.postal === S.postal; });
+        if (byPostal.length && (!S.address || !byPostal.some(function (l) { return l.address === S.address; }))) {
           S.address = byPostal[0].address || "";
         }
       }
@@ -674,17 +754,32 @@
       el("inUrl").value = firstNonEmpty(rows, "url");
       var emailEl = el("inEmail");
       if (emailEl && !emailEl._pvTyping) emailEl.value = firstNonEmpty(rows, "email");
-      var qualEl = el("inQual");
-      if (qualEl && !qualEl._pvTyping) qualEl.value = firstNonEmpty(rows, "qual");
       var locRows = rows;
+      var locHit = null;
+      locationChoices().some(function (l) {
+        if (S.address && l.address === S.address) { locHit = l; return true; }
+        return false;
+      });
+      if (!locHit && S.postal) {
+        locationChoices().some(function (l) {
+          if (l.postal === S.postal) { locHit = l; return true; }
+          return false;
+        });
+      }
       if (S.address) locRows = rows.filter(function (r) { return (r.address || "") === S.address; });
       else if (S.postal) locRows = rows.filter(function (r) { return (r.postal || "") === S.postal; });
       var addrInp = el("inAddress");
       if (addrInp && addrInp.tagName === "INPUT") {
-        addrInp.value = firstNonEmpty(locRows, "address");
+        addrInp.value = (locHit && locHit.address) || firstNonEmpty(locRows, "address");
       }
-      el("inTel").value = firstNonEmpty(locRows, "tel");
-      el("inFax").value = firstNonEmpty(locRows, "fax");
+      var telEl = el("inTel");
+      if (telEl) telEl.value = (locHit && locHit.tel) || firstNonEmpty(locRows, "tel") || firstNonEmpty(rows, "tel");
+      var faxEl = el("inFax");
+      if (faxEl) faxEl.value = (locHit && locHit.fax) || firstNonEmpty(locRows, "fax") || firstNonEmpty(rows, "fax");
+      var qualInp = el("inQual");
+      if (qualInp && qualInp.tagName === "INPUT" && !qualInp._pvTyping) {
+        qualInp.value = S.qual || firstNonEmpty(rows, "qual");
+      }
       refreshLayoutFromStore();
       if (previewSide === "back") renderBackCard();
       else renderCard();
@@ -873,18 +968,19 @@
 
     function bindInputs() {
       bindNameCombo();
-      bindSel("selCompany", "company", ["aff1", "aff2", "aff3", "title", "postal", "address", "mobile"]);
-      bindSel("selAff1", "aff1", ["aff2", "aff3", "title", "postal", "address", "mobile"]);
-      bindSel("selAff2", "aff2", ["aff3", "title", "postal", "address", "mobile"]);
-      bindSel("selAff3", "aff3", ["title", "postal", "address", "mobile"]);
-      bindSel("selTitle", "title", ["postal", "address", "mobile"]);
+      bindSel("selCompany", "company", ["aff1", "aff2", "aff3", "title", "postal", "address", "qual", "mobile"]);
+      bindSel("selAff1", "aff1", ["aff2", "aff3", "title", "postal", "address", "qual", "mobile"]);
+      bindSel("selAff2", "aff2", ["aff3", "title", "postal", "address", "qual", "mobile"]);
+      bindSel("selAff3", "aff3", ["title", "postal", "address", "qual", "mobile"]);
+      bindSel("selTitle", "title", ["postal", "address", "qual", "mobile"]);
       var sp = el("selPostal");
       if (sp && !sp._mpBound) {
         sp._mpBound = true;
         sp.addEventListener("change", function () {
           S.postal = this.value;
-          var rows = filterRecords({ skipAddress: true });
-          var addrs = uniq(rows.map(function (r) { return r.address; }).filter(Boolean));
+          var addrs = uniq(locationChoices().filter(function (l) {
+            return !S.postal || l.postal === S.postal;
+          }).map(function (l) { return l.address; }));
           if (!S.address || addrs.indexOf(S.address) < 0) S.address = addrs[0] || "";
           rebuild();
         });
@@ -894,10 +990,16 @@
         sa._mpBound = true;
         sa.addEventListener("change", function () {
           S.address = this.value;
-          var rows = filterRecords({ skipPostal: true, skipAddress: true }).filter(function (r) {
-            return (r.address || "") === S.address;
-          });
-          if (rows[0]) S.postal = rows[0].postal || "";
+          var hit = locationChoices().filter(function (l) { return l.address === S.address; })[0];
+          if (hit && hit.postal) S.postal = hit.postal;
+          rebuild();
+        });
+      }
+      var sq = el("selQual");
+      if (sq && !sq._mpBound) {
+        sq._mpBound = true;
+        sq.addEventListener("change", function () {
+          S.qual = this.value;
           rebuild();
         });
       }
@@ -970,7 +1072,7 @@
     }
 
     function clear() {
-      S = { name: "", company: "", aff1: "", aff2: "", aff3: "", title: "", postal: "", address: "", mobile: "" };
+      S = { name: "", company: "", aff1: "", aff2: "", aff3: "", title: "", postal: "", address: "", qual: "", mobile: "" };
       selectSig = {};
       var nameInp = el("selName");
       if (nameInp) nameInp.value = "";
@@ -1007,7 +1109,7 @@
     }
 
     function init() {
-      S = { name: "", company: "", aff1: "", aff2: "", aff3: "", title: "", postal: "", address: "", mobile: "" };
+      S = { name: "", company: "", aff1: "", aff2: "", aff3: "", title: "", postal: "", address: "", qual: "", mobile: "" };
       reloadRecords();
       bindInputs();
       hookStore();
@@ -1045,6 +1147,7 @@
       S.title = String(rec.title || "").trim();
       S.postal = String(rec.postal || "").trim();
       S.address = String(rec.address || "").trim();
+      S.qual = String(rec.qual || "").trim();
       S.mobile = String(rec.mobile || "").trim();
 
       var nameInp = el("selName");
@@ -1056,10 +1159,11 @@
       forceSelectValue(el("selTitle"), S.title);
       forceSelectValue(el("selPostal"), S.postal);
       forceSelectValue(el("selAddress") || el("inAddress"), S.address);
+      forceSelectValue(el("selQual"), S.qual);
       forceSelectValue(el("selMobile"), S.mobile);
 
       var qualEl = el("inQual");
-      if (qualEl) qualEl.value = rec.qual || "";
+      if (qualEl && qualEl.tagName === "INPUT") qualEl.value = rec.qual || "";
       var addrEl = el("inAddress");
       if (addrEl && addrEl.tagName === "INPUT") addrEl.value = rec.address || "";
       var telEl = el("inTel");
