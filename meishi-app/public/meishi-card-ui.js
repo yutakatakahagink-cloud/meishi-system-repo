@@ -688,10 +688,10 @@
 
     function isOfficeLabelText(content) {
       var t = String(content == null ? "" : content).replace(/\s+/g, "").trim();
-      return /^(事業所|本社|本店|支店|営業所|工場|出張所)[:：]?$/.test(t);
+      return /^事業所[:：]?$/.test(t);
     }
 
-    /** プレビュー時: 「事業所:」など、重複住所の見出しテキストを隠す */
+    /** プレビュー時: 「事業所:」見出しテキストを隠す（本社: は残す） */
     function shouldHideOfficeLabel(st) {
       if (!readOnly || !st) return false;
       if (st.field === "address" || st.field === "telfax") return false;
