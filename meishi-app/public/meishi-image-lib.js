@@ -246,14 +246,14 @@
   }
 
   var whiteKeyCache = {};
-  var WHITE_KEY_THRESHOLD = 250;
+  var WHITE_KEY_THRESHOLD = 240;
 
   function isSvgSrc(src) {
     src = String(src || "");
     return /\.svg(\?|#|$)/i.test(src) || src.indexOf("image/svg") >= 0;
   }
 
-  /** 外周からつながる白背景のみ透過（ロゴ内の白・文字は変更しない） */
+  /** すべての白〜近白ピクセルを透過（RGB は変更しない） */
   function processWhiteTransparent(image) {
     var w = image.naturalWidth;
     var h = image.naturalHeight;
@@ -268,58 +268,12 @@
       var imgData = ctx.getImageData(0, 0, w, h);
       var px = imgData.data;
       var threshold = WHITE_KEY_THRESHOLD;
-      var isWhite = new Uint8Array(w * h);
-      var i, x, y, idx, r, g, b, minC;
-      for (y = 0; y < h; y++) {
-        for (x = 0; x < w; x++) {
-          idx = (y * w + x) * 4;
-          r = px[idx];
-          g = px[idx + 1];
-          b = px[idx + 2];
-          minC = r < g ? (r < b ? r : b) : (g < b ? g : b);
-          if (minC >= threshold) isWhite[y * w + x] = 1;
-        }
-      }
-      var bg = new Uint8Array(w * h);
-      var q = [];
-      function seed(sx, sy) {
-        var si = sy * w + sx;
-        if (isWhite[si] && !bg[si]) {
-          bg[si] = 1;
-          q.push(sx, sy);
-        }
-      }
-      for (x = 0; x < w; x++) {
-        seed(x, 0);
-        seed(x, h - 1);
-      }
-      for (y = 0; y < h; y++) {
-        seed(0, y);
-        seed(w - 1, y);
-      }
-      var qi = 0;
-      while (qi < q.length) {
-        x = q[qi++];
-        y = q[qi++];
-        if (x > 0) {
-          idx = y * w + (x - 1);
-          if (isWhite[idx] && !bg[idx]) { bg[idx] = 1; q.push(x - 1, y); }
-        }
-        if (x + 1 < w) {
-          idx = y * w + (x + 1);
-          if (isWhite[idx] && !bg[idx]) { bg[idx] = 1; q.push(x + 1, y); }
-        }
-        if (y > 0) {
-          idx = (y - 1) * w + x;
-          if (isWhite[idx] && !bg[idx]) { bg[idx] = 1; q.push(x, y - 1); }
-        }
-        if (y + 1 < h) {
-          idx = (y + 1) * w + x;
-          if (isWhite[idx] && !bg[idx]) { bg[idx] = 1; q.push(x, y + 1); }
-        }
-      }
-      for (i = 0; i < bg.length; i++) {
-        if (bg[i]) px[i * 4 + 3] = 0;
+      for (var i = 0; i < px.length; i += 4) {
+        var r = px[i];
+        var g = px[i + 1];
+        var b = px[i + 2];
+        var minC = r < g ? (r < b ? r : b) : (g < b ? g : b);
+        if (minC >= threshold) px[i + 3] = 0;
       }
       ctx.putImageData(imgData, 0, 0);
       return canvas.toDataURL("image/png");
