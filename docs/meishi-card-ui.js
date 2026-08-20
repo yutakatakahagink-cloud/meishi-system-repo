@@ -657,8 +657,37 @@
       return best;
     }
 
+    function normalizeDupText(s) {
+      return String(s == null ? "" : s)
+        .replace(/\r\n/g, "\n")
+        .replace(/[ \t\u3000]+/g, "")
+        .replace(/\n+/g, "\n")
+        .trim();
+    }
+
+    function textsOverlapDup(a, b) {
+      a = normalizeDupText(a);
+      b = normalizeDupText(b);
+      if (!a || !b) return false;
+      return a === b || a.indexOf(b) >= 0 || b.indexOf(a) >= 0;
+    }
+
+    /** プレビュー時: 挿入した住所/TEL・FAXと内容が重なる標準項目は隠す */
+    function shouldHideStandardEl(elId) {
+      if (!readOnly) return false;
+      if (elId !== "address" && elId !== "telfax") return false;
+      var layout = getLayout();
+      var texts = (layout && layout.texts) || [];
+      var elTxt = getElText(elId);
+      for (var i = 0; i < texts.length; i++) {
+        var t = texts[i];
+        if (t && t.field === elId && textsOverlapDup(t.content, elTxt)) return true;
+      }
+      return false;
+    }
+
     function applyElStyle(node, st, txt, label, elId) {
-      if (st.hidden) node.style.display = "none";
+      if (st.hidden || shouldHideStandardEl(elId)) node.style.display = "none";
       else node.style.display = "";
       if (!txt) {
         node.classList.add("empty");
@@ -1024,53 +1053,7 @@
       }
     }
 
-    function normalizeDupText(s) {
-      return String(s == null ? "" : s)
-        .replace(/\r\n/g, "\n")
-        .replace(/[ \t\u3000]+/g, "")
-        .replace(/\n+/g, "\n")
-        .trim();
-    }
-
-    function textsOverlapDup(a, b) {
-      a = normalizeDupText(a);
-      b = normalizeDupText(b);
-      if (!a || !b) return false;
-      return a === b || a.indexOf(b) >= 0 || b.indexOf(a) >= 0;
-    }
-
-    function isOfficeLabelText(content) {
-      var t = String(content == null ? "" : content).replace(/\s+/g, "").trim();
-      return /^(事業所|本社|本店|支店|営業所|工場|出張所)[:：]?$/.test(t);
-    }
-
-    /** プレビュー時: 標準の住所/TEL・FAXと内容が重なる挿入項目は隠す */
-    function shouldHideDupFreeText(st, layout) {
-      if (!readOnly || !st) return false;
-      var field = st.field === "address" || st.field === "telfax" ? st.field : "";
-      if (field) {
-        return textsOverlapDup(st.content, getElText(field));
-      }
-      if (!isOfficeLabelText(st.content)) return false;
-      var texts = (layout && layout.texts) || [];
-      var addr = getElText("address");
-      var telfax = getElText("telfax");
-      for (var i = 0; i < texts.length; i++) {
-        var t = texts[i];
-        if (!t || t === st) continue;
-        if (t.field === "address" && textsOverlapDup(t.content, addr)) return true;
-        if (t.field === "telfax" && textsOverlapDup(t.content, telfax)) return true;
-      }
-      return false;
-    }
-
     function applyFreeTextStyle(node, st, skipContent) {
-      var layout = getLayout();
-      if (shouldHideDupFreeText(st, layout)) {
-        node.style.display = "none";
-        node.setAttribute("data-dup-hidden", "1");
-        return;
-      }
       node.style.display = "";
       node.removeAttribute("data-dup-hidden");
       if (!skipContent && st.id !== editingId && document.activeElement !== node) {
