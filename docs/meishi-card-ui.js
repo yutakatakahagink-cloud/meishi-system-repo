@@ -734,12 +734,19 @@
     /**
      * プレビュー用縦ずらし
      * 資格は氏名の下なので、空でも所属・役職はずらさない。
+     * 資格が「表示」かつ空 → 携帯・メール↑
      * 携帯が「表示」かつ空 → メール・工事件名↑
      * 対象項目が非表示ならずらさない
      */
     function flowBaseY(id, st, layout) {
       if (!textFlow || !readOnly) return st.y;
       var y = st.y;
+      if ((id === "mobile" || id === "email")
+          && isElShownInLayout(layout, id)
+          && isElShownInLayout(layout, "qual")
+          && !String(getElText("qual") || "").trim()) {
+        y -= singleLineHeight(layout.el.qual);
+      }
       if ((id === "email" || id === "koji")
           && isElShownInLayout(layout, id)
           && isElShownInLayout(layout, "mobile")
@@ -1017,7 +1024,55 @@
       }
     }
 
+    function normalizeDupText(s) {
+      return String(s == null ? "" : s)
+        .replace(/\r\n/g, "\n")
+        .replace(/[ \t\u3000]+/g, "")
+        .replace(/\n+/g, "\n")
+        .trim();
+    }
+
+    function textsOverlapDup(a, b) {
+      a = normalizeDupText(a);
+      b = normalizeDupText(b);
+      if (!a || !b) return false;
+      return a === b || a.indexOf(b) >= 0 || b.indexOf(a) >= 0;
+    }
+
+    function isOfficeLabelText(content) {
+      var t = String(content == null ? "" : content).replace(/\s+/g, "").trim();
+      return /^(事業所|本社|本店|支店|営業所|工場|出張所)[:：]?$/.test(t);
+    }
+
+    /** プレビュー時: 標準の住所/TEL・FAXと内容が重なる挿入項目は隠す */
+    function shouldHideDupFreeText(st, layout) {
+      if (!readOnly || !st) return false;
+      var field = st.field === "address" || st.field === "telfax" ? st.field : "";
+      if (field) {
+        return textsOverlapDup(st.content, getElText(field));
+      }
+      if (!isOfficeLabelText(st.content)) return false;
+      var texts = (layout && layout.texts) || [];
+      var addr = getElText("address");
+      var telfax = getElText("telfax");
+      for (var i = 0; i < texts.length; i++) {
+        var t = texts[i];
+        if (!t || t === st) continue;
+        if (t.field === "address" && textsOverlapDup(t.content, addr)) return true;
+        if (t.field === "telfax" && textsOverlapDup(t.content, telfax)) return true;
+      }
+      return false;
+    }
+
     function applyFreeTextStyle(node, st, skipContent) {
+      var layout = getLayout();
+      if (shouldHideDupFreeText(st, layout)) {
+        node.style.display = "none";
+        node.setAttribute("data-dup-hidden", "1");
+        return;
+      }
+      node.style.display = "";
+      node.removeAttribute("data-dup-hidden");
       if (!skipContent && st.id !== editingId && document.activeElement !== node) {
         node.textContent = st.content || "";
       }
