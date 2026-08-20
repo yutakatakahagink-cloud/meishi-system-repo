@@ -686,6 +686,19 @@
       return false;
     }
 
+    function isOfficeLabelText(content) {
+      var t = String(content == null ? "" : content).replace(/\s+/g, "").trim();
+      return /^(事業所|本社|本店|支店|営業所|工場|出張所)[:：]?$/.test(t);
+    }
+
+    /** プレビュー時: 「事業所:」など、重複住所の見出しテキストを隠す */
+    function shouldHideOfficeLabel(st) {
+      if (!readOnly || !st) return false;
+      if (st.field === "address" || st.field === "telfax") return false;
+      if (!isOfficeLabelText(st.content)) return false;
+      return shouldHideStandardEl("address") || shouldHideStandardEl("telfax");
+    }
+
     function applyElStyle(node, st, txt, label, elId) {
       if (st.hidden || shouldHideStandardEl(elId)) node.style.display = "none";
       else node.style.display = "";
@@ -1054,6 +1067,11 @@
     }
 
     function applyFreeTextStyle(node, st, skipContent) {
+      if (shouldHideOfficeLabel(st)) {
+        node.style.display = "none";
+        node.setAttribute("data-dup-hidden", "1");
+        return;
+      }
       node.style.display = "";
       node.removeAttribute("data-dup-hidden");
       if (!skipContent && st.id !== editingId && document.activeElement !== node) {
