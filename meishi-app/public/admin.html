@@ -32,9 +32,25 @@
       <h1>名刺印刷システム — 担当者設定</h1>
       <span class="badge" id="syncBadge">…</span>
     </header>
-    <div class="wrap">
+
+    <div id="adminLoginView" class="wrap">
+      <div class="card" style="max-width:420px;margin:8vh auto">
+        <h2>担当者ログイン</h2>
+        <p class="hint">所有者から付与された ID / パスワードでログインしてください。</p>
+        <div class="field"><label>ログインID</label><input id="adminLoginId" autocomplete="username" /></div>
+        <div class="field"><label>パスワード</label><input id="adminLoginPass" type="password" autocomplete="current-password" /></div>
+        <label class="hint login-remember" style="display:flex;align-items:center;gap:8px;margin:4px 0 14px;cursor:pointer;white-space:nowrap;font-weight:500">
+          <input type="checkbox" id="adminLoginRemember" style="width:auto;margin:0;flex:0 0 auto" />
+          <span>IDとパスワードを保存する</span>
+        </label>
+        <button type="button" class="btn" id="btnAdminLogin" style="display:block;width:100%">ログイン</button>
+        <p class="hint" id="adminLoginErr" style="color:#b3261e"></p>
+      </div>
+    </div>
+
+    <div class="wrap" id="adminMainView" hidden>
       <nav class="tabs" id="tabs">
-        <button type="button" data-tab="basic" class="on">基本・URL</button>
+        <button type="button" data-tab="basic" class="on">ログアウト・案内</button>
         <button type="button" data-tab="company">会社共通設定</button>
         <button type="button" data-tab="dept">部署共通設定</button>
         <button type="button" data-tab="preview">プレビュー</button>
