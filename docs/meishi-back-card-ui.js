@@ -640,10 +640,12 @@
         node.style.paddingBottom = "";
         node.style.width = "";
         node.style.minWidth = "";
+        node.style.boxSizing = "";
         node.style.backgroundImage = "";
         node.style.backgroundRepeat = "";
         node.style.backgroundSize = "";
         node.style.backgroundPosition = "";
+        node.style.backgroundClip = "";
         node.removeAttribute("data-ul-fixed");
         node.removeAttribute("data-ul-lines");
         return;
@@ -657,6 +659,7 @@
       node.style.backgroundRepeat = "repeat";
       node.style.backgroundSize = "auto " + lhRatio + "em";
       node.style.backgroundPosition = "left top";
+      node.style.backgroundClip = "padding-box";
       node.setAttribute("data-ul-lines", "1");
       if (ulLen > 0) {
         var unit = zenCharPx(st, node);
@@ -667,8 +670,10 @@
         node.style.minWidth = ulW + "px";
         node.setAttribute("data-ul-fixed", String(ulLen));
       } else {
-        node.style.width = "";
-        node.style.minWidth = "";
+        // 自動: 文字幅に合わせる。pre-wrap の絶対配置は残り幅まで伸びて下線が余る
+        node.style.boxSizing = "content-box";
+        node.style.width = "max-content";
+        node.style.minWidth = "0";
         node.removeAttribute("data-ul-fixed");
       }
     }
